@@ -114,11 +114,12 @@ func (t *tui) aboutAction(id string) error {
 			t.closeAbout()
 			return t.openReleaseNotes()
 		}
-	case ui.AboutSite, ui.AboutSource:
-		url := ui.SiteURL
-		if id == ui.AboutSource {
-			url = ui.SourceURL
-		}
+	case ui.AboutSite, ui.AboutSource, ui.AboutSponsor:
+		url := map[string]string{
+			ui.AboutSite:    ui.SiteURL,
+			ui.AboutSource:  ui.SourceURL,
+			ui.AboutSponsor: ui.SponsorURL,
+		}[id]
 		message := "opened " + url
 		if err := openURL(url); err != nil {
 			message = url + " — " + err.Error()

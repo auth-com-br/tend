@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/auth-com-br/tend/internal/vt"
@@ -61,5 +62,22 @@ func TestEveryPanelsCloseMarkIsWhereAClickFindsIt(t *testing.T) {
 	hb, ok := OverlayBox(help, cols, rows)
 	if !ok || !markAt(g, hb) || !OnCloseMark(hb, CloseMarkRect(hb).X+1, hb.Y) {
 		t.Error("help: no ✕ where a click finds it")
+	}
+}
+
+// TestTheAboutPanelsSponsorLineIsWhereAClickOpensIt: the sponsor address is
+// drawn on the line a click takes as opening it. If it regresses, the line
+// is drawn and a click on it does nothing, or opens another address.
+func TestTheAboutPanelsSponsorLineIsWhereAClickOpensIt(t *testing.T) {
+	const cols, rows = 120, 36
+	about := &AboutView{Version: "v1"}
+	g := vt.NewGrid(cols, rows, 0)
+	Draw(g, Frame{About: about}, DefaultTheme())
+	r := AboutLayout(about, cols, rows).Sponsor
+	if got := gridText(g)[r.Y]; !strings.Contains(got, SponsorURL) {
+		t.Fatalf("sponsor row %q, want %s on it", got, SponsorURL)
+	}
+	if id, _ := AboutAt(about, cols, rows, r.X+r.Cols-1, r.Y); id != AboutSponsor {
+		t.Errorf("a click on the sponsor line is %q", id)
 	}
 }
