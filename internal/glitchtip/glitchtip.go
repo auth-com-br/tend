@@ -23,7 +23,7 @@ import (
 // Errors a caller tells apart.
 var (
 	// ErrNotConnected is no server or token set.
-	ErrNotConnected = errors.New("GlitchTip is not connected")
+	ErrNotConnected = errors.New("No GlitchTip or Sentry server is connected")
 	// ErrBadToken is a token the server refused.
 	ErrBadToken = errors.New("GlitchTip refused the token")
 )
@@ -83,7 +83,7 @@ func (c *Client) do(method, path string, body any, out any) error {
 		if len(msg) > 200 {
 			msg = msg[:200]
 		}
-		return fmt.Errorf("GlitchTip answered %s: %s", resp.Status, msg)
+		return &statusError{code: resp.StatusCode, text: fmt.Sprintf("GlitchTip answered %s: %s", resp.Status, msg)}
 	}
 	if out == nil {
 		return nil
@@ -92,6 +92,32 @@ func (c *Client) do(method, path string, body any, out any) error {
 		return fmt.Errorf("reading GlitchTip's answer: %w", err)
 	}
 	return nil
+}
+
+// statusError is an answer the server gave with a failing status.
+type statusError struct {
+	code int
+	text string
+}
+
+func (e *statusError) Error() string { return e.text }
+
+// notHere reports whether a path is one the server does not have.
+func notHere(err error) bool {
+	var s *statusError
+	return errors.As(err, &s) && (s.code == http.StatusNotFound || s.code == http.StatusMethodNotAllowed)
+}
+
+// issuePath asks for an issue's path the way GlitchTip has it
+// (/api/0/issues/{id}/…), and, where the server has not that, the way
+// Sentry documents it (/api/0/organizations/{org}/issues/{id}/…): the same
+// client serves both.
+func (c *Client) issuePath(method, org, issueID, rest string, body, out any) error {
+	err := c.do(method, "/api/0/issues/"+url.PathEscape(issueID)+"/"+rest, body, out)
+	if notHere(err) && org != "" {
+		return c.do(method, "/api/0/organizations/"+url.PathEscape(org)+"/issues/"+url.PathEscape(issueID)+"/"+rest, body, out)
+	}
+	return err
 }
 
 // Org is an organization.
@@ -190,6 +216,9 @@ type wireIssue struct {
 	Project struct {
 		Slug string `json:"slug"`
 	} `json:"project"`
+	// Permalink is the issue's page, which Sentry gives and GlitchTip does
+	// not; without it the page is made from the address.
+	Permalink string `json:"permalink"`
 }
 
 // count reads a count GlitchTip gives as a number or as a string of one.
@@ -208,8 +237,14 @@ func count(raw json.RawMessage) int {
 func (c *Client) issue(org string, w wireIssue) Issue {
 	return Issue{ID: w.ID, ShortID: w.ShortID, Org: org, Project: w.Project.Slug, Title: w.Title,
 		Culprit: w.Culprit, Level: w.Level, Status: w.Status, Count: count(w.Count), Users: w.Users,
-		FirstSeen: w.First, LastSeen: w.Last,
-		URL: c.URL + "/" + url.PathEscape(org) + "/issues/" + url.PathEscape(w.ID)}
+		FirstSeen: w.First, LastSeen: w.Last, URL: c.pageOf(org, w)}
+}
+
+func (c *Client) pageOf(org string, w wireIssue) string {
+	if w.Permalink != "" {
+		return w.Permalink
+	}
+	return c.URL + "/" + url.PathEscape(org) + "/issues/" + url.PathEscape(w.ID)
 }
 
 // Issues is the issues in a status across the projects asked for — every
@@ -300,7 +335,7 @@ type Event struct {
 }
 
 // Latest is an issue's latest event.
-func (c *Client) Latest(issueID string) (Event, error) {
+func (c *Client) Latest(org, issueID string) (Event, error) {
 	var w struct {
 		EventID  string    `json:"eventID"`
 		Title    string    `json:"title"`
@@ -317,7 +352,7 @@ func (c *Client) Latest(issueID string) (Event, error) {
 			Data json.RawMessage `json:"data"`
 		} `json:"entries"`
 	}
-	if err := c.do("GET", "/api/0/issues/"+url.PathEscape(issueID)+"/events/latest/", nil, &w); err != nil {
+	if err := c.issuePath("GET", org, issueID, "events/latest/", nil, &w); err != nil {
 		return Event{}, err
 	}
 	e := Event{ID: w.EventID, Title: w.Title, Message: w.Message, Platform: w.Platform, When: w.Created}
@@ -398,14 +433,15 @@ func (c *Client) Latest(issueID string) (Event, error) {
 	return e, nil
 }
 
-// SetStatus marks an issue resolved, ignored or unresolved.
-func (c *Client) SetStatus(issueID, status string) error {
+// SetStatus marks an issue of an organization resolved, ignored or
+// unresolved.
+func (c *Client) SetStatus(org, issueID, status string) error {
 	switch status {
 	case StatusUnresolved, StatusResolved, StatusIgnored:
 	default:
 		return fmt.Errorf("an issue is unresolved, resolved or ignored, not %q", status)
 	}
-	return c.do("PUT", "/api/0/issues/"+url.PathEscape(issueID)+"/", map[string]string{"status": status}, nil)
+	return c.issuePath("PUT", org, issueID, "", map[string]string{"status": status}, nil)
 }
 
 // each asks every organization at once; the first failure is the answer.

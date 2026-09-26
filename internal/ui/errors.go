@@ -465,10 +465,10 @@ func drawErrors(dst *vt.Grid, v *ErrorsView, theme Theme) {
 
 	switch {
 	case !v.Connected:
-		msg := []string{"GlitchTip is not connected.", "",
-			"Connect a server and an API token — made in GlitchTip under",
-			"Profile → Auth Tokens — to see the errors your systems report",
-			"and hand them to an agent to fix."}
+		msg := []string{"No GlitchTip or Sentry server is connected.", "",
+			"Connect a server and an API token — in GlitchTip, Profile → Auth Tokens;",
+			"in Sentry (https://sentry.io), User Settings → Personal Tokens —",
+			"to see the errors your systems report and hand them to an agent to fix."}
 		for i, m := range msg {
 			style := theme.NotesSub
 			if i == 0 {
@@ -694,8 +694,8 @@ func drawErrorsConnect(dst *vt.Grid, c *ErrorsConnect, g ErrorsGeometry, theme T
 	drawBox(dst, box, theme.NotesAccent)
 	drawCloseMark(dst, box, withBold(theme.NotesAccent))
 	right := box.X + box.Cols - 1
-	writeString(dst, box.X+2, box.Y, " connect GlitchTip ", withBold(theme.NotesAccent), right)
-	writeString(dst, box.X+2, box.Y+1, truncate("a server, and an API token from it (Profile → Auth Tokens)", box.Cols-4), theme.NotesSub, right)
+	writeString(dst, box.X+2, box.Y, " connect GlitchTip or Sentry ", withBold(theme.NotesAccent), right)
+	writeString(dst, box.X+2, box.Y+1, truncate("a server, and an API token from it (Sentry: https://sentry.io)", box.Cols-4), theme.NotesSub, right)
 	field := func(r Rect, label, value string, on bool) {
 		writeString(dst, box.X+2, r.Y, label, theme.NotesSub, right)
 		style := theme.NotesButton

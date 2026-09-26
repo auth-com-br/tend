@@ -898,7 +898,7 @@ func (t *tui) openError() {
 	t.mu.Unlock()
 	t.wakeUp()
 	go func() {
-		e, err := c.Latest(issue.ID)
+		e, err := c.Latest(issue.Org, issue.ID)
 		t.mu.Lock()
 		defer func() {
 			t.dirty = true
@@ -952,7 +952,7 @@ func (t *tui) errorPrompt() (glitchtip.Issue, string, error) {
 		return issue, "", fmt.Errorf("no error chosen")
 	}
 	if event == nil {
-		e, err := c.Latest(issue.ID)
+		e, err := c.Latest(issue.Org, issue.ID)
 		if err != nil {
 			return issue, "", err
 		}
@@ -1116,7 +1116,7 @@ func (t *tui) setErrorStatus(status string) {
 	}
 	t.errorSay("asking GlitchTip…")
 	go func() {
-		if err := c.SetStatus(issue.ID, status); err != nil {
+		if err := c.SetStatus(issue.Org, issue.ID, status); err != nil {
 			t.errorSay("GlitchTip said: " + err.Error())
 			return
 		}

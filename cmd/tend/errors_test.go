@@ -78,7 +78,7 @@ func TestTheErrorsPanelConnectsListsAndFixes(t *testing.T) {
 	a.waitForScreen(t, "a pane", func(s string) bool { return strings.Contains(s, "┌") })
 
 	a.send(t, "\x02E")
-	a.waitForScreen(t, "the offer to connect", func(s string) bool { return strings.Contains(s, "GlitchTip is not connected") })
+	a.waitForScreen(t, "the offer to connect", func(s string) bool { return strings.Contains(s, "No GlitchTip or Sentry server is connected") })
 	a.send(t, "\r")
 	a.waitForScreen(t, "the connect box", func(s string) bool { return strings.Contains(s, "connect GlitchTip") })
 	a.send(t, "\x15"+gt.URL+"\twrong-token\r")
@@ -233,7 +233,7 @@ func TestTheErrorsPanelKeepsSeveralServers(t *testing.T) {
 	a.send(t, "d")
 	a.waitForScreen(t, "the question", func(s string) bool { return strings.Contains(s, "remove "+host(shop.URL)+"?") })
 	a.send(t, "\r")
-	a.waitForScreen(t, "nothing kept", func(s string) bool { return strings.Contains(s, "GlitchTip is not connected") })
+	a.waitForScreen(t, "nothing kept", func(s string) bool { return strings.Contains(s, "No GlitchTip or Sentry server is connected") })
 	b, _ = os.ReadFile(cfg)
 	if strings.Contains(string(b), "shop-token") || !strings.Contains(string(b), "# my comment") {
 		t.Errorf("after removing the shop:\n%s", b)
@@ -432,7 +432,7 @@ esac
 
 	a := attach()
 	a.send(t, "\x02E")
-	a.waitForScreen(t, "the offer to connect", func(s string) bool { return strings.Contains(s, "GlitchTip is not connected") })
+	a.waitForScreen(t, "the offer to connect", func(s string) bool { return strings.Contains(s, "No GlitchTip or Sentry server is connected") })
 	a.send(t, "\r")
 	a.waitForScreen(t, "the connect box", func(s string) bool { return strings.Contains(s, "connect GlitchTip") })
 	a.send(t, "\x15"+gt.URL+"\tvault-token\r")
@@ -458,7 +458,7 @@ esac
 	a.send(t, "\x0bd")
 	a.waitForScreen(t, "the question", func(s string) bool { return strings.Contains(s, "? its token is forgotten") })
 	a.send(t, "\r")
-	a.waitForScreen(t, "nothing kept", func(s string) bool { return strings.Contains(s, "GlitchTip is not connected") })
+	a.waitForScreen(t, "nothing kept", func(s string) bool { return strings.Contains(s, "No GlitchTip or Sentry server is connected") })
 	if kept, _ := os.ReadDir(store); len(kept) != 0 {
 		t.Errorf("the keyring still holds %d secrets", len(kept))
 	}

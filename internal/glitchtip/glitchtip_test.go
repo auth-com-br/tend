@@ -109,7 +109,7 @@ func TestAnErrorsLatestEventIsWhatAnAgentNeeds(t *testing.T) {
 	srv, _ := fakeServer(t)
 	c := New(srv.URL, "good")
 	issues, _ := c.Issues([]Project{{Org: "shop", Slug: "api"}}, StatusUnresolved, "timeout")
-	e, err := c.Latest("75")
+	e, err := c.Latest("shop", "75")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -135,10 +135,10 @@ func TestAnErrorsLatestEventIsWhatAnAgentNeeds(t *testing.T) {
 // token reads as GlitchTip being down.
 func TestAnErrorIsResolvedAndATokenRefused(t *testing.T) {
 	srv, changed := fakeServer(t)
-	if err := New(srv.URL, "good").SetStatus("75", StatusResolved); err != nil {
+	if err := New(srv.URL, "good").SetStatus("shop", "75", StatusResolved); err != nil {
 		t.Fatal(err)
 	}
-	if err := New(srv.URL, "good").SetStatus("75", "deleted"); err == nil {
+	if err := New(srv.URL, "good").SetStatus("shop", "75", "deleted"); err == nil {
 		t.Error("a status GlitchTip does not have was sent")
 	}
 	if strings.Join(*changed, ",") != "75 resolved" {
@@ -149,5 +149,62 @@ func TestAnErrorIsResolvedAndATokenRefused(t *testing.T) {
 	}
 	if _, err := New(srv.URL, "").Orgs(); !errors.Is(err, ErrNotConnected) {
 		t.Errorf("no token: %v", err)
+	}
+}
+
+// TestSentryIsServedByTheSameClient: a server that has only the paths
+// Sentry documents — an issue's event and status under its organization —
+// is still read and changed, and an issue's page is the permalink it gives.
+// The server is a stand-in written from Sentry's API documentation; no
+// real Sentry was asked. If it regresses, connecting sentry.io lists the
+// errors and then cannot open or resolve any of them.
+func TestSentryIsServedByTheSameClient(t *testing.T) {
+	var mu sync.Mutex
+	var put []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "Bearer sntrys" {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		switch p := r.URL.Path; {
+		case p == "/api/0/organizations/":
+			_, _ = io.WriteString(w, `[{"slug":"acme","name":"Acme"}]`)
+		case p == "/api/0/organizations/acme/projects/":
+			_, _ = io.WriteString(w, `[{"slug":"web","name":"web"}]`)
+		case p == "/api/0/organizations/acme/issues/":
+			_, _ = io.WriteString(w, `[{"id":"4001","shortId":"WEB-1","title":"TypeError","level":"error","status":"unresolved","count":"7","userCount":3,"lastSeen":"2026-09-20T12:00:00Z","permalink":"https://acme.sentry.io/issues/4001/","project":{"slug":"web"}}]`)
+		case p == "/api/0/organizations/acme/issues/4001/events/latest/":
+			_, _ = io.WriteString(w, `{"eventID":"e9","entries":[{"type":"exception","data":{"values":[{"type":"TypeError","value":"x is undefined"}]}}]}`)
+		case p == "/api/0/organizations/acme/issues/4001/" && r.Method == http.MethodPut:
+			var body map[string]string
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			mu.Lock()
+			put = append(put, body["status"])
+			mu.Unlock()
+			_, _ = io.WriteString(w, `{}`)
+		default:
+			w.WriteHeader(http.StatusNotFound) // the paths without the organization
+		}
+	}))
+	defer srv.Close()
+	c := New(srv.URL, "sntrys")
+	issues, err := c.Issues(nil, StatusUnresolved, "")
+	if err != nil || len(issues) != 1 || issues[0].URL != "https://acme.sentry.io/issues/4001/" || issues[0].Count != 7 {
+		t.Fatalf("issues %+v %v", issues, err)
+	}
+	e, err := c.Latest("acme", "4001")
+	if err != nil || len(e.Exceptions) != 1 || e.Exceptions[0].Value != "x is undefined" {
+		t.Fatalf("latest %+v %v", e, err)
+	}
+	if err := c.SetStatus("acme", "4001", StatusResolved); err != nil {
+		t.Fatal(err)
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if strings.Join(put, ",") != "resolved" {
+		t.Errorf("put %v", put)
+	}
+	if _, err := c.Latest("acme", "9999"); err == nil {
+		t.Error("an issue neither path has read as found")
 	}
 }
