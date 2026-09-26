@@ -266,6 +266,9 @@ PANE  COMMAND  AGENT   STATE    TITLE
 curl -fsSL https://tend.auth.com.br/install.sh | sh
 ```
 
+On Windows, tend runs inside WSL: [docs/WINDOWS.md](docs/WINDOWS.md) walks
+through it.
+
 tend used to live at `github.com/sousaakira/tend`. Old links, clones and
 installs follow it here: GitHub redirects the repository, and an installed
 tend keeps finding its updates.
