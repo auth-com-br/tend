@@ -93,7 +93,10 @@ file in the files panel, or from any tool over the automation socket
 agent this tab works with, where it is typed in for you to read over and send. Sessions (or `ctrl+b S`) lists the
 conversations your agents keep on this machine (Claude Code's so far): type to
 search them, enter to resume one in a new tab where it was held, and mark old
-ones to delete them. To hand a task to another agent — Codex after Claude
+ones to delete them. The files panel's menu (`m`, or a right-click) opens the instructions your
+agents read — global, the project's, a folder's — and "Share instructions
+with every agent" makes one file serve Claude Code and the others
+(`CLAUDE.md` reading `AGENTS.md`). To hand a task to another agent — Codex after Claude
 Code, or a fresh Claude — right-click the agent's pane (or its row in the
 sidebar) and choose "continue in...", or press `ctrl+g` on a conversation
 in the list: tend starts that agent where the work was, and puts a note of

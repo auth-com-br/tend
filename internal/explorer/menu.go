@@ -36,6 +36,11 @@ const (
 	// actAddContext puts the entry's path in the session's context buffer,
 	// tend's own (internal/capture): for the context panel to hand an agent.
 	actAddContext
+	// The agents' instructions (instructions.go), tend's own.
+	actInstrGlobal
+	actInstrProject
+	actInstrHere
+	actInstrShare
 )
 
 type menuItem struct {
@@ -90,7 +95,7 @@ type prompt struct {
 }
 
 func (m *Model) openMenu(target *Node) {
-	m.menu = contextMenu{target: target, items: menuEntries(target, m.git.Top != "")}
+	m.menu = contextMenu{target: target, items: append(menuEntries(target, m.git.Top != ""), m.instructionItems(target)...)}
 	m.mode = modeMenu
 }
 
@@ -241,6 +246,27 @@ func (m *Model) runMenu(action menuAction, target *Node) {
 		m.fail(openWithSystem(dir))
 	case actStage:
 		m.stagePath(target)
+	case actInstrGlobal:
+		path, err := globalInstructions()
+		if err != nil {
+			m.fail(err)
+			return
+		}
+		m.openInstructions(path)
+	case actInstrProject:
+		path, _ := instructionFile(m.tree.Root)
+		m.openInstructions(path)
+	case actInstrHere:
+		path, _ := instructionFile(m.dirFor(target))
+		m.openInstructions(path)
+	case actInstrShare:
+		said, err := share(m.tree.Root)
+		if err != nil {
+			m.say(err.Error(), true)
+			return
+		}
+		m.Refresh()
+		m.say(said, false)
 	case actFileHistory:
 		m.openHistory(histCommits, m.tree.repoPath(m.git, target.Rel))
 	case actAddContext:

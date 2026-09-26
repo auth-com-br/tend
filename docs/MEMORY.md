@@ -92,4 +92,6 @@ No new toolbar button: each fits a panel that already exists.
 2. ai-memory and Graphify in the agent manager. **Built** (#28): a MEMORY
    section, each offered with its documented install, ai-memory found running
    by its port when it is a container.
-3. Instruction files in the files panel.
+3. Instruction files in the files panel. **Built** (#29): the files panel's
+   menu opens the global, project and folder instructions, and shares a
+   project's between the agents.
