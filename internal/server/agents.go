@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"os/exec"
+	"strings"
 
 	"github.com/auth-com-br/tend/internal/agents"
 	"github.com/auth-com-br/tend/internal/agentsessions"
@@ -150,4 +152,68 @@ func unreachable(dir string) string {
 	}
 	_ = f.Close()
 	return ""
+}
+
+// ErrNoConversation is a pane whose agent has not said which conversation
+// it is in: its hook is not installed, or it has not started one.
+var ErrNoConversation = errors.New("this pane's agent has not said which conversation it is in; `tend integration install` lets Claude Code say")
+
+// AgentHandoff is agent_sessions.handoff: a conversation read for another
+// agent to carry its task on, with the branch and the uncommitted changes
+// where it was held. The conversation is a pane's, as its hook reported,
+// or one named by id. Claude Code's are read so far. It reads the disk and
+// runs git, and holds no lock while it does.
+func (s *Server) AgentHandoff(p proto.AgentHandoffParams) (proto.AgentHandoff, error) {
+	id := p.ID
+	if p.Pane != 0 {
+		a, ok, err := s.AgentSession(session.PaneID(p.Pane))
+		if err != nil {
+			return proto.AgentHandoff{}, err
+		}
+		if !ok || a.Session.ID == "" {
+			return proto.AgentHandoff{}, ErrNoConversation
+		}
+		if a.Agent != "claude" {
+			return proto.AgentHandoff{}, fmt.Errorf("only Claude Code's conversations can be read so far, and this pane runs %s", a.Agent)
+		}
+		id = a.Session.ID
+	}
+	c, err := s.claude()
+	if err != nil {
+		return proto.AgentHandoff{}, err
+	}
+	h, err := c.Handoff(id)
+	if err != nil {
+		return proto.AgentHandoff{}, err
+	}
+	out := proto.AgentHandoff{
+		Agent: "claude", ID: h.ID, Title: h.Title, Dir: h.Dir, Path: h.Path,
+		First: h.First, Recent: h.Recent, Files: h.Files, Last: h.Last,
+	}
+	if h.Dir != "" {
+		out.Branch, out.Status = gitState(h.Dir)
+	}
+	return out, nil
+}
+
+// gitState is the branch checked out in dir and its uncommitted changes,
+// cut to what a note can hold; empty outside a repository. It takes no
+// lock of git's own, as the files panel does not, so it cannot leave an
+// index.lock behind in the user's repository.
+func gitState(dir string) (string, string) {
+	run := func(args ...string) string {
+		cmd := exec.Command("git", append([]string{"-C", dir}, args...)...)
+		cmd.Env = append(os.Environ(), "GIT_OPTIONAL_LOCKS=0")
+		out, err := cmd.Output()
+		if err != nil {
+			return ""
+		}
+		return strings.TrimRight(string(out), "\n")
+	}
+	branch := run("rev-parse", "--abbrev-ref", "HEAD")
+	status := run("status", "--short")
+	if lines := strings.Split(status, "\n"); len(lines) > 40 {
+		status = strings.Join(lines[:40], "\n") + fmt.Sprintf("\n… and %d more", len(lines)-40)
+	}
+	return branch, status
 }

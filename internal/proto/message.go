@@ -67,6 +67,9 @@ const (
 	// (internal/agentsessions): tend's own sessions list.
 	MethodAgentSessions       = "agent_sessions.list"
 	MethodAgentSessionsDelete = "agent_sessions.delete"
+	// MethodAgentSessionHandoff reads a conversation — a pane's, or one by
+	// id — for another agent to carry the task on (docs/MEMORY.md).
+	MethodAgentSessionHandoff = "agent_sessions.handoff"
 	// MethodGitHubIssues lists the issues of the GitHub repository a pane's
 	// project is on, and MethodGitHubIssue reads one with its thread
 	// (internal/github, through the gh of the server's machine).
@@ -210,6 +213,7 @@ var KnownMethods = []string{
 	MethodAgentsCatalog,
 	MethodAgentSessions,
 	MethodAgentSessionsDelete,
+	MethodAgentSessionHandoff,
 	MethodGitHubIssues,
 	MethodGitHubIssue,
 	MethodGitHubIssueComment,
@@ -631,6 +635,31 @@ type AgentSessionInfo struct {
 // first.
 type AgentSessionsResult struct {
 	Sessions []AgentSessionInfo `json:"sessions"`
+}
+
+// AgentHandoffParams names the conversation to hand on: the one a pane's
+// agent is in, or one by id.
+type AgentHandoffParams struct {
+	Pane uint64 `json:"pane,omitempty"`
+	ID   string `json:"id,omitempty"`
+}
+
+// AgentHandoff is what a conversation says about its task, and the state
+// of the project it left: agent_sessions.handoff's answer.
+type AgentHandoff struct {
+	Agent  string   `json:"agent"`
+	ID     string   `json:"id"`
+	Title  string   `json:"title,omitempty"`
+	Dir    string   `json:"dir,omitempty"`
+	Path   string   `json:"path,omitempty"`
+	First  string   `json:"first,omitempty"`
+	Recent []string `json:"recent,omitempty"`
+	Files  []string `json:"files,omitempty"`
+	Last   string   `json:"last,omitempty"`
+	// Branch is the branch checked out where it was held, and Status what
+	// git says is uncommitted there, one line a file.
+	Branch string `json:"branch,omitempty"`
+	Status string `json:"status,omitempty"`
 }
 
 // AgentSessionsDeleteParams names the conversations to delete.

@@ -228,6 +228,8 @@ func (t *tui) sessionsInput(data []byte) error {
 			t.askDeleteSessions()
 		case "\x12": // ctrl+r
 			return t.openSessions()
+		case "\x07": // ctrl+g: continue the chosen conversation in an agent
+			t.continueSession()
 		case "\x15": // ctrl+u
 			t.editSessionQuery(func(string) string { return "" })
 		case "\x7f", "\x08":
@@ -517,4 +519,30 @@ func shellJoin(argv []string) string {
 		quoted[i] = shellQuote(a)
 	}
 	return strings.Join(quoted, " ")
+}
+
+// continueSession offers the agents the conversation under the cursor can
+// be handed to (tui_continue.go): the list goes, and the "continue in" menu
+// opens where the list was.
+func (t *tui) continueSession() {
+	t.mu.Lock()
+	v := t.sessions
+	if v == nil || v.Cursor >= len(v.Shown) {
+		t.mu.Unlock()
+		return
+	}
+	e := v.Shown[v.Cursor]
+	g := ui.SessionsLayout(t.cols, t.rows)
+	t.mu.Unlock()
+	if e.Agent != "claude" {
+		t.mu.Lock()
+		if t.sessions != nil {
+			t.sessions.Message = "only Claude Code's conversations can be handed on so far"
+		}
+		t.dirty = true
+		t.mu.Unlock()
+		return
+	}
+	t.closeSessions()
+	t.openMenu(ui.ContinueMenu(0, e.ID, continueAgents(), g.Box.X+g.Box.Cols/3, g.Box.Y+2))
 }

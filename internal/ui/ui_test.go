@@ -1173,7 +1173,7 @@ func TestSidebarActiveRowPrefersTheCursor(t *testing.T) {
 // TestMenuStaysOnTheScreen: a menu opened near the bottom edge would lose the
 // items added last, which are the destructive ones.
 func TestMenuStaysOnTheScreen(t *testing.T) {
-	m := PaneMenu(1, 78, 19, true)
+	m := PaneMenu(1, 78, 19, true, false)
 	r := m.Rect(80, 20)
 	if r.X+r.Cols > 80 || r.Y+r.Rows > 20 {
 		t.Errorf("menu at %+v runs off an 80x20 screen", r)
@@ -1215,7 +1215,7 @@ func TestMenuHitTestSeparatesInsideFromOnAnItem(t *testing.T) {
 // TestMenuTargetsWhatItWasOpenedOn is the whole reason a menu is better than
 // a key here: there is no current selection to be wrong about.
 func TestMenuTargetsWhatItWasOpenedOn(t *testing.T) {
-	if m := PaneMenu(7, 0, 0, true); m.Pane != 7 || m.Tab != 0 || m.Workspace != 0 {
+	if m := PaneMenu(7, 0, 0, true, false); m.Pane != 7 || m.Tab != 0 || m.Workspace != 0 {
 		t.Errorf("pane menu targets %+v", m)
 	}
 	if m := SpaceMenu(3, false, 0, 0); m.Workspace != 3 || m.Pane != 0 {
@@ -1224,7 +1224,7 @@ func TestMenuTargetsWhatItWasOpenedOn(t *testing.T) {
 
 	// The last pane in a tab offers no "close pane": closing it would leave an
 	// empty tab, and "close tab" is the honest name for that.
-	alone := PaneMenu(1, 0, 0, false)
+	alone := PaneMenu(1, 0, 0, false, false)
 	for _, item := range alone.Items {
 		if item.Action == MenuClose {
 			t.Error("a lone pane should not offer to close itself")
@@ -1450,7 +1450,7 @@ func reversedRuns(g *vt.Grid, y int) string {
 // the selected row inside it leaves nothing to reverse, so the mark has to be
 // the thing the panel is not.
 func TestMenuMarksTheSelectedItem(t *testing.T) {
-	m := PaneMenu(1, 10, 4, true)
+	m := PaneMenu(1, 10, 4, true, false)
 	m.Selected = 2
 	r := m.Rect(80, 24)
 
@@ -1472,7 +1472,7 @@ func TestMenuMarksTheSelectedItem(t *testing.T) {
 
 	// With nothing selected, nothing is marked: the pointer is on the thing
 	// the menu was opened on, not on a choice.
-	none := PaneMenu(1, 10, 4, true)
+	none := PaneMenu(1, 10, 4, true, false)
 	none.Selected = -1
 	g = vt.NewGrid(80, 24, 0)
 	Draw(g, Frame{Menu: &none}, DefaultTheme())

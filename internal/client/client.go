@@ -604,6 +604,13 @@ func (c *Client) AgentSessions() (proto.AgentSessionsResult, error) {
 	return out, c.Call(proto.MethodAgentSessions, nil, &out)
 }
 
+// AgentHandoff reads a conversation — the pane's when pane is not zero, else
+// the one with id — for another agent to carry on.
+func (c *Client) AgentHandoff(pane uint64, id string) (proto.AgentHandoff, error) {
+	var out proto.AgentHandoff
+	return out, c.Call(proto.MethodAgentSessionHandoff, proto.AgentHandoffParams{Pane: pane, ID: id}, &out)
+}
+
 // DeleteAgentSessions deletes conversations; one open in a pane is kept.
 func (c *Client) DeleteAgentSessions(ids []string) (proto.AgentSessionsDeleteResult, error) {
 	var out proto.AgentSessionsDeleteResult

@@ -1522,7 +1522,10 @@ func (t *tui) command(action ui.Action) error {
 				at = ui.Rect{X: r.X, Y: r.Y}
 			}
 		}
-		t.openMenu(ui.PaneMenu(focus, at.X+2, at.Y+1, len(rects) > 1))
+		t.mu.Lock()
+		agent := t.paneAgentsLocked()[focus] != ""
+		t.mu.Unlock()
+		t.openMenu(ui.PaneMenu(focus, at.X+2, at.Y+1, len(rects) > 1, agent))
 		return nil
 
 	case ui.CommandRenameTab:

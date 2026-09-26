@@ -81,6 +81,7 @@ func (t *tui) menuFor(x, y int) (ui.Menu, bool) {
 	cols, rows := t.cols, t.rows
 	panes := len(t.rects)
 	groups := t.hasGroupsLocked()
+	agentAt := t.paneAgentsLocked()
 	t.mu.Unlock()
 
 	if row, ok := ui.SidebarRowAt(frame, x, y, rows); ok {
@@ -105,7 +106,7 @@ func (t *tui) menuFor(x, y int) (ui.Menu, bool) {
 	if pane := t.paneAt(x, y); pane != 0 {
 		// The last pane in a tab has no "close pane": closing it would leave
 		// an empty tab, and "close tab" is the honest name for that.
-		return ui.PaneMenu(pane, x, y, panes > 1), true
+		return ui.PaneMenu(pane, x, y, panes > 1, agentAt[pane] != ""), true
 	}
 	return ui.Menu{}, false
 }
@@ -231,6 +232,14 @@ func (t *tui) runMenu(m ui.Menu, item ui.MenuItem) error {
 
 	case ui.MenuPickGroup:
 		return t.moveSpaceToGroup(m.Workspace, item.Arg)
+
+	case ui.MenuContinueIn:
+		t.openMenu(ui.ContinueMenu(m.Pane, "", continueAgents(), m.X, m.Y))
+		return nil
+
+	case ui.MenuContinueWith:
+		go t.continueIn(m.Pane, m.Conversation, item.Arg)
+		return nil
 
 	case ui.MenuFiles:
 		if m.Pane != 0 {

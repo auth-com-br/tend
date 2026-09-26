@@ -68,6 +68,7 @@ var Methods = []string{
 	proto.MethodAgentsCatalog,
 	proto.MethodAgentSessions,
 	proto.MethodAgentSessionsDelete,
+	proto.MethodAgentSessionHandoff,
 	proto.MethodGitHubIssues,
 	proto.MethodGitHubIssue,
 	proto.MethodGitHubIssueComment,
@@ -678,6 +679,13 @@ func (c *clientConn) dispatch(req proto.Request) (any, error) {
 			return nil, err
 		}
 		return c.srv.DeleteAgentSessions(p.IDs), nil
+
+	case proto.MethodAgentSessionHandoff:
+		var p proto.AgentHandoffParams
+		if err := decodeParams(req.Params, &p); err != nil {
+			return nil, err
+		}
+		return c.srv.AgentHandoff(p)
 
 	case proto.MethodContextAdd:
 		var p proto.ContextItem

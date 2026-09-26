@@ -293,7 +293,7 @@ func drawSessions(dst *vt.Grid, v *SessionsView, theme Theme) {
 		if v.Message != "" {
 			writeString(dst, box.X+2, msgY, truncate(v.Message, box.Cols-4), theme.NotesSub, right)
 		}
-		writeString(dst, box.X+2, hintY, truncate("type to search · ↑↓ move · enter resume · tab mark · ^a mark all · ^o mark 30+ days · ^d delete · esc", box.Cols-4), theme.NotesSub, right)
+		writeString(dst, box.X+2, hintY, truncate("type to search · ↑↓ move · enter resume · ^g continue in… · tab mark · ^a mark all · ^o mark 30+ days · ^d delete · esc", box.Cols-4), theme.NotesSub, right)
 	}
 	for i, r := range []Rect{g.Resume, g.Delete, g.Close} {
 		writeString(dst, r.X, r.Y, sessionsButtons[i], theme.NotesAccent, right)

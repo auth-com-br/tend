@@ -44,6 +44,10 @@ const (
 	// taking the space out of the group it is in.
 	MenuMoveToGroup = "menu-move-to-group"
 	MenuPickGroup   = "menu-pick-group"
+	// MenuContinueIn offers the agents a pane's task can be handed to, and
+	// MenuContinueWith hands it to the one in Arg (docs/MEMORY.md).
+	MenuContinueIn   = "continue-in"
+	MenuContinueWith = "continue-with"
 	// MenuFiles opens or closes the file explorer panel, prefix+f.
 	MenuFiles    = "menu-files"
 	MenuMoveBack = "menu-move-back"
@@ -135,6 +139,9 @@ type Menu struct {
 	// Group names the group a group menu acts on, which has no identifier of
 	// its own because it has no record of its own.
 	Group string
+	// Conversation is the agent conversation a "continue in" menu hands on
+	// when it is not a pane's: one chosen in the sessions list.
+	Conversation string
 }
 
 // menuPadding is the space either side of a label inside the border.
@@ -211,7 +218,9 @@ func drawMenu(dst *vt.Grid, m Menu, theme Theme) {
 }
 
 // PaneMenu is what a right-click on a pane offers.
-func PaneMenu(pane uint64, x, y int, closable bool) Menu {
+//
+// A pane running an agent also offers to hand its task to another agent.
+func PaneMenu(pane uint64, x, y int, closable, agent bool) Menu {
 	items := []MenuItem{
 		{Label: "split right", Action: MenuSplitRight},
 		{Label: "split down", Action: MenuSplitDown},
@@ -219,6 +228,9 @@ func PaneMenu(pane uint64, x, y int, closable bool) Menu {
 		{Label: "rename pane", Action: MenuRenamePane},
 		{Label: "rename tab", Action: MenuRename},
 		{Label: "files panel", Action: MenuFiles},
+	}
+	if agent {
+		items = append(items, MenuItem{Label: "continue in...", Action: MenuContinueIn})
 	}
 	if closable {
 		items = append(items, MenuItem{Label: "close pane", Action: MenuClose})
@@ -314,9 +326,20 @@ func AgentMenu(pane, tab, workspace uint64, x, y int) Menu {
 		Title: "agent",
 		Items: []MenuItem{
 			{Label: "go to", Action: MenuGoTo},
+			{Label: "continue in...", Action: MenuContinueIn},
 			{Label: "rename tab", Action: MenuRename},
 			{Label: "close pane", Action: MenuClose},
 		},
 		X: x, Y: y, Pane: pane, Tab: tab, Workspace: workspace,
 	}
+}
+
+// ContinueMenu lists the agents a pane's task can be handed to — the same
+// one too, which is a fresh conversation with the task's note.
+func ContinueMenu(pane uint64, conversation string, agents []string, x, y int) Menu {
+	items := make([]MenuItem, 0, len(agents))
+	for _, a := range agents {
+		items = append(items, MenuItem{Label: a, Action: MenuContinueWith, Arg: a})
+	}
+	return Menu{Title: "continue in", Items: items, X: x, Y: y, Pane: pane, Conversation: conversation}
 }

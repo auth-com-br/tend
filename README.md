@@ -93,7 +93,12 @@ file in the files panel, or from any tool over the automation socket
 agent this tab works with, where it is typed in for you to read over and send. Sessions (or `ctrl+b S`) lists the
 conversations your agents keep on this machine (Claude Code's so far): type to
 search them, enter to resume one in a new tab where it was held, and mark old
-ones to delete them. Issues (or `ctrl+b I`) lists the GitHub issues of the
+ones to delete them. To hand a task to another agent — Codex after Claude
+Code, or a fresh Claude — right-click the agent's pane (or its row in the
+sidebar) and choose "continue in...", or press `ctrl+g` on a conversation
+in the list: tend starts that agent where the work was, and puts a note of
+the task in the context — what was asked, the files changed, where it
+stopped, the uncommitted work — for you to look over and send it. Issues (or `ctrl+b I`) lists the GitHub issues of the
 project you are in, through `gh`: pick a filter with tab, type to search
 (GitHub's syntax works: `label:bug`), enter to read one with its comments.
 In a folder of several repositories, it lists them all, with a repository
