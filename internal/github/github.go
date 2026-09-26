@@ -1,5 +1,9 @@
-// Package github reads a project's GitHub issues through the GitHub CLI.
-// It is tend's own — herdr has nothing of the kind — and follows how Orca,
+// Package github reads a project's issues and pull requests — on GitHub
+// through the GitHub CLI, and on GitLab through its web API (gitlab.go),
+// into the same shapes, so the issues panel is one for both.
+//
+// For GitHub it
+// is tend's own — herdr has nothing of the kind — and follows how Orca,
 // which the owner uses, does it: every call is `gh`, so tend keeps no token
 // and needs no login of its own; the repository is read from the project's
 // git remotes, upstream before origin, so a fork shows the issues of what it
@@ -29,8 +33,8 @@ var (
 	ErrNoGh = errors.New("the GitHub CLI (gh) is not installed — https://cli.github.com")
 	// ErrNotLoggedIn is gh with no account to use.
 	ErrNotLoggedIn = errors.New("the GitHub CLI is not logged in — run `gh auth login`")
-	// ErrNoRepo is a directory with no remote on github.com.
-	ErrNoRepo = errors.New("this project has no GitHub remote")
+	// ErrNoRepo is a directory with no remote on github.com or on a GitLab.
+	ErrNoRepo = errors.New("this project has no GitHub or GitLab remote")
 )
 
 // Gh is the program run, a variable so a test can name a stand-in.
@@ -39,16 +43,47 @@ var Gh = "gh"
 // callTimeout bounds one call: gh over a slow network, not forever.
 const callTimeout = 30 * time.Second
 
-// Repo is a repository on GitHub, and the remote it was found through.
+// Repo is a repository on GitHub or a GitLab, and the remote it was found
+// through.
 type Repo struct {
+	// Host is the GitLab it is on (gitlab.com, or a company's own), empty
+	// for GitHub. On a GitLab, Owner is the group, with its subgroups.
+	Host        string
 	Owner, Name string
 	Remote      string
 	// Dir is the checkout it was found in, where work on it starts.
 	Dir string
 }
 
-// Slug is owner/name, as gh's --repo takes it.
-func (r Repo) Slug() string { return r.Owner + "/" + r.Name }
+// GitLab reports whether the repository is on a GitLab.
+func (r Repo) GitLab() bool { return r.Host != "" }
+
+// Slug names the repository across the wire: owner/name for GitHub, as
+// gh's --repo takes it, and host/group/…/name for a GitLab — a GitHub owner
+// has no dot in it, so the two are never taken for each other (ParseSlug).
+func (r Repo) Slug() string {
+	if r.Host != "" {
+		return r.Host + "/" + r.Owner + "/" + r.Name
+	}
+	return r.Owner + "/" + r.Name
+}
+
+// ParseSlug is the repository a Slug names.
+func ParseSlug(s string) (Repo, bool) {
+	parts := strings.Split(s, "/")
+	for _, p := range parts {
+		if p == "" {
+			return Repo{}, false
+		}
+	}
+	switch {
+	case len(parts) >= 3 && strings.Contains(parts[0], "."):
+		return Repo{Host: parts[0], Owner: strings.Join(parts[1:len(parts)-1], "/"), Name: parts[len(parts)-1]}, true
+	case len(parts) == 2 && !strings.Contains(parts[0], "."):
+		return Repo{Owner: parts[0], Name: parts[1]}, true
+	}
+	return Repo{}, false
+}
 
 // remotePattern reads owner and name out of a remote on github.com: an
 // https URL, git@github.com:owner/name, or ssh://git@github.com/owner/name,
@@ -84,6 +119,10 @@ func ReposFor(dir string) ([]Repo, error) {
 		if owner, name, ok := ParseRemote(f[1]); ok {
 			seen[f[0]] = true
 			repos = append(repos, Repo{Owner: owner, Name: name, Remote: f[0]})
+		} else if host, path, ok := ParseGitLabRemote(f[1]); ok {
+			seen[f[0]] = true
+			i := strings.LastIndexByte(path, '/')
+			repos = append(repos, Repo{Host: host, Owner: path[:i], Name: path[i+1:], Remote: f[0]})
 		}
 	}
 	rank := func(r Repo) int {
@@ -161,7 +200,7 @@ func ScopeFor(dir string) (Scope, error) {
 	}
 	walk(dir, 1)
 	if len(out) == 0 {
-		return Scope{}, fmt.Errorf("%w (%s is not a git checkout, and none under it is on GitHub)", ErrNoRepo, dir)
+		return Scope{}, fmt.Errorf("%w (%s is not a git checkout, and none under it is on GitHub or a GitLab)", ErrNoRepo, dir)
 	}
 	sort.Slice(out, func(a, b int) bool { return strings.ToLower(out[a].Name) < strings.ToLower(out[b].Name) })
 	return Scope{Multi: true, Repos: out}, nil
@@ -239,8 +278,37 @@ func SearchQuery(repos []Repo, filter Filter, typed string) string {
 }
 
 // List is the issues a search finds, the last updated first, and how many
-// it found in all.
+// it found in all. GitHub's repositories are one search; each GitLab's is
+// asked apart, and the answers put together by when they were updated.
 func List(repos []Repo, filter Filter, typed string) ([]Issue, int, error) {
+	hub, lab := splitRepos(repos)
+	var issues []Issue
+	total := 0
+	if len(hub) > 0 {
+		got, n, err := listGitHub(hub, filter, typed)
+		if err != nil {
+			return nil, 0, err
+		}
+		issues, total = got, n
+	}
+	if len(lab) > 0 {
+		got, err := glEachIssues(lab, func(r Repo) ([]Issue, error) { return glListIssues(r, filter, typed) })
+		if err != nil {
+			return nil, 0, err
+		}
+		issues, total = append(issues, got...), total+len(got)
+	}
+	if len(hub) > 0 && len(lab) > 0 {
+		sort.SliceStable(issues, func(i, j int) bool { return issues[i].Updated.After(issues[j].Updated) })
+		if len(issues) > listLimit {
+			issues = issues[:listLimit]
+		}
+	}
+	return issues, total, nil
+}
+
+// listGitHub is List on GitHub: one search for all its repositories.
+func listGitHub(repos []Repo, filter Filter, typed string) ([]Issue, int, error) {
 	path := fmt.Sprintf("search/issues?q=%s&sort=updated&order=desc&per_page=%d",
 		url.QueryEscape(SearchQuery(repos, filter, typed)), listLimit)
 	out, err := run("api", "--cache", "60s", path)
@@ -319,6 +387,9 @@ type Detail struct {
 
 // Get reads one issue whole.
 func Get(repo Repo, number int) (Detail, error) {
+	if repo.GitLab() {
+		return glGet(repo, number)
+	}
 	out, err := run("issue", "view", fmt.Sprint(number), "--repo", repo.Slug(), "--json",
 		"number,title,state,url,author,labels,assignees,body,comments,createdAt,updatedAt")
 	if err != nil {
@@ -375,6 +446,9 @@ func AddComment(repo Repo, number int, body string) error {
 	if strings.TrimSpace(body) == "" {
 		return errors.New("a comment needs some text")
 	}
+	if repo.GitLab() {
+		return glComment(repo, "issues", number, body)
+	}
 	_, err := runInput(body, "issue", "comment", fmt.Sprint(number), "--repo", repo.Slug(), "--body-file", "-")
 	return err
 }
@@ -387,6 +461,9 @@ const (
 
 // Close closes an issue, for a reason.
 func Close(repo Repo, number int, reason string) error {
+	if repo.GitLab() {
+		return glSetState(repo, "issues", number, "close")
+	}
 	if reason != ReasonNotPlanned {
 		reason = ReasonCompleted
 	}
@@ -396,12 +473,18 @@ func Close(repo Repo, number int, reason string) error {
 
 // Reopen opens a closed issue again.
 func Reopen(repo Repo, number int) error {
+	if repo.GitLab() {
+		return glSetState(repo, "issues", number, "reopen")
+	}
 	_, err := run("issue", "reopen", fmt.Sprint(number), "--repo", repo.Slug())
 	return err
 }
 
 // Create files an issue and returns its number and address.
 func Create(repo Repo, title, body string) (int, string, error) {
+	if repo.GitLab() {
+		return glCreate(repo, title, body)
+	}
 	title = strings.TrimSpace(title)
 	if title == "" {
 		return 0, "", errors.New("an issue needs a title")
@@ -425,11 +508,17 @@ func Create(repo Repo, title, body string) (int, string, error) {
 
 // Labels is the repository's labels, by name, for the label picker.
 func Labels(repo Repo) ([]string, error) {
+	if repo.GitLab() {
+		return glLabels(repo)
+	}
 	return names("repos/"+repo.Slug()+"/labels?per_page=100", ".[].name")
 }
 
 // Assignable is who an issue in the repository can be assigned to.
 func Assignable(repo Repo) ([]string, error) {
+	if repo.GitLab() {
+		return glAssignable(repo)
+	}
 	return names("repos/"+repo.Slug()+"/assignees?per_page=100", ".[].login")
 }
 
@@ -459,6 +548,9 @@ type Edit struct {
 // EditIssue changes an issue, Orca's way: one gh issue edit with only
 // what changed, so labels somebody else added meanwhile stay.
 func EditIssue(repo Repo, number int, e Edit) error {
+	if repo.GitLab() {
+		return glEditIssue(repo, number, e)
+	}
 	args := []string{"issue", "edit", fmt.Sprint(number), "--repo", repo.Slug()}
 	if t := strings.TrimSpace(e.Title); t != "" {
 		args = append(args, "--title", t)

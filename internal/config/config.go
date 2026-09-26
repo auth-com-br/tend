@@ -38,6 +38,7 @@ type Config struct {
 	Files      Files     `toml:"files"`
 	Issues     Issues    `toml:"issues"`
 	Errors     Errors    `toml:"errors"`
+	GitLab     GitLab    `toml:"gitlab"`
 }
 
 // Errors connects the errors panel to a GlitchTip server. Both are set from
@@ -158,6 +159,12 @@ func ErrorSourceName(url string) string {
 		return name
 	}
 	return "glitchtip"
+}
+
+// GitLab is the tokens `tend gitlab login` keeps, by host: the token itself,
+// or where the keyring keeps it ("keyring:gitlab:<host>").
+type GitLab struct {
+	Tokens map[string]string `toml:"tokens"`
 }
 
 // Issues configures starting work on a GitHub issue from the issues panel.

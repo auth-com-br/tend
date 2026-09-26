@@ -138,6 +138,11 @@ func CheckKey(repo string, number int) string { return fmt.Sprintf("%s#%d", repo
 // in after the list.
 func PRChecks(repos []Repo, filter Filter, typed string) (map[string]Checks, error) {
 	lists, err := eachRepo(repos, func(r Repo) ([]PR, error) {
+		if r.GitLab() {
+			// A merge request's pipeline is read with it (glMR.pr), so a
+			// GitLab has nothing more to fill in.
+			return nil, nil
+		}
 		out, err := run("pr", "list", "--repo", r.Slug(), "--state", "all", "--limit", fmt.Sprint(checksLimit),
 			"--search", prSearch(filter, typed), "--json", "number,statusCheckRollup")
 		if err != nil {
@@ -162,6 +167,9 @@ func PRChecks(repos []Repo, filter Filter, typed string) (map[string]Checks, err
 // branches nor review decisions.
 func ListPRs(repos []Repo, filter Filter, typed string) ([]PR, error) {
 	prs, err := eachRepo(repos, func(r Repo) ([]PR, error) {
+		if r.GitLab() {
+			return glListMRs(r, filter, typed)
+		}
 		out, err := run("pr", "list", "--repo", r.Slug(), "--state", "all", "--limit", fmt.Sprint(listLimit),
 			"--search", prSearch(filter, typed), "--json", prListFields)
 		if err != nil {
@@ -298,6 +306,9 @@ func (w wirePR) pr() PR {
 
 // GetPR reads one pull request whole.
 func GetPR(repo Repo, number int) (PRDetail, error) {
+	if repo.GitLab() {
+		return glGetMR(repo, number)
+	}
 	out, err := run("pr", "view", fmt.Sprint(number), "--repo", repo.Slug(), "--json",
 		prFields+",body,createdAt,additions,deletions,changedFiles,mergeable,comments,latestReviews")
 	if err != nil {
@@ -353,6 +364,9 @@ func PRComment(repo Repo, number int, body string) error {
 	if strings.TrimSpace(body) == "" {
 		return fmt.Errorf("a comment needs some text")
 	}
+	if repo.GitLab() {
+		return glComment(repo, "merge_requests", number, body)
+	}
 	_, err := runInput(body, "pr", "comment", fmt.Sprint(number), "--repo", repo.Slug(), "--body-file", "-")
 	return err
 }
@@ -366,6 +380,9 @@ const (
 
 // MergePR merges a pull request by a method.
 func MergePR(repo Repo, number int, method string) error {
+	if repo.GitLab() {
+		return glMerge(repo, number, method)
+	}
 	switch method {
 	case MergeSquash, MergeMerge, MergeRebase:
 	default:
@@ -377,17 +394,26 @@ func MergePR(repo Repo, number int, method string) error {
 
 // ClosePR closes a pull request unmerged, and ReopenPR opens it again.
 func ClosePR(repo Repo, number int) error {
+	if repo.GitLab() {
+		return glSetState(repo, "merge_requests", number, "close")
+	}
 	_, err := run("pr", "close", fmt.Sprint(number), "--repo", repo.Slug())
 	return err
 }
 
 func ReopenPR(repo Repo, number int) error {
+	if repo.GitLab() {
+		return glSetState(repo, "merge_requests", number, "reopen")
+	}
 	_, err := run("pr", "reopen", fmt.Sprint(number), "--repo", repo.Slug())
 	return err
 }
 
 // ReadyPR marks a draft ready for review.
 func ReadyPR(repo Repo, number int) error {
+	if repo.GitLab() {
+		return glReady(repo, number)
+	}
 	_, err := run("pr", "ready", fmt.Sprint(number), "--repo", repo.Slug())
 	return err
 }
@@ -401,6 +427,9 @@ closedByPullRequestsReferences(first:10,includeClosedPrs:true){nodes{number}}}}}
 // it, and the ones on branches — those made for it, which the caller names
 // — whatever their text says. Each is read in the list's shape.
 func PRsForIssue(repo Repo, number int, branches []string) ([]PR, error) {
+	if repo.GitLab() {
+		return glMRsForIssue(repo, number, branches)
+	}
 	numbers := map[int]bool{}
 	out, err := run("api", "graphql", "-F", "o="+repo.Owner, "-F", "r="+repo.Name, "-F", fmt.Sprintf("n=%d", number), "-f", "query="+linkedQuery)
 	if err != nil {

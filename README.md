@@ -110,7 +110,11 @@ labels and assignees, and `w` starts work on it — a worktree on
 `issue-<n>-…` and your agent in it, told to complete the issue. `ctrl+n` files
 a new one. `→` shows the pull requests, with their checks and reviews;
 open one to merge it (`m`), comment, close it or mark a draft ready. An issue
-lists its pull requests, and `p` opens the first.
+lists its pull requests, and `p` opens the first. A project on a GitLab —
+gitlab.com or your company's — works the same, with its issues and merge
+requests: public projects are read without signing in; `tend gitlab login
+[host]` keeps a token (in the system keyring when there is one) for writing
+and for private projects.
 Errors (or `ctrl+b E`) shows what your systems' GlitchTip or Sentry caught: connect the
 server (for Sentry, `https://sentry.io`) and an API token from the panel — as many servers as you have: the gear
 (or `ctrl+k`) adds and removes them, and `ctrl+g` or a click on the server

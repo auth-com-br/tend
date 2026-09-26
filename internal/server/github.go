@@ -38,11 +38,11 @@ func (s *Server) GitHubIssues(p proto.GitHubIssuesParams) (proto.GitHubIssuesRes
 
 // repoOf reads owner/name, and with number an issue's number too.
 func repoOf(p proto.GitHubIssueParams, number bool) (github.Repo, error) {
-	owner, name, ok := strings.Cut(p.Repo, "/")
-	if !ok || owner == "" || name == "" || strings.Contains(name, "/") || (number && p.Number <= 0) {
-		return github.Repo{}, fmt.Errorf("an issue is named by owner/name and a number, not %q #%d", p.Repo, p.Number)
+	repo, ok := github.ParseSlug(p.Repo)
+	if !ok || (number && p.Number <= 0) {
+		return github.Repo{}, fmt.Errorf("an issue is named by its repository and a number, not %q #%d", p.Repo, p.Number)
 	}
-	return github.Repo{Owner: owner, Name: name}, nil
+	return repo, nil
 }
 
 // GitHubIssueWrite is what the panel writes to GitHub: a comment, an issue

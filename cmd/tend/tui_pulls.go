@@ -289,7 +289,7 @@ func (t *tui) prAction(action, method string) {
 		return
 	}
 	repo, number := t.repoOfLocked(v.PR.Repo), v.PR.Number
-	v.Message = "asking GitHub…"
+	v.Message = "asking…"
 	t.dirty = true
 	t.mu.Unlock()
 	t.wakeUp()
@@ -299,7 +299,7 @@ func (t *tui) prAction(action, method string) {
 		if v := t.issues; v != nil {
 			switch {
 			case err != nil:
-				v.Message = "GitHub said: " + ghError(err)
+				v.Message = forgeSaid(err)
 			case action == "merge":
 				v.Message = fmt.Sprintf("merged #%d (%s)", number, method)
 			case action == "ready":

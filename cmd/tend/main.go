@@ -35,6 +35,7 @@ commands:
   pane              drive a pane: read it, type into it, wait for it
   notify            tell whoever is watching the session something
   context           add to, list or clear what the agents are to be handed
+  gitlab            keep a token for a GitLab, for its issues and merge requests
   browser           the session's browsers: status, open, select, attach
   terminal          set or clear the outer window's title
   layout            save a tab's arrangement, or build it again
@@ -153,6 +154,8 @@ func main() {
 		err = runNotify(args[1:])
 	case "context":
 		err = runContext(args[1:])
+	case "gitlab":
+		err = runGitLab(args[1:])
 	case "browser":
 		err = runBrowser(args[1:])
 	case "terminal":

@@ -40,8 +40,8 @@ func TestARemoteIsReadInEveryFormGitWritesIt(t *testing.T) {
 }
 
 // TestAForkListsWhatItForkedFirst: a checkout with origin and upstream on
-// GitHub gives upstream first, as Orca does, and one with no GitHub remote
-// says so. If it regresses, a fork's issues list shows the fork's, which
+// GitHub gives upstream first, as Orca does, a GitLab remote after them,
+// and one with no remote on either says so. If it regresses, a fork's issues list shows the fork's, which
 // usually has none, with no word that upstream is there.
 func TestAForkListsWhatItForkedFirst(t *testing.T) {
 	dir := t.TempDir()
@@ -62,7 +62,10 @@ func TestAForkListsWhatItForkedFirst(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(repos) != 2 || repos[0].Slug() != "stablyai/orca" || repos[0].Remote != "upstream" || repos[1].Slug() != "me/orca" {
+	// A GitLab remote is a repository too (gitlab.go), after upstream and
+	// origin as any other remote is.
+	if len(repos) != 3 || repos[0].Slug() != "stablyai/orca" || repos[0].Remote != "upstream" || repos[1].Slug() != "me/orca" ||
+		repos[2].Slug() != "gitlab.com/me/orca" || !repos[2].GitLab() {
 		t.Errorf("repos: %+v", repos)
 	}
 }

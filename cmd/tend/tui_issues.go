@@ -674,6 +674,17 @@ func (t *tui) issueButton(id string) bool {
 }
 
 // ghError is what GitHub said, without the method it was said to.
+// forgeSaid is what GitHub or a GitLab answered, for a line under the
+// panel. A GitLab's answers name it already ("gitlab.com answered…", or the
+// token it wants); what gh said is said to be GitHub's.
+func forgeSaid(err error) string {
+	msg := ghError(err)
+	if strings.Contains(msg, "GitLab") || strings.Contains(msg, "gitlab") {
+		return msg
+	}
+	return "GitHub said: " + msg
+}
+
 func ghError(err error) string {
 	msg := err.Error()
 	if i := strings.Index(msg, ": "); i > 0 && strings.HasPrefix(msg, "github.") {
@@ -828,7 +839,7 @@ func (t *tui) sendIssueCompose() {
 			if v.Compose != nil {
 				v.Compose.Sending = false
 			}
-			v.Message = "GitHub said: " + ghError(err)
+			v.Message = forgeSaid(err)
 			t.dirty = true
 			t.mu.Unlock()
 			t.wakeUp()
@@ -920,14 +931,14 @@ func (t *tui) issueConfirmKey(key string) {
 	}
 	repo, number := t.repoOfLocked(v.Target.Repo), v.Target.Number
 	v.Target = nil
-	v.Message = "asking GitHub…"
+	v.Message = "asking…"
 	t.mu.Unlock()
 	go func() {
 		err := t.client.GitHubIssueState(repo, number, state, reason)
 		t.mu.Lock()
 		if v := t.issues; v != nil {
 			if err != nil {
-				v.Message = "GitHub said: " + ghError(err)
+				v.Message = forgeSaid(err)
 			} else if state == "closed" {
 				v.Message = fmt.Sprintf("closed #%d as %s", number, reason)
 			} else {
@@ -1160,7 +1171,7 @@ func (t *tui) editIssue(p proto.GitHubIssueEditParams, done string) {
 		if v.Picker != nil {
 			v.Picker.Saving = false
 		}
-		v.Message = "GitHub said: " + ghError(err)
+		v.Message = forgeSaid(err)
 		t.dirty = true
 		t.mu.Unlock()
 		t.wakeUp()
@@ -1212,7 +1223,7 @@ func (t *tui) openIssuePicker(kind string) {
 		p.Loading = false
 		if err != nil {
 			v.Picker = nil
-			v.Message = "GitHub said: " + ghError(err)
+			v.Message = forgeSaid(err)
 			return
 		}
 		// What the issue has comes first, and stays offered even when the
