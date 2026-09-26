@@ -21,7 +21,7 @@ DEV_PKGS ?= ./...
 # SESSION is which session `make restart` acts on.
 SESSION ?= default
 
-.PHONY: toolchain run dev watch test test-race check fmt vet bench build install dist manifest clean restart
+.PHONY: toolchain run dev watch test test-race check fmt vet bench build install dist manifest stats clean restart
 
 ## toolchain: fail with a usable message instead of "go: No such file or directory".
 toolchain:
@@ -141,6 +141,11 @@ dist: toolchain
 	done
 	@cd dist && sha256sum tend-* > SHA256SUMS
 	@ls -1 dist
+
+## stats: how tend is being taken up, from what GitHub shows publicly (tools/stats).
+# HISTORY=stats.jsonl keeps each run and shows the change in a week.
+stats: toolchain
+	$(GO) run ./tools/stats $(if $(HISTORY),-history $(HISTORY))
 
 ## manifest: write dist/latest.json, the update manifest, from the release's
 ## notes: make manifest NOTES=notes.md (after make dist, on the release's tag).
