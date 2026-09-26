@@ -5,6 +5,20 @@ release's notes on GitHub and what "what's new" shows inside tend.
 
 ## Unreleased
 
+## v0.8.0 — 2026-09-26
+
+#### New
+- **Hand a task to another agent.** Right-click an agent's pane (or its row in the sidebar) and choose **continue in…**, or press `ctrl+g` on a conversation in Sessions: tend starts Codex, Claude, Cursor or Gemini where the work was, and puts a note of the task in the context — what was asked, the files changed, where it stopped, the uncommitted work — for you to look over and send. No model writes the note; it is read from the conversation.
+- **GitLab.** The issues panel works for projects on gitlab.com or your company's GitLab: issues and merge requests, comments, closing, labels, assignees, merging, and starting work in a worktree. Public projects are read without signing in; `tend gitlab login` keeps a token for the rest.
+- **Sentry.** The errors panel connects to Sentry (`https://sentry.io`) as it does to GlitchTip.
+- **Memory tools.** The agent manager (`ctrl+b A`) offers ai-memory and Graphify under MEMORY, each with its documented install, and says when ai-memory is running.
+- **Your agents' instructions.** The files panel's menu opens the global, project and folder instructions, and "Share instructions with every agent" makes `CLAUDE.md` read `AGENTS.md`, so one file serves them all.
+- **Tokens in the system keyring.** A GlitchTip or GitLab token goes to GNOME Keyring or KWallet (through `secret-tool`) or the macOS Keychain when there is one, and the settings file only names it.
+
+#### Also
+- `make stats` shows how tend is taken up, from what GitHub shows publicly.
+- Windows: a guide to running tend in WSL (docs/WINDOWS.md).
+
 ## v0.7.2 — 2026-09-26
 
 #### New
