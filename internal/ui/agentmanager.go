@@ -23,6 +23,10 @@ type AgentEntry struct {
 	// Missing is then the program the vendor's way needs.
 	InstallCommand string
 	Missing        string
+	// Memory is a memory tool, listed under its own heading; Running a
+	// service of one answering here.
+	Memory  bool
+	Running bool
 }
 
 // AgentManagerView is the panel while it is up.
@@ -61,11 +65,14 @@ const (
 // heading, the rest. Each is an entry's index, or -1 with a label.
 func agentLines(v *AgentManagerView) (idx []int, labels []string) {
 	add := func(i int, label string) { idx, labels = append(idx, i), append(labels, label) }
-	var installed, available []int
+	var installed, available, memory []int
 	for i, a := range v.Agents {
-		if a.Installed {
+		switch {
+		case a.Memory:
+			memory = append(memory, i)
+		case a.Installed:
 			installed = append(installed, i)
-		} else {
+		default:
 			available = append(available, i)
 		}
 	}
@@ -81,6 +88,16 @@ func agentLines(v *AgentManagerView) (idx []int, labels []string) {
 		}
 		add(-1, "AVAILABLE")
 		for _, i := range available {
+			add(i, "")
+		}
+	}
+	// What gives the agents memory (docs/MEMORY.md), apart from them.
+	if len(memory) > 0 {
+		if len(idx) > 0 {
+			add(-1, "")
+		}
+		add(-1, "MEMORY")
+		for _, i := range memory {
 			add(i, "")
 		}
 	}
@@ -197,6 +214,9 @@ func drawAgentManager(dst *vt.Grid, v *AgentManagerView, theme Theme) {
 		switch {
 		case a.Installed:
 			detail = truncate(a.Version, g.List.Cols-28)
+			if a.Running && a.Path == "" {
+				detail = "running"
+			}
 			if detail == "" {
 				detail = "installed"
 			}

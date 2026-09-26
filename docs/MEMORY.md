@@ -89,5 +89,7 @@ No new toolbar button: each fits a panel that already exists.
 
 1. Handoff between agents — tend's own, and the one thing nobody else can do.
    **Built** (#27): "continue in..." on an agent's pane, ctrl+g in Sessions.
-2. ai-memory and Graphify in the agent manager.
+2. ai-memory and Graphify in the agent manager. **Built** (#28): a MEMORY
+   section, each offered with its documented install, ai-memory found running
+   by its port when it is a container.
 3. Instruction files in the files panel.

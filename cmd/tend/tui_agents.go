@@ -61,7 +61,12 @@ func (t *tui) loadAgents() {
 	}
 	res, err := t.client.AgentsCatalog()
 	list := res.Agents
+	// The agents first, then the memory tools, each installed first: the
+	// order the panel draws them in, which its cursor counts through.
 	sort.SliceStable(list, func(i, j int) bool {
+		if mi, mj := list[i].Kind == "memory", list[j].Kind == "memory"; mi != mj {
+			return mj
+		}
 		if list[i].Installed != list[j].Installed {
 			return list[i].Installed
 		}
@@ -89,13 +94,20 @@ func (t *tui) loadAgents() {
 		v.Agents = append(v.Agents, ui.AgentEntry{
 			Name: a.Name, Installed: a.Installed, Version: a.Version, Path: a.Path,
 			InstallCommand: a.InstallCommand, Missing: a.Missing,
+			Memory: a.Kind == "memory", Running: a.Running,
 		})
-		if a.Installed {
+		if a.Installed && a.Kind != "memory" {
 			installed++
 		}
 	}
 	v.Cursor = min(v.Cursor, max(len(v.Agents)-1, 0))
-	v.Message = itoaInt(installed) + " of " + itoaInt(len(list)) + " installed on this machine"
+	agents := 0
+	for _, a := range list {
+		if a.Kind != "memory" {
+			agents++
+		}
+	}
+	v.Message = itoaInt(installed) + " of " + itoaInt(agents) + " agents installed on this machine"
 }
 
 func (t *tui) closeAgentManager() {
@@ -211,6 +223,9 @@ func (t *tui) agentEnter() error {
 	}
 	a := t.agentStatus[v.Cursor]
 	switch {
+	case a.Installed && a.Next != "":
+		// A memory tool installed is not yet the agents': say how.
+		v.Message = a.Name + " — " + a.Next
 	case a.Installed:
 		v.Message = a.Name + " is at " + a.Path
 	case a.InstallCommand == "":

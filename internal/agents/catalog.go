@@ -92,6 +92,25 @@ func Catalog() []Definition {
 			Binaries: []string{"aider"},
 			Methods:  methods["aider"],
 		},
+
+		// Memory tools (docs/MEMORY.md): not agents, but what gives them
+		// memory across sessions and across one another. Offered, not
+		// rebuilt.
+		{
+			ID: "ai-memory", Name: "ai-memory", Kind: "memory",
+			Description: "what happened, for every agent: hooks write a wiki per project, read back over MCP",
+			Binaries:    []string{"ai-memory"},
+			Port:        49374,
+			Methods:     methods["ai-memory"],
+			Next:        "give it to your agents: ai-memory install-mcp --client claude-code --apply && ai-memory install-hooks --agent claude-code --apply (codex likewise)",
+		},
+		{
+			ID: "graphify", Name: "Graphify", Kind: "memory",
+			Description: "a graph of the code, built offline, for agents to query instead of reading every file",
+			Binaries:    []string{"graphify"},
+			Methods:     methods["graphify"],
+			Next:        "in a project, build its graph with /graphify . in Claude Code",
+		},
 	}
 }
 

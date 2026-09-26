@@ -27,6 +27,7 @@ func (s *Server) AgentsCatalog() proto.AgentsCatalogResult {
 			Installed: a.Installed, Path: a.Path, Version: a.Version,
 			InstallKind: a.Install.Kind, InstallCommand: a.Install.Command,
 			InstallSource: a.Install.Source, Missing: a.Missing,
+			Kind: a.Kind, Running: a.Running, Next: a.Next,
 		})
 	}
 	return out

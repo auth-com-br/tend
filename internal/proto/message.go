@@ -609,6 +609,12 @@ type AgentStatus struct {
 	InstallCommand string `json:"install_command,omitempty"`
 	InstallSource  string `json:"install_source,omitempty"`
 	Missing        string `json:"missing,omitempty"`
+	// Kind is "memory" for a memory tool, listed apart from the agents;
+	// Running a service of one answering on this machine; Next what to run
+	// once it is installed.
+	Kind    string `json:"kind,omitempty"`
+	Running bool   `json:"running,omitempty"`
+	Next    string `json:"next,omitempty"`
 }
 
 // AgentSessionInfo is one conversation as agent_sessions.list finds it.

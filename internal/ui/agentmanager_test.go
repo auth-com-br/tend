@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"regexp"
 	"strings"
 	"testing"
 
@@ -46,5 +47,28 @@ func TestTheAgentManagerListsFoundThenInstallable(t *testing.T) {
 		if got, ok := AgentManagerEntryAt(v, 100, 30, geo.List.X+3, geo.List.Y+line); !ok || got != i {
 			t.Errorf("line %d is entry %d, a click found %d %v", line, i, got, ok)
 		}
+	}
+}
+
+// TestMemoryToolsAreListedApartFromTheAgents: the agents come first, the
+// installed then the rest, and the memory tools under a heading of their
+// own after them, a running one said to be running. If it regresses, a
+// memory tool reads as an agent the user is missing.
+func TestMemoryToolsAreListedApartFromTheAgents(t *testing.T) {
+	v := &AgentManagerView{Agents: []AgentEntry{
+		{Name: "Claude Code", Installed: true, Version: "2.0"},
+		{Name: "Codex", InstallCommand: "npm install -g @openai/codex"},
+		{Name: "ai-memory", Memory: true, Installed: true, Running: true},
+		{Name: "Graphify", Memory: true, InstallCommand: "uv tool install graphifyy && graphify install"},
+	}}
+	_, labels := agentLines(v)
+	if got := strings.Join(labels, "|"); got != "INSTALLED|||AVAILABLE|||MEMORY||" {
+		t.Errorf("lines: %q", got)
+	}
+	g := vt.NewGrid(120, 36, 0)
+	Draw(g, Frame{AgentManager: v}, DefaultTheme())
+	text := strings.Join(gridText(g), "\n")
+	if !strings.Contains(text, "MEMORY") || !regexp.MustCompile(`ai-memory\s+running`).MatchString(text) {
+		t.Errorf("panel:\n%s", text)
 	}
 }

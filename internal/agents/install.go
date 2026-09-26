@@ -29,6 +29,8 @@ func init() {
 		grokDocs     = "https://github.com/superagent-ai/grok-cli"
 		piDocs       = "https://github.com/earendil-works/pi"
 		aiderDocs    = "https://aider.chat/docs/install.html"
+		memoryDocs   = "https://github.com/akitaonrails/ai-memory"
+		graphDocs    = "https://github.com/safishamsi/graphify"
 	)
 	script := func(cmd, source string) Method {
 		return Method{Kind: "script", Needs: "curl", Command: cmd, Source: source}
@@ -107,6 +109,19 @@ func init() {
 		"aider": {
 			{Kind: "pip", Needs: "python", Command: "python -m pip install aider-install && aider-install", Source: aiderDocs},
 			script("curl -LsSf https://aider.chat/install.sh | sh", aiderDocs),
+		},
+		// Its README's Docker quick start, without the optional model keys:
+		// it works with no model at all, and a key is the user's to add.
+		"ai-memory": {
+			{Kind: "aur", Needs: "yay", Command: "yay -S ai-memory-bin", Source: memoryDocs},
+			{Kind: "docker", Needs: "docker", Command: "docker run -d --name ai-memory --restart unless-stopped -p 127.0.0.1:49374:49374 -v ai-memory-data:/data docker.io/akitaonrails/ai-memory:latest", Source: memoryDocs},
+		},
+		// The PyPI package is graphifyy while the name graphify is reclaimed;
+		// the program is graphify, and graphify install registers its skill.
+		"graphify": {
+			{Kind: "pipx", Needs: "pipx", Command: "pipx install graphifyy && graphify install", Source: graphDocs},
+			{Kind: "uv", Needs: "uv", Command: "uv tool install graphifyy && graphify install", Source: graphDocs},
+			{Kind: "pip", Needs: "pip", Command: "pip install graphifyy && graphify install", Source: graphDocs},
 		},
 	}
 }

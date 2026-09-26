@@ -3,6 +3,7 @@ package agents
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 )
 
@@ -70,5 +71,40 @@ func TestTheCatalogNamesEachAgentOnce(t *testing.T) {
 				t.Errorf("%s: a method without its kind, command or source: %+v", d.ID, m)
 			}
 		}
+	}
+}
+
+// TestAMemoryToolIsFoundRunningOrOfferedTheWayTheMachineCan: ai-memory in a
+// container has no program on the PATH, and is found installed and running
+// by its port answering; on a machine without yay it is offered through
+// Docker, and Graphify through uv when there is no pipx — each with what to
+// run next to give it to the agents. If it regresses, a running ai-memory
+// reads as missing, or the install offered needs a program the machine has
+// not.
+func TestAMemoryToolIsFoundRunningOrOfferedTheWayTheMachineCan(t *testing.T) {
+	env := fakeEnv(map[string]string{"docker": "Docker 27", "uv": "uv 0.8"})
+	listening := false
+	env.Listening = func(port int) bool { return listening && port == 49374 }
+	byID := func() map[string]Status {
+		out := map[string]Status{}
+		for _, s := range Find(env, Catalog()) {
+			out[s.ID] = s
+		}
+		return out
+	}
+	found := byID()
+	mem, graph := found["ai-memory"], found["graphify"]
+	if mem.Kind != "memory" || mem.Installed || mem.Install.Kind != "docker" || !strings.Contains(mem.Install.Command, "127.0.0.1:49374:49374") {
+		t.Errorf("ai-memory: %+v", mem)
+	}
+	if graph.Installed || graph.Install.Kind != "uv" || graph.Install.Command != "uv tool install graphifyy && graphify install" {
+		t.Errorf("graphify: %+v", graph)
+	}
+	if !strings.Contains(mem.Next, "install-mcp") || graph.Next == "" {
+		t.Errorf("next steps: %q %q", mem.Next, graph.Next)
+	}
+	listening = true
+	if mem = byID()["ai-memory"]; !mem.Installed || !mem.Running || mem.Path != "" || mem.Version != "" {
+		t.Errorf("a running ai-memory: %+v", mem)
 	}
 }
