@@ -381,3 +381,85 @@ func TestAWorktreeIsItsRepositorysProject(t *testing.T) {
 		t.Errorf("a folder in no repository is %q, want itself", got)
 	}
 }
+
+// TestATokenGoesToTheKeyringWhenThereIsOne: with a keyring tool on the
+// machine — here a stand-in secret-tool keeping secrets in a folder — the
+// token given in the connect box goes to the keyring and the settings file
+// names it there, never holding it; a client started later reads it back
+// and lists the errors; and removing the server forgets the secret too. If
+// it regresses, a token sits in a file when the system had somewhere safer
+// for it, or a server kept in the keyring cannot be read back.
+func TestATokenGoesToTheKeyringWhenThereIsOne(t *testing.T) {
+	gt := glitchTipStandIn(t, "vault-token", "VAULT-1", "kept safe")
+	bin, store := t.TempDir(), t.TempDir()
+	script := `#!/bin/sh
+cmd=$1; shift
+name=""
+while [ $# -gt 0 ]; do [ "$1" = account ] && name=$2; shift; done
+f="` + store + `/$(echo "$name" | tr ':/' '__')"
+case $cmd in
+store) cat > "$f" ;;
+lookup) [ -f "$f" ] || exit 1; cat "$f" ;;
+clear) rm -f "$f" ;;
+esac
+`
+	if err := os.WriteFile(filepath.Join(bin, "secret-tool"), []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	cfg := filepath.Join(t.TempDir(), "tend.toml")
+	if err := os.WriteFile(cfg, []byte(quietSettings), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	runtimeDir := t.TempDir()
+	t.Setenv("TEND_RUNTIME_DIR", runtimeDir)
+	t.Setenv("TEND_CONFIG", cfg)
+	env := append(os.Environ(), "TEND_RUNTIME_DIR="+runtimeDir, "TEND_CONFIG="+cfg, "SHELL=/bin/sh",
+		"TEND_GLITCHTIP_TOKEN=", "PATH="+bin+":"+os.Getenv("PATH"))
+	tend := buildBinary(t)
+	attach := func() *attached {
+		t.Helper()
+		p, err := pty.Start(tend, []string{"attach", "-s", "vault"}, pty.Options{Size: pty.Size{Cols: 130, Rows: 40}, Env: env})
+		if err != nil {
+			t.Fatal(err)
+		}
+		a := &attached{pty: p, screen: vt.NewScreen(130, 40, 100)}
+		go func() { _, _ = io.Copy(a, p) }()
+		t.Cleanup(func() { _ = p.Close() })
+		a.waitForScreen(t, "a pane", func(s string) bool { return strings.Contains(s, "┌") })
+		return a
+	}
+	t.Cleanup(func() { stopSession(t, "vault") })
+
+	a := attach()
+	a.send(t, "\x02E")
+	a.waitForScreen(t, "the offer to connect", func(s string) bool { return strings.Contains(s, "GlitchTip is not connected") })
+	a.send(t, "\r")
+	a.waitForScreen(t, "the connect box", func(s string) bool { return strings.Contains(s, "connect GlitchTip") })
+	a.send(t, "\x15"+gt.URL+"\tvault-token\r")
+	a.waitForScreen(t, "the errors", func(s string) bool { return strings.Contains(s, "VAULT-1") })
+	b, _ := os.ReadFile(cfg)
+	if strings.Contains(string(b), "vault-token") || !strings.Contains(string(b), `token = "keyring:glitchtip:`) {
+		t.Fatalf("the settings hold the token, or no reference to it:\n%s", b)
+	}
+	kept, _ := os.ReadDir(store)
+	if len(kept) != 1 {
+		t.Fatalf("the keyring holds %d secrets", len(kept))
+	}
+
+	// Another client reads it back from the keyring.
+	a.send(t, "\x1b")
+	a.waitForScreen(t, "closed", func(s string) bool { return !strings.Contains(s, "ERRORS ·") })
+	a.send(t, "\x02d")
+	_ = a.pty.Wait()
+	a = attach()
+	a.send(t, "\x02E")
+	a.waitForScreen(t, "the errors, the token from the keyring", func(s string) bool { return strings.Contains(s, "VAULT-1") })
+
+	a.send(t, "\x0bd")
+	a.waitForScreen(t, "the question", func(s string) bool { return strings.Contains(s, "? its token is forgotten") })
+	a.send(t, "\r")
+	a.waitForScreen(t, "nothing kept", func(s string) bool { return strings.Contains(s, "GlitchTip is not connected") })
+	if kept, _ := os.ReadDir(store); len(kept) != 0 {
+		t.Errorf("the keyring still holds %d secrets", len(kept))
+	}
+}

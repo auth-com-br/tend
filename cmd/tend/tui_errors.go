@@ -12,6 +12,7 @@ import (
 	"github.com/auth-com-br/tend/internal/capture"
 	"github.com/auth-com-br/tend/internal/config"
 	"github.com/auth-com-br/tend/internal/glitchtip"
+	"github.com/auth-com-br/tend/internal/keyring"
 	"github.com/auth-com-br/tend/internal/proto"
 	sessionpkg "github.com/auth-com-br/tend/internal/session"
 	"github.com/auth-com-br/tend/internal/ui"
@@ -48,6 +49,10 @@ type errorsState struct {
 	// want the project to show once the server's projects are read.
 	dir, root string
 	want      string
+	// tokens are the tokens kept in the system keyring, read when the
+	// panel opened, by their name there: asking the keyring can wait on the
+	// user unlocking it, which must not happen under the client's lock.
+	tokens map[string]string
 }
 
 func (t *tui) errorsUp() bool {
@@ -79,7 +84,50 @@ func (t *tui) errorsClientLocked() *glitchtip.Client {
 	if !ok {
 		return nil
 	}
-	return glitchtip.New(s.URL, s.Token)
+	return glitchtip.New(s.URL, t.tokenLocked(s.Token))
+}
+
+// tokenLocked is a source's token: the setting itself, or, for one kept in
+// the keyring, what was read from it when the panel opened — "" when it
+// could not be, which the client then says is not connected.
+func (t *tui) tokenLocked(value string) string {
+	if name, ok := keyring.Name(value); ok {
+		return t.errorState.tokens[name]
+	}
+	return value
+}
+
+// readKeyringTokens reads the tokens the settings keep in the keyring, and
+// says which could not be read.
+func (t *tui) readKeyringTokens() {
+	t.mu.Lock()
+	var names []string
+	for _, s := range t.config.ErrorSources() {
+		if name, ok := keyring.Name(s.Token); ok {
+			if _, have := t.errorState.tokens[name]; !have {
+				names = append(names, name)
+			}
+		}
+	}
+	t.mu.Unlock()
+	var missing []string
+	for _, name := range names {
+		secret, err := keyring.Get(name)
+		t.mu.Lock()
+		if t.errorState.tokens == nil {
+			t.errorState.tokens = map[string]string{}
+		}
+		if err == nil {
+			t.errorState.tokens[name] = secret
+		}
+		t.mu.Unlock()
+		if err != nil {
+			missing = append(missing, strings.TrimPrefix(name, "glitchtip:"))
+		}
+	}
+	if len(missing) > 0 {
+		t.errorSay("the keyring did not give the token for " + strings.Join(missing, ", ") + "; add the server again")
+	}
 }
 
 // hostOf is a server's address as the panel names it.
@@ -181,6 +229,7 @@ func projectRoot(dir string) string {
 // its projects are read, that project. The list is asked for only after,
 // so the first one shown is the right one.
 func (t *tui) findErrorsFolder(session string, pane uint64) {
+	t.readKeyringTokens()
 	dir, root := t.projectFolder(session, pane)
 	t.mu.Lock()
 	v := t.errors
@@ -1187,6 +1236,11 @@ func (t *tui) errorsManageKey(key string) {
 func (t *tui) removeErrorSource(src config.NamedErrorSource) {
 	go func() {
 		var err error
+		if name, ok := keyring.Name(src.Token); ok {
+			// Forgotten from the keyring too; a keyring that cannot be
+			// asked still lets the server go from the settings.
+			_ = keyring.Delete(name)
+		}
 		if src.Legacy {
 			if err = config.Set("errors", "url", config.Quote("")); err == nil {
 				err = config.Set("errors", "token", config.Quote(""))
@@ -1348,13 +1402,25 @@ func (t *tui) saveErrorsConnect() {
 	t.mu.Unlock()
 	go func() {
 		orgs, err := glitchtip.New(url, token).Orgs()
+		// The token goes to the system keyring when there is one, and the
+		// settings file names it there; else it is written to the file,
+		// readable by its owner alone.
+		value, kept := token, ""
+		if err == nil && keyring.Available() {
+			kept = "glitchtip:" + src.Name
+			if kerr := keyring.Set(kept, token); kerr == nil {
+				value = keyring.Ref(kept)
+			} else {
+				kept = ""
+			}
+		}
 		if err == nil {
 			if src.Legacy {
-				err = config.Set("errors", "token", config.Quote(token))
+				err = config.Set("errors", "token", config.Quote(value))
 			} else {
 				section := "errors.sources." + src.Name
 				if err = config.Set(section, "url", config.Quote(url)); err == nil {
-					err = config.Set(section, "token", config.Quote(token))
+					err = config.Set(section, "token", config.Quote(value))
 				}
 			}
 			if err == nil {
@@ -1374,13 +1440,20 @@ func (t *tui) saveErrorsConnect() {
 			t.wakeUp()
 			return
 		}
+		if kept != "" {
+			if t.errorState.tokens == nil {
+				t.errorState.tokens = map[string]string{}
+			}
+			t.errorState.tokens[kept] = token
+		}
 		if src.Legacy {
-			t.config.Errors.Token = token
+			t.config.Errors.Token = value
 		} else {
 			if t.config.Errors.Sources == nil {
 				t.config.Errors.Sources = map[string]config.ErrorSource{}
 			}
-			t.config.Errors.Sources[src.Name] = config.ErrorSource{URL: url, Token: token}
+			old := t.config.Errors.Sources[src.Name]
+			t.config.Errors.Sources[src.Name] = config.ErrorSource{URL: url, Token: value, Projects: old.Projects}
 		}
 		v.Connect, v.Manage = nil, nil
 		sources := t.config.ErrorSources()

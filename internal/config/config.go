@@ -996,7 +996,9 @@ enabled = false
 # a time. Connect them from the panel (the gear, or ctrl+k, adds and removes
 # them), which writes a table for each, as below; source is the one shown.
 # A server here in [errors] itself is kept too, and its token can come from
-# TEND_GLITCHTIP_TOKEN.
+# TEND_GLITCHTIP_TOKEN. Where the system has a keyring (secret-tool on
+# Linux, the Keychain on macOS) a token given in the panel is kept there,
+# and token here only names it: "keyring:glitchtip:<name>".
 # url = "https://glitchtip.example.com"
 # token = ""
 # source = "glitchtip-example-com"
