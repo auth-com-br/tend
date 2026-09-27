@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -700,6 +701,15 @@ func (a *API) callMore(req Request, pend *pending) (any, error) {
 				return nil, fail("invalid_params", "name an agent or a command to run")
 			}
 			argv = []string{p.Agent}
+		}
+		label := p.Agent
+		if label == "" {
+			label = filepath.Base(argv[0])
+		}
+		// Asked before anything is typed: an agent a policy forbids is
+		// one tend does not start, however it was asked to.
+		if err := a.srv.AdmitAgentIn(id, label); err != nil {
+			return nil, paneErr(p.PaneID, err)
 		}
 		if p.Name != "" {
 			// Named before it starts, so a script can address it by name

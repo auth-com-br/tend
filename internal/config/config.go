@@ -18,7 +18,9 @@ import (
 
 	"github.com/BurntSushi/toml"
 
+	"github.com/auth-com-br/tend/internal/policy"
 	"github.com/auth-com-br/tend/internal/update"
+	"github.com/auth-com-br/tend/internal/usage"
 )
 
 // Config is everything tend can be told.
@@ -40,7 +42,27 @@ type Config struct {
 	Errors     Errors    `toml:"errors"`
 	GitLab     GitLab    `toml:"gitlab"`
 	Tickets    Tickets   `toml:"tickets"`
+	Activity   Activity  `toml:"activity"`
+	// Policy is what agents may and may not do (internal/policy). The
+	// server reads it again each time it checks, so a rule written here
+	// applies from the next agent on, with no restart.
+	Policy policy.Policy `toml:"policy"`
 }
+
+// Activity is the record of what agents did (internal/activity, `tend
+// activity`).
+type Activity struct {
+	// Record is whether the session server writes the record at all. Unset
+	// is on: it is a local file, readable by its owner alone.
+	Record *bool `toml:"record"`
+	// Prices replace or add to what tend thinks a model costs, in dollars
+	// per million tokens, by the start of the model's id:
+	// [activity.prices.claude-opus-5] input = 5, output = 25, cache_read = 0.5
+	Prices map[string]usage.Price `toml:"prices"`
+}
+
+// RecordActivity is whether the server keeps the activity record.
+func (c Config) RecordActivity() bool { return c.Activity.Record == nil || *c.Activity.Record }
 
 // Errors connects the errors panel to a GlitchTip server. Both are set from
 // the panel, which writes them here — the settings file is written readable
@@ -1082,6 +1104,28 @@ enabled = false
 # GlitchTip project to show ("org/slug", or "" for all): the panel opened in
 # a pane working under one opens here. ctrl+l in the panel writes it.
 # projects = { "/home/me/shop" = "acme/shop-api" }
+
+[activity]
+# The session server writes down what each agent did — when it started and
+# stopped, where, which files changed, what its conversation spent — for
+# "tend activity" to report. A local file, readable by you alone.
+# record = true
+# What a model costs, in dollars per million tokens, when the built-in
+# prices (Anthropic's public API prices) are not what you pay.
+# [activity.prices.claude-opus-5]
+# input = 5
+# output = 25
+# cache_read = 0.5
+
+[policy]
+# Rules for agents. tend refuses to start an agent that breaks one, and
+# reports (a notice, and a line in "tend activity") one started by hand.
+# Branches agents do not work on; patterns such as "release/*" are allowed.
+# protected_branches = ["main", "master"]
+# Agents working on a repository do it in a worktree, not the main checkout.
+# require_worktree = false
+# How many agents may run at once in a session; 0 is no limit.
+# max_agents = 0
 
 [issues]
 # Starting work on a GitHub issue (the issues panel, w) makes a worktree for

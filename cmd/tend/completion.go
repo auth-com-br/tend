@@ -39,6 +39,7 @@ var commands = []struct{ name, help string }{
 	{"update", "install the published build"},
 	{"channel", "show or set the update channel"},
 	{"keys", "list every command and the key it is on"},
+	{"activity", "what agents did and what it cost"},
 	{"agents", "list the agents tend can recognise"},
 	{"detect", "classify a screen capture"},
 	{"explain", "classify a screen capture and say why"},
