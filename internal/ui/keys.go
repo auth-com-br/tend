@@ -109,6 +109,9 @@ const (
 	// CommandBrowser asks for a page and opens it in the browser (tend's
 	// own, prefix+B).
 	CommandBrowser
+	// CommandTickets opens the tickets panel: Linear, Jira and ClickUp
+	// (tend's own, prefix+T).
+	CommandTickets
 	// CommandCompanies opens the companies panel: which company's spaces
 	// the sidebar shows (herdr's user-defined Spaces, prefix+O).
 	CommandCompanies
@@ -225,6 +228,8 @@ func (c Command) String() string {
 		return "context"
 	case CommandBrowser:
 		return "browser"
+	case CommandTickets:
+		return "tickets"
 	case CommandCompanies:
 		return "companies"
 	default:
@@ -269,6 +274,7 @@ var Keys = []struct {
 	{"S", CommandSessions, "agent sessions: find, resume, delete"},
 	{"I", CommandIssues, "GitHub issues of this project"},
 	{"E", CommandErrors, "errors from GlitchTip, to fix"},
+	{"T", CommandTickets, "tickets from Linear, Jira, ClickUp"},
 	{"C", CommandContext, "context: captured, to send to an agent"},
 	{"B", CommandBrowser, "open a page in the browser"},
 	{"O", CommandCompanies, "companies: which spaces the sidebar shows"},
@@ -362,6 +368,7 @@ func DefaultBindings() map[string]Command {
 		"S":         CommandSessions,
 		"I":         CommandIssues,
 		"E":         CommandErrors,
+		"T":         CommandTickets,
 		"C":         CommandContext,
 		"B":         CommandBrowser,
 		"O":         CommandCompanies,

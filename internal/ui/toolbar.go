@@ -21,6 +21,7 @@ const (
 	ToolSessions = "sessions"
 	ToolIssues   = "issues"
 	ToolErrors   = "errors"
+	ToolTickets  = "tickets"
 	ToolBrowser  = "browser"
 	ToolContext  = "context"
 )
@@ -45,6 +46,7 @@ var toolIcons = map[string][3]string{
 	ToolSessions: {"\uf1da", "🕘", "S"},
 	ToolIssues:   {"\uf09b", "🐙", "I"},
 	ToolErrors:   {"\uf188", "🐞", "E"},
+	ToolTickets:  {"\uf145", "🎫", "T"},
 	ToolBrowser:  {"\uf0ac", "🌐", "B"},
 	ToolContext:  {"\uf0ea", "📋", "C"},
 }

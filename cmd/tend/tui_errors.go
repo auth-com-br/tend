@@ -974,8 +974,13 @@ func (t *tui) errorSay(message string) {
 
 // errorItem is the context item an error goes as.
 func errorItem(issue glitchtip.Issue, prompt string) proto.ContextItem {
-	return proto.ContextItem{Kind: capture.KindText, Source: "glitchtip", Title: issue.ShortID + " " + issue.Title,
-		URL: issue.URL, Text: prompt}
+	return errorItemText("glitchtip", issue.ShortID+" "+issue.Title, issue.URL, prompt)
+}
+
+// errorItemText is the context item for what an agent is handed to fix, an
+// error or a ticket.
+func errorItemText(source, title, url, prompt string) proto.ContextItem {
+	return proto.ContextItem{Kind: capture.KindText, Source: source, Title: title, URL: url, Text: prompt}
 }
 
 // fixError types the error, with its stack and what to do, into the pane
@@ -1042,7 +1047,7 @@ func (t *tui) fixErrorInWorktree() bool {
 			return
 		}
 		branch := "fix-" + worktree.Slug(issue.ShortID)
-		wsID, tab, message, err := t.errorWorktree(session, ws, branch, issue, agentName, prompt)
+		wsID, tab, message, err := t.errorWorktree(session, ws, branch, issue.ShortID, agentName, prompt)
 		if err != nil {
 			t.errorSay(err.Error())
 			return
@@ -1060,9 +1065,10 @@ func (t *tui) fixErrorInWorktree() bool {
 	return false
 }
 
-// errorWorktree makes, or finds, the worktree for an error in the space's
-// repository, and starts the agent there when it is new.
-func (t *tui) errorWorktree(session string, ws uint64, branch string, issue glitchtip.Issue, agentName, prompt string) (uint64, uint64, string, error) {
+// errorWorktree makes, or finds, the worktree for an error — or a ticket,
+// named by label — in the space's repository, and starts the agent there
+// when it is new.
+func (t *tui) errorWorktree(session string, ws uint64, branch, label, agentName, prompt string) (uint64, uint64, string, error) {
 	where := map[string]any{"workspace_id": api.WorkspaceID(sessionpkg.WorkspaceID(ws))}
 	list, err := apiCall(session, api.MethodWorktreeList, where, true)
 	if err != nil {
@@ -1077,11 +1083,11 @@ func (t *tui) errorWorktree(session string, ws uint64, branch string, issue glit
 			if err != nil {
 				return 0, 0, "", err
 			}
-			return workspaceOf(opened), 0, issue.ShortID + " already has a worktree: " + branch, nil
+			return workspaceOf(opened), 0, label + " already has a worktree: " + branch, nil
 		}
 	}
 	created, err := apiCall(session, api.MethodWorktreeCreate, map[string]any{
-		"workspace_id": where["workspace_id"], "branch": branch, "label": issue.ShortID,
+		"workspace_id": where["workspace_id"], "branch": branch, "label": label,
 	}, true)
 	if err != nil {
 		return 0, 0, "", err
@@ -1093,7 +1099,7 @@ func (t *tui) errorWorktree(session string, ws uint64, branch string, issue glit
 		return 0, 0, "", fmt.Errorf("the worktree was made, but tend could not tell where")
 	}
 	argv := append(append([]string{}, issueAgents[agentName]...), prompt)
-	tab, _, err := t.client.NewTab(wsID, issue.ShortID+" "+agentName, proto.PaneSpec{
+	tab, _, err := t.client.NewTab(wsID, label+" "+agentName, proto.PaneSpec{
 		Command: append([]string{"/bin/sh", "-c", resumeScript, "tend-fix"}, argv...),
 		Dir:     path,
 		Agent:   agentName,
@@ -1101,7 +1107,7 @@ func (t *tui) errorWorktree(session string, ws uint64, branch string, issue glit
 	if err != nil {
 		return wsID, 0, "", fmt.Errorf("the worktree %s is made, but %s did not start: %w", branch, agentName, err)
 	}
-	return wsID, tab, fmt.Sprintf("%s: %s on %s", issue.ShortID, agentName, branch), nil
+	return wsID, tab, fmt.Sprintf("%s: %s on %s", label, agentName, branch), nil
 }
 
 // setErrorStatus marks the current error on the server, and reads the list

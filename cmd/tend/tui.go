@@ -279,8 +279,12 @@ type tui struct {
 	issueState issuesState
 	// errors is the errors panel while it is up; errorState what the
 	// client keeps for it (tui_errors.go).
-	errors      *ui.ErrorsView
-	errorState  errorsState
+	errors     *ui.ErrorsView
+	errorState errorsState
+	// tickets is the tickets panel while it is up; ticketState what the
+	// client keeps for it (tui_tickets.go).
+	tickets     *ui.TicketsView
+	ticketState ticketsState
 	agentStatus []proto.AgentStatus
 	// contextView is the context panel while it is up, and contextItems the
 	// items it lists, in its order (tui_context.go).
@@ -1121,6 +1125,7 @@ func (t *tui) buildFrame() ui.Frame {
 		AgentManager: t.agentMgr,
 		Sessions:     t.sessions,
 		Companies:    t.companies,
+		Tickets:      t.tickets,
 		Issues:       t.issues,
 		Errors:       t.errors,
 		Context:      t.contextView,
@@ -1335,6 +1340,9 @@ func (t *tui) handleInput(data []byte) error {
 	if t.errorsUp() {
 		return t.errorsInput(data)
 	}
+	if t.ticketsUp() {
+		return t.ticketsInput(data)
+	}
 	if t.contextUp() {
 		return t.contextInput(data)
 	}
@@ -1542,6 +1550,8 @@ func (t *tui) command(action ui.Action) error {
 		return t.openSessions()
 	case ui.CommandCompanies:
 		return t.openCompanies()
+	case ui.CommandTickets:
+		return t.openTickets()
 	case ui.CommandIssues:
 		return t.openIssues()
 	case ui.CommandErrors:

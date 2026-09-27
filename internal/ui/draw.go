@@ -426,6 +426,8 @@ type Frame struct {
 	Sessions *SessionsView
 	// Companies is the companies panel, when it is up (companies.go).
 	Companies *CompaniesView
+	// Tickets is the tickets panel, when it is up (tickets.go).
+	Tickets *TicketsView
 	// Issues is the GitHub issues panel, when it is up (issues.go).
 	Issues *IssuesView
 	// Errors is the errors panel, when it is up (errors.go).
@@ -639,6 +641,9 @@ func Draw(dst *vt.Grid, f Frame, theme Theme) {
 	}
 	if f.Companies != nil {
 		drawCompanies(dst, f.Companies, theme)
+	}
+	if f.Tickets != nil {
+		drawTickets(dst, f.Tickets, theme)
 	}
 	if f.Issues != nil {
 		drawIssues(dst, f.Issues, theme)

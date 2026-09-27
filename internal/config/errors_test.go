@@ -104,3 +104,44 @@ projects = `+InlineTable(map[string]string{"/work/api": "shop/api", "/srv/x": ""
 		t.Errorf("inline table: %s", got)
 	}
 }
+
+// TestTicketAccountsAreKeptAndFoundByFolder: tracker accounts are read by
+// name, one without a token or a kind left out, and a project folder finds
+// its account and scope, the deepest winning. If it regresses, the tickets
+// panel loses an account, or opens on the wrong one.
+func TestTicketAccountsAreKeptAndFoundByFolder(t *testing.T) {
+	cfg, err := parse(`[tickets]
+source = "linear-akira"
+
+[tickets.sources.linear-akira]
+kind = "linear"
+token = "keyring:tickets:linear-akira"
+projects = { "/work" = "" }
+
+[tickets.sources.jira-acme]
+kind = "jira"
+url = "https://acme.atlassian.net"
+email = "me@acme.com"
+token = "t"
+projects = { "/work/app" = "APP" }
+
+[tickets.sources.half]
+kind = "clickup"
+`, "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var names []string
+	for _, s := range cfg.TicketSources() {
+		names = append(names, s.Name)
+	}
+	if strings.Join(names, " ") != "jira-acme linear-akira" || cfg.Tickets.Source != "linear-akira" {
+		t.Errorf("sources %v", names)
+	}
+	if s, scope, ok := cfg.TicketSourceFor("/work/app/src"); !ok || s.Name != "jira-acme" || scope != "APP" {
+		t.Errorf("app: %v %q %v", s.Name, scope, ok)
+	}
+	if s, _, ok := cfg.TicketSourceFor("/work/site"); !ok || s.Name != "linear-akira" {
+		t.Errorf("site: %v %v", s.Name, ok)
+	}
+}

@@ -93,7 +93,14 @@ file in the files panel, or from any tool over the automation socket
 agent this tab works with, where it is typed in for you to read over and send. Sessions (or `ctrl+b S`) lists the
 conversations your agents keep on this machine (Claude Code's so far): type to
 search them, enter to resume one in a new tab where it was held, and mark old
-ones to delete them. The files panel's menu (`m`, or a right-click) opens the instructions your
+ones to delete them. Tickets (or `ctrl+b T`) is the same for Linear, Jira and ClickUp: connect an
+account with a token from it (the gear keeps several), and the open tickets,
+yours and the done are listed; open one to read it with its comments, `c` to
+comment, `x` to mark it done in the tracker, `f` to hand it to your agent,
+`w` to work on it in a worktree, and `ctrl+l` to make the project you are in
+open on that account.
+
+The files panel's menu (`m`, or a right-click) opens the instructions your
 agents read — global, the project's, a folder's — and "Share instructions
 with every agent" makes one file serve Claude Code and the others
 (`CLAUDE.md` reading `AGENTS.md`). To hand a task to another agent — Codex after Claude

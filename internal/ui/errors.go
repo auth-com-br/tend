@@ -67,9 +67,11 @@ type ErrorsConnect struct {
 // ErrorsManage is the box the servers are kept in: each one's address,
 // the one shown, and adding or removing one.
 type ErrorsManage struct {
-	Servers []string
-	Cursor  int
-	Active  int
+	// Title and Subtitle head the box; empty is the errors panel's.
+	Title, Subtitle string
+	Servers         []string
+	Cursor          int
+	Active          int
 	// Confirm is while a remove waits for its answer.
 	Confirm bool
 	Message string
@@ -238,20 +240,7 @@ func ErrorsLayout(v *ErrorsView, cols, rows int) ErrorsGeometry {
 		g.Buttons = append(g.Buttons, b)
 	}
 	if m := v.Manage; m != nil {
-		mw, mh := min(64, cols-4), min(len(m.Servers)+9, rows-4)
-		mb := Rect{X: (cols - mw) / 2, Y: (rows - mh) / 2, Cols: max(mw, 0), Rows: max(mh, 0)}
-		g.ManageBox = mb
-		g.ManageList = Rect{X: mb.X + 2, Y: mb.Y + 3, Cols: max(mb.Cols-4, 0), Rows: max(mb.Rows-8, 0)}
-		mx := mb.X + 2
-		for _, b := range []IssueButton{{ID: ErrorsUse, Label: "[ Use ]"}, {ID: ErrorsAdd, Label: "[ Add ]"}, {ID: ErrorsRemove, Label: "[ Remove ]"}, {ID: ErrorsManageEnd, Label: "[ Close ]"}} {
-			b.Rect = Rect{X: mx, Y: mb.Y + mb.Rows - 2, Cols: runewidth.StringWidth(b.Label), Rows: 1}
-			if b.ID == ErrorsManageEnd {
-				b.X = mb.X + mb.Cols - 2 - b.Cols
-			} else {
-				mx += b.Cols + 1
-			}
-			g.ManageButtons = append(g.ManageButtons, b)
-		}
+		g.ManageBox, g.ManageList, g.ManageButtons = manageLayout(m, cols, rows)
 	}
 	if v.Connect != nil {
 		cw, ch := min(64, cols-4), 11
@@ -276,20 +265,7 @@ func ErrorsAt(v *ErrorsView, cols, rows, x, y int) (string, bool) {
 	g := ErrorsLayout(v, cols, rows)
 	in := func(r Rect) bool { return y >= r.Y && y < r.Y+r.Rows && x >= r.X && x < r.X+r.Cols }
 	if v.Manage != nil && v.Connect == nil {
-		if OnCloseMark(g.ManageBox, x, y) {
-			return ErrorsManageEnd, true
-		}
-		for _, b := range g.ManageButtons {
-			if in(b.Rect) {
-				return b.ID, true
-			}
-		}
-		if in(g.ManageList) {
-			if i := y - g.ManageList.Y; i < len(v.Manage.Servers) {
-				return fmt.Sprintf("server:%d", i), true
-			}
-		}
-		return "", false
+		return manageAt(v.Manage, cols, rows, x, y)
 	}
 	if v.Connect != nil {
 		if OnCloseMark(g.ConnectBox, x, y) {
@@ -529,10 +505,55 @@ func errorsLinkLabel(v *ErrorsView) string {
 	return "[ link " + v.Folder + " here ]"
 }
 
+// manageLayout is where a box of accounts goes and its parts: the servers
+// box of the errors panel, the accounts box of the tickets panel.
+func manageLayout(m *ErrorsManage, cols, rows int) (Rect, Rect, []IssueButton) {
+	mw, mh := min(64, cols-4), min(len(m.Servers)+9, rows-4)
+	mb := Rect{X: (cols - mw) / 2, Y: (rows - mh) / 2, Cols: max(mw, 0), Rows: max(mh, 0)}
+	list := Rect{X: mb.X + 2, Y: mb.Y + 3, Cols: max(mb.Cols-4, 0), Rows: max(mb.Rows-8, 0)}
+	var buttons []IssueButton
+	mx := mb.X + 2
+	for _, b := range []IssueButton{{ID: ErrorsUse, Label: "[ Use ]"}, {ID: ErrorsAdd, Label: "[ Add ]"}, {ID: ErrorsRemove, Label: "[ Remove ]"}, {ID: ErrorsManageEnd, Label: "[ Close ]"}} {
+		b.Rect = Rect{X: mx, Y: mb.Y + mb.Rows - 2, Cols: runewidth.StringWidth(b.Label), Rows: 1}
+		if b.ID == ErrorsManageEnd {
+			b.X = mb.X + mb.Cols - 2 - b.Cols
+		} else {
+			mx += b.Cols + 1
+		}
+		buttons = append(buttons, b)
+	}
+	return mb, list, buttons
+}
+
+// manageAt is what a click in a box of accounts is on: a button, or a
+// line ("server:N").
+func manageAt(m *ErrorsManage, cols, rows, x, y int) (string, bool) {
+	box, list, buttons := manageLayout(m, cols, rows)
+	in := func(r Rect) bool { return y >= r.Y && y < r.Y+r.Rows && x >= r.X && x < r.X+r.Cols }
+	if OnCloseMark(box, x, y) {
+		return ErrorsManageEnd, true
+	}
+	for _, b := range buttons {
+		if in(b.Rect) {
+			return b.ID, true
+		}
+	}
+	if in(list) {
+		if i := y - list.Y; i < len(m.Servers) {
+			return fmt.Sprintf("server:%d", i), true
+		}
+	}
+	return "", false
+}
+
 // drawErrorsManage draws the servers box: each server kept, the one shown
 // marked, and what to do with them.
 func drawErrorsManage(dst *vt.Grid, m *ErrorsManage, g ErrorsGeometry, theme Theme) {
-	box := g.ManageBox
+	drawManage(dst, m, g.ManageBox, g.ManageList, g.ManageButtons, theme)
+}
+
+// drawManage draws a box of accounts.
+func drawManage(dst *vt.Grid, m *ErrorsManage, box, listRect Rect, buttons []IssueButton, theme Theme) {
 	for y := box.Y; y < box.Y+box.Rows; y++ {
 		for x := box.X; x < box.X+box.Cols; x++ {
 			setCell(dst, x, y, ' ', theme.Notes)
@@ -541,25 +562,29 @@ func drawErrorsManage(dst *vt.Grid, m *ErrorsManage, g ErrorsGeometry, theme The
 	drawBox(dst, box, theme.NotesAccent)
 	drawCloseMark(dst, box, withBold(theme.NotesAccent))
 	right := box.X + box.Cols - 1
-	writeString(dst, box.X+2, box.Y, " GlitchTip servers ", withBold(theme.NotesAccent), right)
-	writeString(dst, box.X+2, box.Y+1, truncate("the servers kept; the panel shows one at a time", box.Cols-4), theme.NotesSub, right)
-	end := g.ManageList.X + g.ManageList.Cols
+	title, subtitle := m.Title, m.Subtitle
+	if title == "" {
+		title, subtitle = "GlitchTip servers", "the servers kept; the panel shows one at a time"
+	}
+	writeString(dst, box.X+2, box.Y, " "+title+" ", withBold(theme.NotesAccent), right)
+	writeString(dst, box.X+2, box.Y+1, truncate(subtitle, box.Cols-4), theme.NotesSub, right)
+	end := listRect.X + listRect.Cols
 	for i, name := range m.Servers {
-		if i >= g.ManageList.Rows {
+		if i >= listRect.Rows {
 			break
 		}
-		y := g.ManageList.Y + i
+		y := listRect.Y + i
 		base, accent := theme.Notes, theme.NotesAccent
 		if i == m.Cursor {
 			base, accent = theme.NotesButton, theme.NotesButton
-			for x := g.ManageList.X; x < end; x++ {
+			for x := listRect.X; x < end; x++ {
 				setCell(dst, x, y, ' ', base)
 			}
 		}
 		if i == m.Active {
-			writeString(dst, g.ManageList.X, y, "●", withBold(accent), end)
+			writeString(dst, listRect.X, y, "●", withBold(accent), end)
 		}
-		writeString(dst, g.ManageList.X+2, y, truncate(name, g.ManageList.Cols-3), base, end)
+		writeString(dst, listRect.X+2, y, truncate(name, listRect.Cols-3), base, end)
 	}
 	msg, style := "↑↓ move · enter use · a add · d remove · esc close", theme.NotesSub
 	switch {
@@ -569,7 +594,7 @@ func drawErrorsManage(dst *vt.Grid, m *ErrorsManage, g ErrorsGeometry, theme The
 		msg = m.Message
 	}
 	writeString(dst, box.X+2, box.Y+box.Rows-3, truncate(msg, box.Cols-4), style, right)
-	for _, b := range g.ManageButtons {
+	for _, b := range buttons {
 		writeString(dst, b.X, b.Y, b.Label, theme.NotesAccent, right)
 	}
 }

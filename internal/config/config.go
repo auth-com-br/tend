@@ -39,6 +39,7 @@ type Config struct {
 	Issues     Issues    `toml:"issues"`
 	Errors     Errors    `toml:"errors"`
 	GitLab     GitLab    `toml:"gitlab"`
+	Tickets    Tickets   `toml:"tickets"`
 }
 
 // Errors connects the errors panel to a GlitchTip server. Both are set from
@@ -159,6 +160,70 @@ func ErrorSourceName(url string) string {
 		return name
 	}
 	return "glitchtip"
+}
+
+// Tickets are the tracker accounts the tickets panel shows, one table each
+// ([tickets.sources.<name>]), as the errors panel keeps its servers, and
+// the one last shown.
+type Tickets struct {
+	Sources map[string]TicketSource `toml:"sources"`
+	Source  string                  `toml:"source"`
+}
+
+// TicketSource is one tracker account: Linear, Jira or ClickUp, its site
+// and email for Jira, its token — or where the keyring keeps it — and the
+// project folders whose tickets it has, each with the scope (a team, a
+// project, a workspace) to show, "" for all.
+type TicketSource struct {
+	Kind     string            `toml:"kind"`
+	URL      string            `toml:"url"`
+	Email    string            `toml:"email"`
+	Token    string            `toml:"token"`
+	Projects map[string]string `toml:"projects"`
+}
+
+// NamedTicketSource is a tracker account with the name it is kept under.
+type NamedTicketSource struct {
+	Name string
+	TicketSource
+}
+
+// TicketSources are the tracker accounts, by name; one with no kind or no
+// token is left out.
+func (c Config) TicketSources() []NamedTicketSource {
+	names := make([]string, 0, len(c.Tickets.Sources))
+	for n := range c.Tickets.Sources {
+		names = append(names, n)
+	}
+	sort.Strings(names)
+	var out []NamedTicketSource
+	for _, n := range names {
+		if s := c.Tickets.Sources[n]; s.Kind != "" && s.Token != "" {
+			out = append(out, NamedTicketSource{Name: n, TicketSource: s})
+		}
+	}
+	return out
+}
+
+// TicketSourceFor is the account whose project folders hold dir, the
+// deepest folder winning, with the scope it names.
+func (c Config) TicketSourceFor(dirs ...string) (NamedTicketSource, string, bool) {
+	var best NamedTicketSource
+	scope, depth := "", -1
+	for _, src := range c.TicketSources() {
+		for folder, sc := range src.Projects {
+			folder = strings.TrimRight(folder, "/")
+			for _, dir := range dirs {
+				if dir == "" || folder == "" || (dir != folder && !strings.HasPrefix(dir, folder+"/")) {
+					continue
+				}
+				if len(folder) > depth {
+					best, scope, depth = src, sc, len(folder)
+				}
+			}
+		}
+	}
+	return best, scope, depth >= 0
 }
 
 // GitLab is the tokens `tend gitlab login` keeps, by host: the token itself,
@@ -396,7 +461,7 @@ type Toolbar struct {
 }
 
 // ToolbarTools are the tools a toolbar can hold, in their default order.
-var ToolbarTools = []string{"files", "agents", "sessions", "issues", "errors", "browser", "context"}
+var ToolbarTools = []string{"files", "agents", "sessions", "issues", "errors", "tickets", "browser", "context"}
 
 // ToolbarItems is the tools the sidebar shows, none when it is off.
 func (c Config) ToolbarItems() []string {
@@ -923,7 +988,7 @@ grouped = false
 # agents, browser and context. items picks which, in order.
 # [ui.toolbar]
 # enabled = true
-# items = ["files", "agents", "sessions", "issues", "errors", "browser", "context"]
+# items = ["files", "agents", "sessions", "issues", "errors", "tickets", "browser", "context"]
 
 [ui.theme]
 # A named theme: catppuccin, catppuccin-latte, terminal, tokyo-night,
