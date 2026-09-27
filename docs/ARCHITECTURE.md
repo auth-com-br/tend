@@ -50,6 +50,9 @@ Concretely, for `internal/vt` and the render loop:
 | `internal/client` | TUI client |
 | `internal/ui` | Pure rendering |
 | `internal/explorer` | The files panel (`tend files`): tree, git, diff, search |
+| `internal/activity` | The record of what agents did: the log file, runs folded from it, git facts, export |
+| `internal/usage` | Tokens an agent's conversation spent, read from its own files, and their price |
+| `internal/policy` | Rules on where agents may run, checked against facts it is given |
 | `cmd/tend` | CLI entry point |
 
 ## Terminal core

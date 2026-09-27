@@ -16,9 +16,11 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"github.com/auth-com-br/tend/internal/activity"
 	"github.com/auth-com-br/tend/internal/api"
 	"github.com/auth-com-br/tend/internal/client"
 	"github.com/auth-com-br/tend/internal/config"
+	"github.com/auth-com-br/tend/internal/policy"
 	"github.com/auth-com-br/tend/internal/proto"
 	"github.com/auth-com-br/tend/internal/pty"
 	"github.com/auth-com-br/tend/internal/server"
@@ -238,6 +240,28 @@ func runServe(args []string) error {
 	}
 	if path, err := config.Path(); err == nil {
 		srvCfg.NotesPath = filepath.Join(filepath.Dir(path), "release-notes.json")
+	}
+	// The record of what agents did goes beside the sessions, one file for
+	// all of them, so a report can span every session on the machine.
+	srvCfg.SessionName = *name
+	if srvCfg.SessionName == "" {
+		srvCfg.SessionName = transport.DefaultSessionName
+	}
+	if cfg.RecordActivity() {
+		if dir, err := transport.StateDir(); err == nil {
+			srvCfg.Activity = activity.NewLog(activity.Path(dir))
+		}
+	}
+	// Read again at every check, as the release check is, so a rule
+	// written into the settings file holds from the next agent on. A file
+	// that stopped parsing keeps the rules the server started with rather
+	// than dropping them.
+	srvCfg.Policy = func() policy.Policy {
+		c, err := config.LoadLenient()
+		if err != nil {
+			return cfg.Policy
+		}
+		return c.Policy
 	}
 
 	// The replacement is whatever binary is at this one's path by then, which

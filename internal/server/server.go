@@ -26,9 +26,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/auth-com-br/tend/internal/activity"
 	"github.com/auth-com-br/tend/internal/agent"
 	"github.com/auth-com-br/tend/internal/agentsessions"
 	"github.com/auth-com-br/tend/internal/detect"
+	"github.com/auth-com-br/tend/internal/policy"
 	"github.com/auth-com-br/tend/internal/proto"
 	"github.com/auth-com-br/tend/internal/pty"
 	"github.com/auth-com-br/tend/internal/session"
@@ -243,6 +245,24 @@ type Config struct {
 	// FakeUpdate pretends a release of this version is published, herdr's
 	// HERDR_FAKE_UPDATE_VERSION, to see the notice without publishing one.
 	FakeUpdate string
+	// Activity is where the record of what agents did is written
+	// (activity.go). Nil keeps none.
+	Activity *activity.Log
+	// SessionName names this session in that record.
+	SessionName string
+	// ActivityInterval is how often the record is brought up to date. Zero
+	// picks a default.
+	ActivityInterval time.Duration
+	// ActivityGrace is how long a pane may be without its agent before its
+	// run is over. Zero picks a default.
+	ActivityGrace time.Duration
+	// Transcripts finds the file an agent keeps a conversation in. Nil
+	// looks where the agents keep them on this machine.
+	Transcripts activity.Transcripts
+	// Policy returns the rules agents are held to, asked each time they are
+	// checked so an edited settings file applies without a restart. Nil
+	// holds them to none.
+	Policy func() policy.Policy
 }
 
 // PaneSpec describes a pane to open.
@@ -367,6 +387,8 @@ type Server struct {
 	// agentView is the filter and order a script set on the agent list
 	// (agent.view.set), or nil.
 	agentView *agentview.View
+	// activity keeps the record of what agents did (activity.go), or is nil.
+	activity *recorder
 
 	// retick carries a new detection interval to the loop, which cannot read
 	// the configuration under the lock while it is doing a round of work.
@@ -435,6 +457,13 @@ func build(cfg Config) (*Server, error) {
 		done:     make(chan struct{}),
 		retick:   make(chan time.Duration, 1),
 	}
+	if cfg.Activity != nil {
+		find := cfg.Transcripts
+		if find == nil {
+			find = DefaultTranscripts
+		}
+		s.activity = newRecorder(cfg.Activity, cfg.SessionName, find)
+	}
 	return s, nil
 }
 
@@ -450,6 +479,10 @@ func (s *Server) startLoops() {
 	if s.cfg.StateFile != "" {
 		s.wg.Add(1)
 		go s.persistLoop()
+	}
+	if s.activity != nil {
+		s.wg.Add(1)
+		go s.activityLoop()
 	}
 }
 
@@ -472,6 +505,10 @@ func (s *Server) Close() error {
 	// is the last point at which the session can still be asked what it is.
 	s.saveStructure()
 	s.saveHistory()
+	// And the runs ended, for the same reason: what changed in each
+	// checkout is still there to be asked about, and the agents are about
+	// to go.
+	s.stopActivity()
 
 	s.mu.Lock()
 	if s.closed {
@@ -569,6 +606,9 @@ func (s *Server) NewWorkspaceIn(name, dir string) (session.WorkspaceID, error) {
 // backs it.
 func (s *Server) NewTab(ws session.WorkspaceID, name string, spec PaneSpec) (session.TabID, session.PaneID, error) {
 	s.followDir(&spec, spec.DirOf)
+	if err := s.admitSpec(spec); err != nil {
+		return 0, 0, err
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.closed {
@@ -615,6 +655,9 @@ func (s *Server) SplitPane(target session.PaneID, dir session.Direction, spec Pa
 		from = target
 	}
 	s.followDir(&spec, from)
+	if err := s.admitSpec(spec); err != nil {
+		return 0, err
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.closed {
@@ -655,6 +698,9 @@ func (s *Server) DockPaneUnless(beside session.PaneID, share float64, right bool
 		if rt != nil {
 			spec.Dir = rt.pty.Cwd()
 		}
+	}
+	if err := s.admitSpec(spec); err != nil {
+		return 0, false, err
 	}
 
 	s.mu.Lock()

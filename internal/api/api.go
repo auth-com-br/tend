@@ -343,6 +343,8 @@ func paneErr(name string, err error) error {
 		return fail("pane_not_found", "pane %s not found", name)
 	case errors.Is(err, server.ErrBadAgent):
 		return fail("invalid_agent", "agent label must not be empty")
+	case errors.Is(err, server.ErrPolicy):
+		return fail("policy_denied", "%s", err.Error())
 	}
 	var badKey *server.ErrUnknownKey
 	if errors.As(err, &badKey) {

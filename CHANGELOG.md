@@ -5,6 +5,12 @@ release's notes on GitHub and what "what's new" shows inside tend.
 
 ## Unreleased
 
+## v0.10.0 — 2026-09-27
+
+#### New
+- **What agents did, and what it cost.** tend keeps a record of every agent: when it started and stopped, the project and branch, what it was working on (an issue, an error, a ticket), the files that changed while it ran, and the tokens its conversation spent with an estimate of their cost (Claude Code and Codex). `tend activity` shows it as a table, CSV or JSON — per run, or totalled per project or per agent — and `-prs` adds the pull request each branch became.
+- **Policies for agents.** `[policy]` in the settings: branches agents stay off (`protected_branches`), agents only in a worktree (`require_worktree`), and how many may run at once (`max_agents`). tend refuses to start an agent against them and says why; one started by hand is reported, not stopped.
+
 ## v0.9.0 — 2026-09-27
 
 #### New

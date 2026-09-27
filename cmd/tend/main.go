@@ -55,6 +55,7 @@ commands that need no server:
   update            install the build published on your channel
   channel           show or set the update channel
   keys              list every command and the key it is on
+  activity          what agents did and what it cost: CSV, JSON or a table
   agents            list the agents tend can detect
   detect            report an agent's state from captured terminal output
   explain           show how every rule voted, for one capture
@@ -124,6 +125,8 @@ func main() {
 		err = runChannel(args[1:])
 	case "keys":
 		err = runKeys(args[1:])
+	case "activity":
+		err = runActivity(args[1:])
 	case "agents":
 		err = runAgents(args[1:])
 	case "detect":

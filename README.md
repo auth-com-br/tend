@@ -209,6 +209,43 @@ agent list, clicking a row goes there — a pane, a tab, or a whole space. A pan
 running something that wants the mouse itself, an editor say, gets the clicks
 instead.
 
+### what agents did, and rules for them
+
+The session server keeps a record of every agent: when it started and
+stopped, in which project and on which branch, what the branch says it was
+for (an issue, an error, a ticket), which files changed in its checkout while
+it ran, and — for Claude Code and Codex — the tokens its conversation spent
+and what that is likely to have cost. `tend activity` reads it, with no
+server needed:
+
+```bash
+tend activity                          # every run, newest first
+tend activity -project . -since 7d     # this project, this week
+tend activity -by project              # totals per project (or -by agent)
+tend activity -prs                     # and the pull request each branch became
+tend activity -format csv -o runs.csv  # or -format json
+tend activity -violations              # agents that broke a policy
+```
+
+Costs are estimates from the models' public API prices; what a subscription
+or a cloud provider charges is not that, and `[activity.prices]` replaces
+them. The record is `activity.jsonl` in tend's state directory, readable by
+you alone; `[activity] record = false` turns it off.
+
+Rules for agents go in `[policy]`:
+
+```toml
+[policy]
+protected_branches = ["main", "master"]  # agents do not work on these
+require_worktree = true                  # only in a worktree of a repository
+max_agents = 4                           # at once, in a session
+```
+
+tend refuses to start an agent that would break one — from the issues,
+errors and tickets panels, `tend new`, or the automation socket — and says
+why. One started by hand in a shell is not stopped: tend says so, and writes
+it down for `tend activity -violations`.
+
 ## settings
 
 Optional, at `~/.config/tend/config.toml`. `tend config -init` writes a

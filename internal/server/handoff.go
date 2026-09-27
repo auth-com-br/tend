@@ -146,6 +146,11 @@ func (s *Server) BeginHandoff() (*Handoff, error) {
 		runtimes = append(runtimes, rt)
 	}
 	s.mu.Unlock()
+	// The replacement reads the activity record when it starts and carries
+	// on the runs it finds there. A round of this server's recorder already
+	// under way is let finish first, and no other begins while handing off,
+	// so nothing is written after the replacement has read.
+	s.waitForActivityRound()
 
 	h := &Handoff{}
 	for _, rt := range runtimes {

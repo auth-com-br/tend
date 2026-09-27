@@ -3,6 +3,7 @@ package github
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"sort"
 	"strings"
 	"sync"
@@ -483,6 +484,41 @@ func PRsForIssue(repo Repo, number int, branches []string) ([]PR, error) {
 		}
 		seen[n] = true
 		prs = append(prs, d.PR)
+	}
+	sort.Slice(prs, func(i, j int) bool { return prs[i].Number > prs[j].Number })
+	return prs, nil
+}
+
+// PRsForBranch is the pull requests (merge requests, on a GitLab) opened
+// from a branch, in any state, the newest first: what the work on a branch
+// became, for the activity record.
+func PRsForBranch(repo Repo, branch string) ([]PR, error) {
+	if repo.GitLab() {
+		var mrs []glMR
+		q := url.Values{"source_branch": {branch}, "state": {"all"}}
+		if err := gitlabCall(repo.Host, "GET", project(repo)+"/merge_requests?"+q.Encode(), nil, &mrs); err != nil {
+			return nil, err
+		}
+		out := make([]PR, 0, len(mrs))
+		for _, m := range mrs {
+			out = append(out, m.pr(repo))
+		}
+		sort.Slice(out, func(i, j int) bool { return out[i].Number > out[j].Number })
+		return out, nil
+	}
+	out, err := run("pr", "list", "--repo", repo.Slug(), "--state", "all", "--head", branch, "--json", prFields)
+	if err != nil {
+		return nil, err
+	}
+	var wire []wirePR
+	if err := json.Unmarshal(out, &wire); err != nil {
+		return nil, err
+	}
+	prs := make([]PR, 0, len(wire))
+	for _, w := range wire {
+		p := w.pr()
+		p.Repo = repo.Slug()
+		prs = append(prs, p)
 	}
 	sort.Slice(prs, func(i, j int) bool { return prs[i].Number > prs[j].Number })
 	return prs, nil
