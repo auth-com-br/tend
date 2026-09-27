@@ -225,6 +225,100 @@ func TestClickUpTasksAreListedAcrossAWorkspace(t *testing.T) {
 	}
 }
 
+// TestTheIssueGatewayIsAskedAsItsContractSays: the token goes as a bearer
+// under /v1 of the account's address; a list passes the scope, the
+// preset's name and what was typed, and takes the order and a null
+// assignee or address as they come; a ticket is read with its comments
+// oldest first; a comment and closing are posted to the issue's ref; a 401
+// is a refused token, and an error's body is said by its message. A
+// stand-in written from the gateway's contract (issue-gateway#27); no real
+// gateway was asked. If it regresses, the gateway refuses every call, the
+// presets list the same tickets, or a failure reads as raw JSON.
+func TestTheIssueGatewayIsAskedAsItsContractSays(t *testing.T) {
+	var rec recorder
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "Bearer ig_1" {
+			w.WriteHeader(http.StatusUnauthorized)
+			_, _ = io.WriteString(w, `{"error":{"code":"unauthorized","message":"bad token"}}`)
+			return
+		}
+		body, _ := io.ReadAll(r.Body)
+		switch {
+		case r.URL.Path == "/v1/me":
+			_, _ = io.WriteString(w, `{"name":"akira"}`)
+		case r.URL.Path == "/v1/scopes":
+			_, _ = io.WriteString(w, `{"items":[{"id":"s-1","name":"Cliente XYZ / Sistema de Recarga"}]}`)
+		case r.URL.Path == "/v1/issues":
+			rec.add("list " + r.URL.RawQuery)
+			_, _ = io.WriteString(w, `{"items":[
+				{"key":"IG-12","ref":"u-12","title":"recarga falha","state":"published","done":false,"assignee":"akira","scope":"Sistema de Recarga","updated":"2026-09-27T12:00:00Z","url":"https://github.com/acme/app/issues/3"},
+				{"key":"IG-9","ref":"u-9","title":"old","state":"closed","done":true,"assignee":null,"scope":"Sistema de Recarga","updated":"2026-09-20T12:00:00Z","url":null}]}`)
+		case r.URL.Path == "/v1/issues/u-12" && r.Method == "GET":
+			_, _ = io.WriteString(w, `{"key":"IG-12","ref":"u-12","title":"recarga falha","state":"published","done":false,"assignee":"akira","scope":"Sistema de Recarga","updated":"2026-09-27T12:00:00Z","url":null,
+				"body":"**falha** no pix","comments":[{"author":"bia","body":"newer","created":"2026-09-26T00:00:00Z"},{"author":"ana","body":"older","created":"2026-09-25T00:00:00Z"}]}`)
+		case r.URL.Path == "/v1/issues/u-12/comments" && r.Method == "POST":
+			rec.add("comment " + string(body))
+			w.WriteHeader(http.StatusCreated)
+			_, _ = io.WriteString(w, `{}`)
+		case r.URL.Path == "/v1/issues/u-12/close" && r.Method == "POST":
+			rec.add("close " + string(body))
+			w.WriteHeader(http.StatusNoContent)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = io.WriteString(w, `{"error":{"code":"not_found","message":"no issue u-404"}}`)
+		}
+	}))
+	defer srv.Close()
+	if _, err := New(Account{Kind: IssueGateway, Token: "ig_1"}); err == nil {
+		t.Error("an Issue Gateway with no address was taken")
+	}
+	c, _ := New(Account{Kind: IssueGateway, URL: srv.URL + "/", Token: "ig_1"})
+	if who, err := c.WhoAmI(); err != nil || who != "akira" {
+		t.Fatalf("whoami %q %v", who, err)
+	}
+	scopes, err := c.Scopes()
+	if err != nil || len(scopes) != 1 || scopes[0].ID != "s-1" || scopes[0].Name != "Cliente XYZ / Sistema de Recarga" {
+		t.Fatalf("scopes %+v %v", scopes, err)
+	}
+	list, err := c.List("s-1", FilterMine, " recarga ")
+	if err != nil || len(list) != 2 || list[0].Key != "IG-12" || list[0].Ref != "u-12" || list[0].Assignee != "akira" ||
+		list[0].Done || list[0].URL != "https://github.com/acme/app/issues/3" || list[0].Updated.Day() != 27 ||
+		!list[1].Done || list[1].Assignee != "" || list[1].URL != "" {
+		t.Fatalf("list %+v %v", list, err)
+	}
+	if _, err := c.List("", FilterClosed, ""); err != nil {
+		t.Fatal(err)
+	}
+	d, err := c.Get("u-12")
+	if err != nil || d.Body != "**falha** no pix" || d.Key != "IG-12" || len(d.Comments) != 2 ||
+		d.Comments[0].Body != "older" || d.Comments[0].Author != "ana" {
+		t.Errorf("detail %+v %v", d, err)
+	}
+	if err := c.Comment("u-12", "on it"); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.Close("u-12"); err != nil {
+		t.Fatal(err)
+	}
+	got := rec.all()
+	for _, want := range []string{"list filter=mine&q=recarga&scope=s-1", "list filter=closed&q=&scope=", `comment {"body":"on it"}`, "close "} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %s in:\n%s", want, got)
+		}
+	}
+	if _, err := c.Get("u-404"); err == nil || !strings.Contains(err.Error(), "no issue u-404") || strings.Contains(err.Error(), "not_found") {
+		t.Errorf("an error's body: %v", err)
+	}
+	bad, _ := New(Account{Kind: IssueGateway, URL: srv.URL, Token: "nope"})
+	if _, err := bad.WhoAmI(); !errors.Is(err, ErrBadToken) {
+		t.Errorf("a bad token: %v", err)
+	}
+	none, _ := New(Account{Kind: IssueGateway, URL: srv.URL})
+	if _, err := none.List("", FilterOpen, ""); !errors.Is(err, ErrNoToken) {
+		t.Errorf("no token: %v", err)
+	}
+}
+
 // TestAFixPromptCarriesTheTicket: what an agent is told has the ticket's
 // key, title, address, state, text and comments. If it regresses, the
 // agent is handed a title and has to ask for the rest.

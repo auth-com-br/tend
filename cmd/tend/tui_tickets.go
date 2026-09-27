@@ -14,8 +14,8 @@ import (
 	"github.com/auth-com-br/tend/internal/worktree"
 )
 
-// The tickets panel (internal/ui/tickets.go, internal/tickets): Linear, Jira
-// and ClickUp, as the errors panel is GlitchTip. The client talks to each
+// The tickets panel (internal/ui/tickets.go, internal/tickets): Linear, Jira,
+// ClickUp and the Issue Gateway, as the errors panel is GlitchTip. The client talks to each
 // tracker itself, with the accounts kept in its settings — tokens in the
 // system keyring when there is one — and does with a ticket what it does
 // with an error: types it into the pane the panel was opened from, starts
@@ -791,11 +791,18 @@ func (t *tui) ticketsConnectKey(key string) {
 		t.mu.Unlock()
 		return
 	}
-	jira := c.Kind < len(c.Kinds) && c.Kinds[c.Kind] == string(tickets.Jira)
-	// The fields a tracker asks for: the site and the email are Jira's.
+	kind := ""
+	if c.Kind < len(c.Kinds) {
+		kind = c.Kinds[c.Kind]
+	}
+	// The fields a tracker asks for: the site and the email are Jira's, and
+	// the site the Issue Gateway's too, which is wherever it is hosted.
 	fields := []int{0, 3}
-	if jira {
+	switch tickets.Kind(kind) {
+	case tickets.Jira:
 		fields = []int{0, 1, 2, 3}
+	case tickets.IssueGateway:
+		fields = []int{0, 1, 3}
 	}
 	step := func(by int) {
 		at := 0
@@ -883,11 +890,16 @@ func (t *tui) saveTicketsConnect() {
 	c := v.Connect
 	kind := c.Kinds[c.Kind]
 	acct := tickets.Account{Kind: tickets.Kind(kind), Token: strings.TrimSpace(c.Token)}
-	if kind == string(tickets.Jira) {
+	if kind == string(tickets.Jira) || kind == string(tickets.IssueGateway) {
 		acct.URL = strings.TrimRight(strings.TrimSpace(c.URL), "/")
-		acct.Email = strings.TrimSpace(c.Email)
+		if kind == string(tickets.Jira) {
+			acct.Email = strings.TrimSpace(c.Email)
+		}
 		if acct.URL == "" || acct.URL == "https:" || acct.URL == "http:" {
 			c.Error = "Jira needs its site's address"
+			if kind == string(tickets.IssueGateway) {
+				c.Error = "the Issue Gateway needs its address"
+			}
 			t.dirty = true
 			t.mu.Unlock()
 			return

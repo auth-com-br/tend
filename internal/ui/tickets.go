@@ -11,7 +11,7 @@ import (
 )
 
 // The tickets panel is tend's own (#9): the tickets of the trackers a team
-// keeps its work in — Linear, Jira, ClickUp — as the errors panel shows
+// keeps its work in — Linear, Jira, ClickUp, the Issue Gateway — as the errors panel shows
 // what GlitchTip caught, with the same parts: accounts kept and a box to
 // manage them, a scope and a preset over a search, one ticket whole with
 // its comments, and what hands it to an agent. It is drawn as the errors
@@ -42,7 +42,8 @@ type TicketDetailView struct {
 }
 
 // TicketsConnect is the box an account is added in: which tracker, the
-// site and the email for Jira, and the token.
+// site and the email for Jira, the site for the Issue Gateway, and the
+// token.
 type TicketsConnect struct {
 	Kinds []string
 	Kind  int
@@ -393,8 +394,9 @@ func drawTickets(dst *vt.Grid, v *TicketsView, theme Theme) {
 	switch {
 	case !v.Connected:
 		msg := []string{"No tracker is connected.", "",
-			"Connect Linear, Jira or ClickUp with a token from it to see your",
-			"tickets here and hand them to an agent to work on."}
+			"Connect Linear, Jira, ClickUp or the Issue Gateway with a token",
+			"from it to see your tickets here and hand them to an agent to",
+			"work on."}
 		for i, m := range msg {
 			style := theme.NotesSub
 			if i == 0 {
@@ -557,7 +559,7 @@ func drawTicketDetail(dst *vt.Grid, v *TicketsView, g TicketsGeometry, theme The
 }
 
 // drawTicketsConnect draws the connect box: the tracker, the site and the
-// email for Jira, the token masked, what went wrong, and its buttons.
+// email for Jira, the site for the Issue Gateway, the token masked, what went wrong, and its buttons.
 func drawTicketsConnect(dst *vt.Grid, c *TicketsConnect, g TicketsGeometry, theme Theme) {
 	box := g.ConnectBox
 	for y := box.Y; y < box.Y+box.Rows; y++ {
@@ -572,9 +574,10 @@ func drawTicketsConnect(dst *vt.Grid, c *TicketsConnect, g TicketsGeometry, them
 		kind = c.Kinds[c.Kind]
 	}
 	help := map[string]string{
-		"linear":  "a personal API key: Linear → Settings → Security & access",
-		"jira":    "the site; the email and an API token for Jira Cloud, a PAT alone for Server",
-		"clickup": "a personal token: ClickUp → Settings → Apps",
+		"linear":       "a personal API key: Linear → Settings → Security & access",
+		"jira":         "the site; the email and an API token for Jira Cloud, a PAT alone for Server",
+		"clickup":      "a personal token: ClickUp → Settings → Apps",
+		"issuegateway": "the gateway's address and a token from it",
 	}[kind]
 	writeString(dst, box.X+2, box.Y+1, truncate(help, box.Cols-4), theme.NotesSub, right)
 	writeString(dst, box.X+2, g.Fields[0].Y, "tracker", theme.NotesSub, right)
@@ -609,7 +612,7 @@ func drawTicketsConnect(dst *vt.Grid, c *TicketsConnect, g TicketsGeometry, them
 		}
 	}
 	jira := kind == "jira"
-	field(1, "site", c.URL, jira)
+	field(1, "site", c.URL, jira || kind == "issuegateway")
 	field(2, "email", c.Email, jira)
 	field(3, "token", strings.Repeat("•", min(len([]rune(c.Token)), 48)), true)
 	msg, style := "tab next field · ←→ tracker · enter test and save · esc cancel", theme.NotesSub

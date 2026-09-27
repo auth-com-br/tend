@@ -112,3 +112,71 @@ func TestTheTicketsPanelConnectsListsAndWorksATicket(t *testing.T) {
 		return !strings.Contains(s, "TICKETS ·") && strings.Contains(s, "Work on this ticket (APP-42)") && strings.Contains(s, "typed into the pane")
 	})
 }
+
+// TestTheIssueGatewayIsConnectedByItsAddress: the connect box offers the
+// Issue Gateway, asks for its address and a token but no email, and keeps
+// the address with the account; the list is the gateway's. The gateway is
+// a stand-in answering as its contract says (issue-gateway#27). If it
+// regresses, a gateway cannot be connected, or is kept with no address to
+// find it at again.
+func TestTheIssueGatewayIsConnectedByItsAddress(t *testing.T) {
+	gw := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "Bearer ig-tok" {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		switch r.URL.Path {
+		case "/v1/me":
+			_, _ = io.WriteString(w, `{"name":"akira"}`)
+		case "/v1/scopes":
+			_, _ = io.WriteString(w, `{"items":[{"id":"s-1","name":"Sistema de Recarga"}]}`)
+		case "/v1/issues":
+			_, _ = io.WriteString(w, `{"items":[{"key":"IG-12","ref":"u-12","title":"recarga falha no pix","state":"published","done":false,"assignee":null,"scope":"Sistema de Recarga","updated":"2026-09-27T12:00:00Z","url":null}]}`)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer gw.Close()
+
+	cfg := filepath.Join(t.TempDir(), "tend.toml")
+	if err := os.WriteFile(cfg, []byte(quietSettings), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	runtimeDir := t.TempDir()
+	t.Setenv("TEND_RUNTIME_DIR", runtimeDir)
+	t.Setenv("TEND_CONFIG", cfg)
+	env := append(os.Environ(), "TEND_RUNTIME_DIR="+runtimeDir, "TEND_CONFIG="+cfg, "SHELL=/bin/sh", "PATH=/usr/bin:/bin")
+	tend := buildBinary(t)
+	p, err := pty.Start(tend, []string{"attach", "-s", "tickets-gateway"}, pty.Options{Size: pty.Size{Cols: 130, Rows: 40}, Env: env})
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := &attached{pty: p, screen: vt.NewScreen(130, 40, 100)}
+	go func() { _, _ = io.Copy(a, p) }()
+	t.Cleanup(func() { _ = p.Close(); stopSession(t, "tickets-gateway") })
+	a.waitForScreen(t, "a pane", func(s string) bool { return strings.Contains(s, "┌") })
+
+	a.send(t, "\x02T")
+	a.waitForScreen(t, "the offer to connect", func(s string) bool { return strings.Contains(s, "No tracker is connected") })
+	a.send(t, "\r")
+	a.waitForScreen(t, "the connect box", func(s string) bool {
+		return strings.Contains(s, "connect a tracker") && strings.Contains(s, "issuegateway")
+	})
+	a.send(t, "\x1b[Z\x1b[D") // to the tracker, then back round to the last, the gateway
+	a.waitForScreen(t, "the gateway's fields", func(s string) bool { return strings.Contains(s, "the gateway's address") })
+	// From the tracker, tab is the site and tab again the token: the email
+	// is Jira's alone.
+	a.send(t, "\t\x15"+gw.URL+"\tig-tok\r")
+	a.waitForScreen(t, "the tickets", func(s string) bool {
+		return strings.Contains(s, "IG-12") && strings.Contains(s, "recarga falha no pix") && strings.Contains(s, "connected to issuegateway as akira")
+	})
+	b, _ := os.ReadFile(cfg)
+	for _, want := range []string{`kind = "issuegateway"`, `url = "` + gw.URL + `"`, `token = "ig-tok"`} {
+		if !strings.Contains(string(b), want) {
+			t.Errorf("missing %s in the account kept:\n%s", want, b)
+		}
+	}
+	if strings.Contains(string(b), "email") {
+		t.Errorf("an email was kept:\n%s", b)
+	}
+}
