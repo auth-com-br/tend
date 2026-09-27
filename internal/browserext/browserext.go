@@ -124,8 +124,9 @@ func shellQuote(s string) string { return "'" + strings.ReplaceAll(s, "'", `'\''
 // 2026-09-24, the bridge attaching from each. Brave 153 loaded it too, but
 // never started the bridge — its native messaging hosts are looked for
 // elsewhere — so it is not tried, and naming it gets the extension without
-// its way to tend. The ones that still read --load-extension come first;
-// Vivaldi and Chrome for Testing are in on their makers' word, untried.
+// its way to tend. They all load the extension the same way, through the
+// keeper's DevTools pipe; Vivaldi and Chrome for Testing are in on their
+// makers' word, untried.
 var candidates = []string{
 	"chromium", "chromium-browser", "microsoft-edge", "microsoft-edge-stable",
 	"vivaldi", "google-chrome-for-testing",
@@ -158,16 +159,18 @@ func Find(program string, lookPath func(string) (string, error)) (string, error)
 }
 
 // Args are the browser's arguments: the profile's data directory, the
-// extension loaded, no first-run questions, and the page, if any. The
-// extension is given twice: on the command line, for the browsers that
-// still read it, and through DevTools over a pipe — which the keeper
-// (`tend browser keep`) holds, on file descriptors 3 and 4 — for Google's
-// Chrome, which does not. The pipe is the keeper's alone; no port is
-// opened, and the unsafe-extension-debugging switch reaches only it.
+// DevTools pipe the keeper loads the extension through, no first-run
+// questions, and the page, if any. The extension is not also given on
+// --load-extension: Chrome ignores that switch, and Chromium and Edge
+// honour it, so they loaded the extension twice — the keeper's
+// loadUnpacked then replaced the first, and the first bridge went with
+// it. A command sent in that gap (the test's open, or prefix+B once
+// status already showed a browser) never became a tab. The pipe is the
+// keeper's alone; no port is opened, and the unsafe-extension-debugging
+// switch reaches only it.
 func Args(p Profile, url string) []string {
 	args := []string{
 		"--user-data-dir=" + p.UserData,
-		"--load-extension=" + p.Extension,
 		"--remote-debugging-pipe",
 		"--enable-unsafe-extension-debugging",
 		"--no-first-run",

@@ -82,9 +82,8 @@ func TestTheProfileHasTheExtensionAndItsHost(t *testing.T) {
 }
 
 // TestTheBrowserFoundIsOneThatLoadsTheExtension: the browser named is the
-// one run; otherwise the first of those that load an extension given on the
-// command line, and Google's Chrome — which loads it only through the
-// DevTools pipe the arguments ask for — when there is nothing else; never
+// one run; otherwise the first of those that load the extension through the
+// DevTools pipe the arguments ask for, Google's Chrome among them; never
 // Brave, whose bridge never starts.
 // If it regresses, a machine with only Chrome opens the desktop's browser
 // without the extension, as the owner's second machine did.
@@ -118,7 +117,7 @@ func TestTheBrowserFoundIsOneThatLoadsTheExtension(t *testing.T) {
 		t.Errorf("the one named: %s", got)
 	}
 	args := strings.Join(Args(Profile{UserData: "/p", Extension: "/e"}, "https://x.test"), " ")
-	if args != "--user-data-dir=/p --load-extension=/e --remote-debugging-pipe --enable-unsafe-extension-debugging --no-first-run --no-default-browser-check https://x.test" {
+	if args != "--user-data-dir=/p --remote-debugging-pipe --enable-unsafe-extension-debugging --no-first-run --no-default-browser-check https://x.test" {
 		t.Errorf("args: %s", args)
 	}
 }

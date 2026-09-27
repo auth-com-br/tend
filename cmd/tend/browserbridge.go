@@ -235,9 +235,8 @@ func bridge(in io.Reader, out io.Writer, session, remote string) error {
 // asks it to load the extension through it (Extensions.loadUnpacked, the
 // way Google left when Chrome stopped reading --load-extension), and holds
 // the pipe until the browser ends — it ends the browser when it closes.
-// A browser that loaded the extension from its command line already, or a
-// second start that only hands a page to the one running, answers however
-// it answers; the keeper waits for the browser either way.
+// A second start that only hands a page to the one running answers
+// however it answers; the keeper waits for the browser either way.
 func browserKeep(args []string) error {
 	if len(args) > 0 && args[0] == "--" {
 		args = args[1:]

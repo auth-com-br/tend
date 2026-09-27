@@ -53,12 +53,14 @@ profile are not touched.
   `NativeMessagingHosts/`, where a browser started on that profile looks.
 - **Which browser**: `[browser] program` if set, else the first of chromium,
   chromium-browser, microsoft-edge, vivaldi, google-chrome-for-testing,
-  google-chrome. It is started by `tend browser keep`, which gives the
-  extension twice: `--load-extension`, which Chromium and Edge read, and
-  DevTools' `Extensions.loadUnpacked` over `--remote-debugging-pipe`, the
-  way Google left when Chrome stopped reading the switch in 2025 — Chrome
-  154 loads it that way. The keeper holds the pipe until the browser ends
-  (the browser ends if it closes); no port is opened. Tried on 2026-09-24,
+  google-chrome. It is started by `tend browser keep`, which loads the
+  extension through DevTools' `Extensions.loadUnpacked` over
+  `--remote-debugging-pipe` — the way Google left when Chrome stopped
+  reading `--load-extension` in 2025. Chromium and Edge still read that
+  switch, but giving both loaded the extension twice: the second load
+  replaced the first and dropped its bridge, so a page sent in that gap
+  never opened. The keeper holds the pipe until the browser ends (the
+  browser ends if it closes); no port is opened. Tried on 2026-09-24,
   headless, through the keeper, with the bridge attaching: Chromium 153,
   Google Chrome 154, Edge 153. Brave 153 loads the extension but never
   starts the bridge, so it is not tried. With none of them, the page opens
