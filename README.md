@@ -290,8 +290,8 @@ tend looks for a newer release in the background and says so: a notice, and
 ready shows what is new in it, and `u` there installs it (`tend update
 -handoff`, in a tab of its own) without stopping what is running; the sidebar's "menu" has what
 is new in it. `[update] version_check = false` turns the check off. "about tend",
-first in that menu, says which tend is running, who makes it and where it
-lives — and the server's version when an update left the server behind,
+first in that menu, says which tend is running, who makes it, where it lives
+and how to sponsor it — and the server's version when an update left the server behind,
 with the `tend handoff` that brings it along (the item is dotted then).
 `ctrl+b ?` has the version at its top too.
 
@@ -338,3 +338,6 @@ Apache-2.0, © Auth Tecnologia Ltda. Security problems go to
 seguranca@auth.com.br ([SECURITY.md](SECURITY.md)); contributions are signed
 off ([CONTRIBUTING.md](CONTRIBUTING.md)). tend is an independent Go implementation of the architecture of
 [herdr](https://github.com/herdrdev/herdr); see [NOTICE](NOTICE) for attribution.
+
+If tend is useful to you, you can support it on
+[GitHub Sponsors](https://github.com/sponsors/sousaakira).

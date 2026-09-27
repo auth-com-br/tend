@@ -11,10 +11,13 @@ import (
 // It is drawn in the release notes panel's colours, as the other panels
 // are. herdr has none — its version is on its command line only.
 
-// The project's addresses, which the panel opens.
+// The project's addresses, which the panel opens. Sponsor is last and
+// plain, a line among the others: a way to support tend for whoever looks
+// for one, not a request made of everybody who opens the panel.
 const (
-	SiteURL   = "https://tend.auth.com.br/"
-	SourceURL = "https://github.com/auth-com-br/tend"
+	SiteURL    = "https://tend.auth.com.br/"
+	SourceURL  = "https://github.com/auth-com-br/tend"
+	SponsorURL = "https://github.com/sponsors/sousaakira"
 )
 
 // AboutView is the panel while it is up.
@@ -34,18 +37,20 @@ type AboutView struct {
 
 // About buttons, and the two lines a click opens.
 const (
-	AboutNotes  = "notes"
-	AboutSite   = "site"
-	AboutSource = "source"
-	AboutClose  = "close"
+	AboutNotes   = "notes"
+	AboutSite    = "site"
+	AboutSource  = "source"
+	AboutSponsor = "sponsor"
+	AboutClose   = "close"
 )
 
 // AboutGeometry is where the panel's parts are.
 type AboutGeometry struct {
 	Box Rect
-	// Site and Source are the address lines, which open on a click.
-	Site, Source Rect
-	Buttons      []IssueButton
+	// Site, Source and Sponsor are the address lines, which open on a
+	// click.
+	Site, Source, Sponsor Rect
+	Buttons               []IssueButton
 }
 
 const (
@@ -64,6 +69,7 @@ func AboutLayout(v *AboutView, cols, rows int) AboutGeometry {
 	vx := box.X + 3 + aboutLabelX
 	g.Site = Rect{X: vx, Y: box.Y + 9, Cols: runewidth.StringWidth(SiteURL), Rows: 1}
 	g.Source = Rect{X: vx, Y: box.Y + 10, Cols: runewidth.StringWidth(SourceURL), Rows: 1}
+	g.Sponsor = Rect{X: vx, Y: box.Y + 12, Cols: runewidth.StringWidth(SponsorURL), Rows: 1}
 	buttons := []IssueButton{}
 	if v.Notes {
 		buttons = append(buttons, IssueButton{ID: AboutNotes, Label: "[ What's new ]"})
@@ -93,7 +99,7 @@ func AboutAt(v *AboutView, cols, rows, x, y int) (string, bool) {
 			return b.ID, true
 		}
 	}
-	for id, r := range map[string]Rect{AboutSite: g.Site, AboutSource: g.Source} {
+	for id, r := range map[string]Rect{AboutSite: g.Site, AboutSource: g.Source, AboutSponsor: g.Sponsor} {
 		if y == r.Y && x >= r.X && x < r.X+r.Cols {
 			return id, true
 		}
@@ -139,6 +145,7 @@ func drawAbout(dst *vt.Grid, v *AboutView, theme Theme) {
 	row(box.Y+9, "site", SiteURL, theme.NotesAccent)
 	row(box.Y+10, "source", SourceURL, theme.NotesAccent)
 	row(box.Y+11, "license", "Apache-2.0 · see NOTICE", theme.Notes)
+	row(box.Y+12, "sponsor", SponsorURL, theme.NotesAccent)
 
 	if v.Message != "" {
 		writeString(dst, x0, box.Y+box.Rows-4, truncate(v.Message, box.Cols-6), theme.NotesSub, right)
