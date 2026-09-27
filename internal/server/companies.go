@@ -51,6 +51,33 @@ func (s *Server) Company(method string, p proto.CompanyParams) (any, error) {
 	return nil, nil
 }
 
+// JoinCompanies puts a workspace in each company named — the companies of
+// the space it was made from, so a worktree opened from a space of a
+// company is found in that company (#34). A company deleted meanwhile is
+// passed over.
+func (s *Server) JoinCompanies(ws session.WorkspaceID, ids []session.CompanyID) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	return s.rearrange(func(sess *session.Session) error {
+		for _, id := range ids {
+			if _, ok := sess.Company(id); ok {
+				if err := sess.AssignCompany(id, ws); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	})
+}
+
+// CompaniesOf is the companies a workspace is in.
+func (s *Server) CompaniesOf(ws session.WorkspaceID) []session.CompanyID {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.session.CompaniesOf(ws)
+}
+
 // companiesSnapshotLocked is the companies as a client is sent them. The
 // caller holds the server lock.
 func companiesSnapshotLocked(sess *session.Session) []proto.CompanyInfo {

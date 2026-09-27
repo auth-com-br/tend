@@ -117,6 +117,18 @@ func (s *Session) UnassignCompany(id CompanyID, ws WorkspaceID) error {
 	return nil
 }
 
+// CompaniesOf is the companies a workspace is in, in the order they were
+// made.
+func (s *Session) CompaniesOf(ws WorkspaceID) []CompanyID {
+	var out []CompanyID
+	for _, c := range s.companies {
+		if slices.Contains(c.Workspaces, ws) {
+			out = append(out, c.ID)
+		}
+	}
+	return out
+}
+
 // forgetWorkspace takes a closed workspace out of every company (herdr's
 // remove_workspace_from_user_spaces), so none of them points at nothing.
 func (s *Session) forgetWorkspace(ws WorkspaceID) {

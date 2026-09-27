@@ -82,7 +82,7 @@ func (a *API) callWorktrees(req Request) (any, bool, error) {
 		if err := worktree.Add(repo, path, branch, p.Base); err != nil {
 			return nil, true, fail("worktree_create_failed", "%v", err)
 		}
-		return a.openWorktree(repo, worktree.Worktree{Path: path, Branch: branch, Linked: true}, p.Label, "worktree_created")
+		return a.openWorktree(repo, worktree.Worktree{Path: path, Branch: branch, Linked: true}, p.Label, "worktree_created", p.WorkspaceID)
 
 	case MethodWorktreeOpen:
 		var p WorktreeOpenParams
@@ -109,7 +109,7 @@ func (a *API) callWorktrees(req Request) (any, bool, error) {
 			if wt.Bare || wt.Prunable {
 				return nil, true, fail("worktree_not_found", "that worktree cannot be opened")
 			}
-			return a.openWorktree(repo, wt, p.Label, "worktree_opened")
+			return a.openWorktree(repo, wt, p.Label, "worktree_opened", p.WorkspaceID)
 		}
 		return nil, true, fail("worktree_not_found", "no worktree of %s matches", repo.Name)
 
@@ -181,6 +181,8 @@ func (a *API) callWorktrees(req Request) (any, bool, error) {
 type spaceShape struct {
 	name, dir, group string
 	tabs             []tabShape
+	// companies are the ones it was in, which it goes back into.
+	companies []session.CompanyID
 }
 
 type tabShape struct {
@@ -196,7 +198,7 @@ func (a *API) shapeOf(id session.WorkspaceID) spaceShape {
 		if !ok {
 			return
 		}
-		out = spaceShape{name: w.Name, dir: w.Dir, group: w.Group}
+		out = spaceShape{name: w.Name, dir: w.Dir, group: w.Group, companies: sess.CompaniesOf(id)}
 		for _, t := range w.Tabs() {
 			tab := tabShape{name: t.Name}
 			for _, pid := range t.Panes() {
@@ -223,6 +225,7 @@ func (a *API) reopenShape(shape spaceShape) {
 	if shape.group != "" {
 		_ = a.srv.GroupWorkspace(id, shape.group)
 	}
+	_ = a.srv.JoinCompanies(id, shape.companies)
 	for _, tab := range shape.tabs {
 		if len(tab.dirs) == 0 {
 			continue
@@ -298,10 +301,20 @@ func (a *API) workspaceDir(id session.WorkspaceID) string {
 
 // openWorktree puts a worktree in a space: the one it is already open in, or
 // a new one in the repository's group.
-func (a *API) openWorktree(repo worktree.Repo, wt worktree.Worktree, label, kind string) (any, bool, error) {
+//
+// The space goes into the companies of the space it was opened from (from,
+// a workspace id), as a space made in the sidebar goes into the company
+// shown: made from a space of a company, it is found in that company rather
+// than only among all spaces (#34).
+func (a *API) openWorktree(repo worktree.Repo, wt worktree.Worktree, label, kind, from string) (any, bool, error) {
+	var companies []session.CompanyID
+	if src, ok := parseID("w_", from); ok {
+		companies = a.srv.CompaniesOf(session.WorkspaceID(src))
+	}
 	info := a.worktreeInfo(wt)
 	if info.OpenWorkspaceID != "" {
 		id, _ := parseID("w_", info.OpenWorkspaceID)
+		_ = a.srv.JoinCompanies(session.WorkspaceID(id), companies)
 		result, err := a.workspaceResult(session.WorkspaceID(id))
 		if err != nil {
 			return nil, true, err
@@ -327,6 +340,7 @@ func (a *API) openWorktree(repo worktree.Repo, wt worktree.Worktree, label, kind
 	// Filed under the repository, so a project's rooms sit together in the
 	// sidebar. herdr calls this membership; tend already has groups.
 	_ = a.srv.GroupWorkspace(id, repo.Name)
+	_ = a.srv.JoinCompanies(id, companies)
 	if _, _, err := a.srv.NewTab(id, "tab 1", PaneSpecIn(a.shell(), wt.Path)); err != nil {
 		return nil, true, fail("worktree_open_failed", "%v", err)
 	}
