@@ -19,6 +19,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/auth-com-br/tend/internal/browserext"
 	"github.com/auth-com-br/tend/internal/pty"
 	"github.com/auth-com-br/tend/internal/transport"
 	"github.com/auth-com-br/tend/internal/vt"
@@ -205,10 +206,25 @@ func TestTheBridgeSaysWhenTheServerIsOlderThanTheExtension(t *testing.T) {
 // Chromium, Google Chrome or Edge, each that this machine has, run headless
 // through the keeper as tend runs it — has the extension loaded, which
 // starts the bridge and attaches, and follows the session's open to a page.
-// Chrome no longer reads --load-extension; it loads it through the keeper's
-// DevTools pipe. (Brave loads it the same way but never starts the bridge,
-// so tend does not choose it.) If it regresses, the browser opens
+// The extension is loaded through the keeper's DevTools pipe, the way
+// Chrome takes it (it no longer reads --load-extension). Chromium and
+// Edge still read that switch, but giving both loaded the extension twice
+// and dropped the first bridge — status had "tend browser", then open
+// returned no_browser. (Brave loads it the same way but never starts the
+// bridge, so tend does not choose it.) If it regresses, the browser opens
 // without the extension, as it did on a machine with only Chrome.
+//
+// The page having been opened is this server receiving /it, not Chromium's
+// DevTools /json/list mentioning the URL. That list is served on
+// --remote-debugging-port, which tend does not open. Under make check —
+// the machine full of tests, then the same again with the race detector —
+// Chromium sometimes had the extension attached and the command delivered
+// while /json/list still had no page, or the port picked before start had
+// been taken, and the test died at 15s saying the browser never opened it.
+// Chrome and Edge on the same run did not. Open is sent until the page is
+// fetched, so a command that met no browser yet is not the last word.
+// The wait is longer than a quiet run needs (~2s) because the renderer
+// shares the machine with that gate.
 func TestEachBrowserComesUpWithTheExtensionWorking(t *testing.T) {
 	for _, name := range []string{"chromium", "google-chrome", "microsoft-edge"} {
 		t.Run(name, func(t *testing.T) {
@@ -218,7 +234,9 @@ func TestEachBrowserComesUpWithTheExtensionWorking(t *testing.T) {
 			}
 			session := strings.ReplaceAll(name, "-", "")
 			bin, env := startRealSession(t, session)
+			hits := make(chan string, 32)
 			page := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				hits <- r.URL.Path
 				_, _ = w.Write([]byte(`<title>tend test</title><h1 id="it">picked</h1>`))
 			}))
 			defer page.Close()
@@ -231,13 +249,10 @@ func TestEachBrowserComesUpWithTheExtensionWorking(t *testing.T) {
 			if _, err := os.Stat(filepath.Join(profile, "extension", "manifest.json")); err != nil {
 				t.Fatalf("launch prepared no profile: %v", err)
 			}
-			port := freePort(t)
-			keeper := exec.Command(bin, "browser", "keep", "--", filepath.Join(profile, "extension"), browser,
-				"--headless=new", "--user-data-dir="+filepath.Join(profile, "profile"),
-				"--load-extension="+filepath.Join(profile, "extension"),
-				"--remote-debugging-pipe", "--enable-unsafe-extension-debugging",
-				"--no-first-run", "--no-default-browser-check",
-				"--remote-debugging-port="+port, "about:blank")
+			ext := filepath.Join(profile, "extension")
+			prepared := browserext.Profile{Extension: ext, UserData: filepath.Join(profile, "profile")}
+			keeper := exec.Command(bin, append([]string{"browser", "keep", "--", ext, browser, "--headless=new"},
+				browserext.Args(prepared, "about:blank")...)...)
 			keeper.Env = append(env, browserSessionEnv+"="+session)
 			if err := keeper.Start(); err != nil {
 				t.Fatal(err)
@@ -247,35 +262,32 @@ func TestEachBrowserComesUpWithTheExtensionWorking(t *testing.T) {
 			t.Cleanup(func() { _ = keeper.Process.Signal(syscall.SIGTERM); _ = keeper.Wait() })
 			waitAttached(t, bin, env, session)
 
-			tendOutput(t, bin, env, "browser", "open", "-s", session, page.URL+"/it")
-			deadline := time.Now().Add(15 * time.Second)
+			open := func() {
+				cmd := exec.Command(bin, "browser", "open", "-s", session, page.URL+"/it")
+				cmd.Env = env
+				_ = cmd.Run()
+			}
+			open()
+			var seen []string
+			tick := time.NewTicker(250 * time.Millisecond)
+			defer tick.Stop()
+			deadline := time.After(30 * time.Second)
 			for {
-				resp, err := http.Get("http://127.0.0.1:" + port + "/json/list")
-				if err == nil {
-					raw, _ := io.ReadAll(resp.Body)
-					resp.Body.Close()
-					if strings.Contains(string(raw), page.URL+"/it") {
+				select {
+				case path := <-hits:
+					seen = append(seen, path)
+					if path == "/it" {
 						return
 					}
+				case <-tick.C:
+					open()
+				case <-deadline:
+					t.Fatalf("the browser never opened the page it was sent; requests: %q; status:\n%s",
+						seen, tendOutput(t, bin, env, "browser", "status", "-s", session))
 				}
-				if time.Now().After(deadline) {
-					t.Fatal("the browser never opened the page it was sent")
-				}
-				time.Sleep(200 * time.Millisecond)
 			}
 		})
 	}
-}
-
-func freePort(t *testing.T) string {
-	t.Helper()
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer ln.Close()
-	_, port, _ := net.SplitHostPort(ln.Addr().String())
-	return port
 }
 
 // TestTheContextPanelOpensForWhatTheBrowserSends: what a browser sends to
