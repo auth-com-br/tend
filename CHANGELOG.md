@@ -5,6 +5,15 @@ release's notes on GitHub and what "what's new" shows inside tend.
 
 ## Unreleased
 
+## v0.9.0 — 2026-09-27
+
+#### New
+- **Tickets: Linear, Jira and ClickUp** (`ctrl+b T`, or 🎫 on the toolbar). Connect an account with a token from it — tested before it is kept, in your system keyring when there is one — and see the open tickets, yours and the done, with a search. Open one to read it with its comments; `c` comments, `x` marks it done in the tracker (Jira through its workflow, Linear to the team's completed state, ClickUp to the list's closed status), `f` hands it to your agent, `w` starts your agent on it in a worktree. Keep several accounts, and `ctrl+l` makes the project you are in open on its own.
+- **Sponsor tend.** A way to support the project, in the README and in "about tend".
+
+#### Fixed
+- **tend's browser in Chromium and Edge** loaded its extension twice, and a page sent to it right away could be lost. It loads once now.
+
 ## v0.8.0 — 2026-09-26
 
 #### New
