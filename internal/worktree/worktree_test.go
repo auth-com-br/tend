@@ -157,3 +157,38 @@ func TestTrustingARepositoryIsForOneCallOnly(t *testing.T) {
 		t.Errorf("trusting wrote to the user's git configuration:\n%s", data)
 	}
 }
+
+// TestWithinIsTheDirectoryOrBelowIt: a directory is within itself and its
+// parents, not within a sibling that shares its name as a prefix, and a
+// symlink to it is the same place. If it regresses, a worktree opened from
+// "project-old" is filed in the companies of the space rooted in "project".
+func TestWithinIsTheDirectoryOrBelowIt(t *testing.T) {
+	root := t.TempDir()
+	project := filepath.Join(root, "project")
+	sub := filepath.Join(project, "sub")
+	sibling := filepath.Join(root, "project-old")
+	for _, d := range []string{sub, sibling} {
+		if err := os.MkdirAll(d, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	link := filepath.Join(root, "link")
+	if err := os.Symlink(project, link); err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range []struct {
+		path, dir string
+		want      bool
+	}{
+		{project, project, true},
+		{sub, project, true},
+		{filepath.Join(link, "sub"), project, true},
+		{project, sub, false},
+		{sibling, project, false},
+		{root, project, false},
+	} {
+		if got := Within(c.path, c.dir); got != c.want {
+			t.Errorf("Within(%s, %s) = %v, want %v", c.path, c.dir, got, c.want)
+		}
+	}
+}
