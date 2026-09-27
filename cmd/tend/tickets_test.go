@@ -145,7 +145,8 @@ func TestTheIssueGatewayIsConnectedByItsAddress(t *testing.T) {
 	runtimeDir := t.TempDir()
 	t.Setenv("TEND_RUNTIME_DIR", runtimeDir)
 	t.Setenv("TEND_CONFIG", cfg)
-	env := append(os.Environ(), "TEND_RUNTIME_DIR="+runtimeDir, "TEND_CONFIG="+cfg, "SHELL=/bin/sh", "PATH=/usr/bin:/bin")
+	t.Setenv("TEND_ISSUE_GATEWAY_URL", gw.URL)
+	env := append(os.Environ(), "TEND_RUNTIME_DIR="+runtimeDir, "TEND_CONFIG="+cfg, "TEND_ISSUE_GATEWAY_URL="+gw.URL, "SHELL=/bin/sh", "PATH=/usr/bin:/bin")
 	tend := buildBinary(t)
 	p, err := pty.Start(tend, []string{"attach", "-s", "tickets-gateway"}, pty.Options{Size: pty.Size{Cols: 130, Rows: 40}, Env: env})
 	if err != nil {
@@ -163,20 +164,19 @@ func TestTheIssueGatewayIsConnectedByItsAddress(t *testing.T) {
 		return strings.Contains(s, "connect a tracker") && strings.Contains(s, "issuegateway")
 	})
 	a.send(t, "\x1b[Z\x1b[D") // to the tracker, then back round to the last, the gateway
-	a.waitForScreen(t, "the gateway's fields", func(s string) bool { return strings.Contains(s, "the gateway's address") })
-	// From the tracker, tab is the site and tab again the token: the email
-	// is Jira's alone.
-	a.send(t, "\t\x15"+gw.URL+"\tig-tok\r")
+	a.waitForScreen(t, "the gateway's fields", func(s string) bool { return strings.Contains(s, "a token from the gateway") })
+	// The gateway's address is fixed: from the tracker, tab is the token.
+	a.send(t, "\tig-tok\r")
 	a.waitForScreen(t, "the tickets", func(s string) bool {
 		return strings.Contains(s, "IG-12") && strings.Contains(s, "recarga falha no pix") && strings.Contains(s, "connected to issuegateway as akira")
 	})
 	b, _ := os.ReadFile(cfg)
-	for _, want := range []string{`kind = "issuegateway"`, `url = "` + gw.URL + `"`, `token = "ig-tok"`} {
+	for _, want := range []string{`kind = "issuegateway"`, `token = "ig-tok"`} {
 		if !strings.Contains(string(b), want) {
 			t.Errorf("missing %s in the account kept:\n%s", want, b)
 		}
 	}
-	if strings.Contains(string(b), "email") {
-		t.Errorf("an email was kept:\n%s", b)
+	if strings.Contains(string(b), "email") || strings.Contains(string(b), "url") {
+		t.Errorf("an email or an address was kept:\n%s", b)
 	}
 }

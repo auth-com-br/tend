@@ -269,9 +269,6 @@ func TestTheIssueGatewayIsAskedAsItsContractSays(t *testing.T) {
 		}
 	}))
 	defer srv.Close()
-	if _, err := New(Account{Kind: IssueGateway, Token: "ig_1"}); err == nil {
-		t.Error("an Issue Gateway with no address was taken")
-	}
 	c, _ := New(Account{Kind: IssueGateway, URL: srv.URL + "/", Token: "ig_1"})
 	if who, err := c.WhoAmI(); err != nil || who != "akira" {
 		t.Fatalf("whoami %q %v", who, err)
@@ -316,6 +313,25 @@ func TestTheIssueGatewayIsAskedAsItsContractSays(t *testing.T) {
 	none, _ := New(Account{Kind: IssueGateway, URL: srv.URL})
 	if _, err := none.List("", FilterOpen, ""); !errors.Is(err, ErrNoToken) {
 		t.Errorf("no token: %v", err)
+	}
+}
+
+// TestAGatewayAccountIsATokenAlone: an Issue Gateway account without an
+// address talks to Auth's gateway, or to TEND_ISSUE_GATEWAY_URL when set. If
+// it regresses, connecting asks for an address people do not know.
+func TestAGatewayAccountIsATokenAlone(t *testing.T) {
+	t.Setenv("TEND_ISSUE_GATEWAY_URL", "")
+	c, err := New(Account{Kind: IssueGateway, Token: "t"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := c.(*issueGateway).base(); got != DefaultIssueGatewayURL+"/v1" {
+		t.Errorf("base = %q", got)
+	}
+	t.Setenv("TEND_ISSUE_GATEWAY_URL", "http://staging:8797")
+	c, _ = New(Account{Kind: IssueGateway, Token: "t"})
+	if got := c.(*issueGateway).base(); got != "http://staging:8797/v1" {
+		t.Errorf("base with the override = %q", got)
 	}
 }
 

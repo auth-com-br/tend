@@ -795,14 +795,11 @@ func (t *tui) ticketsConnectKey(key string) {
 	if c.Kind < len(c.Kinds) {
 		kind = c.Kinds[c.Kind]
 	}
-	// The fields a tracker asks for: the site and the email are Jira's, and
-	// the site the Issue Gateway's too, which is wherever it is hosted.
+	// The fields a tracker asks for: the site and the email are Jira's. The
+	// Issue Gateway has a fixed address, so it asks for the token alone.
 	fields := []int{0, 3}
-	switch tickets.Kind(kind) {
-	case tickets.Jira:
+	if tickets.Kind(kind) == tickets.Jira {
 		fields = []int{0, 1, 2, 3}
-	case tickets.IssueGateway:
-		fields = []int{0, 1, 3}
 	}
 	step := func(by int) {
 		at := 0
@@ -890,16 +887,11 @@ func (t *tui) saveTicketsConnect() {
 	c := v.Connect
 	kind := c.Kinds[c.Kind]
 	acct := tickets.Account{Kind: tickets.Kind(kind), Token: strings.TrimSpace(c.Token)}
-	if kind == string(tickets.Jira) || kind == string(tickets.IssueGateway) {
+	if kind == string(tickets.Jira) {
 		acct.URL = strings.TrimRight(strings.TrimSpace(c.URL), "/")
-		if kind == string(tickets.Jira) {
-			acct.Email = strings.TrimSpace(c.Email)
-		}
+		acct.Email = strings.TrimSpace(c.Email)
 		if acct.URL == "" || acct.URL == "https:" || acct.URL == "http:" {
 			c.Error = "Jira needs its site's address"
-			if kind == string(tickets.IssueGateway) {
-				c.Error = "the Issue Gateway needs its address"
-			}
 			t.dirty = true
 			t.mu.Unlock()
 			return

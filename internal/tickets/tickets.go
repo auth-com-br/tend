@@ -1,6 +1,6 @@
 // Package tickets reads and changes tickets in the trackers teams keep
 // their work in beside their code — Linear, Jira and ClickUp (#9), and the
-// self-hosted Issue Gateway — for the tickets panel: what is open, what is the user's, one ticket whole
+// Issue Gateway at issue.auth.com.br — for the tickets panel: what is open, what is the user's, one ticket whole
 // with its comments, a comment, and closing one, which each tracker does
 // its own way. The client talks to each tracker's web API itself, as it
 // talks to GlitchTip: a tracker is a web service, not something on the
@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 )
@@ -127,6 +128,19 @@ var (
 	ErrNoToken = errors.New("this needs a token")
 )
 
+// DefaultIssueGatewayURL is where Auth's Issue Gateway is hosted: an account
+// on it is a token alone.
+const DefaultIssueGatewayURL = "https://issue.auth.com.br"
+
+// IssueGatewayURL is the gateway an account without an address talks to:
+// TEND_ISSUE_GATEWAY_URL when set, which a test or a staging gateway uses.
+func IssueGatewayURL() string {
+	if u := strings.TrimSpace(os.Getenv("TEND_ISSUE_GATEWAY_URL")); u != "" {
+		return u
+	}
+	return DefaultIssueGatewayURL
+}
+
 // New is a client for an account.
 func New(a Account) (Client, error) {
 	switch a.Kind {
@@ -141,7 +155,7 @@ func New(a Account) (Client, error) {
 		return &clickup{a: a, http: httpClient()}, nil
 	case IssueGateway:
 		if strings.TrimSpace(a.URL) == "" {
-			return nil, errors.New("an Issue Gateway account needs its address")
+			a.URL = IssueGatewayURL()
 		}
 		return &issueGateway{a: a, http: httpClient()}, nil
 	}

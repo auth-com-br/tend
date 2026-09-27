@@ -9,8 +9,9 @@ import (
 	"time"
 )
 
-// The Issue Gateway, a self-hosted REST API (auth-com-br/issue-gateway#27),
-// at the address the account keeps, with a bearer token. Unlike the other
+// The Issue Gateway, Auth's REST API (auth-com-br/issue-gateway#27), at
+// DefaultIssueGatewayURL unless the account keeps another address, with a
+// bearer token. Unlike the other
 // trackers it filters, searches and orders on the server: a list asks with
 // the preset's name and what was typed, and reads the answer as it comes.
 // A ticket's Ref is the gateway's id, its Key what people call it (IG-12).

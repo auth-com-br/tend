@@ -559,7 +559,7 @@ func drawTicketDetail(dst *vt.Grid, v *TicketsView, g TicketsGeometry, theme The
 }
 
 // drawTicketsConnect draws the connect box: the tracker, the site and the
-// email for Jira, the site for the Issue Gateway, the token masked, what went wrong, and its buttons.
+// email for Jira, the token masked, what went wrong, and its buttons.
 func drawTicketsConnect(dst *vt.Grid, c *TicketsConnect, g TicketsGeometry, theme Theme) {
 	box := g.ConnectBox
 	for y := box.Y; y < box.Y+box.Rows; y++ {
@@ -577,7 +577,7 @@ func drawTicketsConnect(dst *vt.Grid, c *TicketsConnect, g TicketsGeometry, them
 		"linear":       "a personal API key: Linear → Settings → Security & access",
 		"jira":         "the site; the email and an API token for Jira Cloud, a PAT alone for Server",
 		"clickup":      "a personal token: ClickUp → Settings → Apps",
-		"issuegateway": "the gateway's address and a token from it",
+		"issuegateway": "a token from the gateway: issue.auth.com.br → Configurações",
 	}[kind]
 	writeString(dst, box.X+2, box.Y+1, truncate(help, box.Cols-4), theme.NotesSub, right)
 	writeString(dst, box.X+2, g.Fields[0].Y, "tracker", theme.NotesSub, right)
@@ -612,7 +612,7 @@ func drawTicketsConnect(dst *vt.Grid, c *TicketsConnect, g TicketsGeometry, them
 		}
 	}
 	jira := kind == "jira"
-	field(1, "site", c.URL, jira || kind == "issuegateway")
+	field(1, "site", c.URL, jira)
 	field(2, "email", c.Email, jira)
 	field(3, "token", strings.Repeat("•", min(len([]rune(c.Token)), 48)), true)
 	msg, style := "tab next field · ←→ tracker · enter test and save · esc cancel", theme.NotesSub
