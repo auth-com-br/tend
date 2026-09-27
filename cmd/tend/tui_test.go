@@ -1350,10 +1350,27 @@ func TestAttachSidebarIsShownByDefault(t *testing.T) {
 
 // TestAttachSidebarShowsTheBranch covers what tells two spaces on the same
 // repository apart.
+//
+// In a repository of its own, on a branch of its own. It used to run in the
+// test's checkout and look for "master" or "main", so it failed in every
+// worktree on an issue branch — which is where tend makes the work happen.
 func TestAttachSidebarShowsTheBranch(t *testing.T) {
-	a := startSession(t, 90, 14)
+	repo := filepath.Join(t.TempDir(), "project")
+	if err := os.MkdirAll(repo, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	gitEnv := append(os.Environ(), "GIT_AUTHOR_NAME=t", "GIT_AUTHOR_EMAIL=t@t",
+		"GIT_COMMITTER_NAME=t", "GIT_COMMITTER_EMAIL=t@t")
+	for _, args := range [][]string{{"init", "-q", "-b", "side-branch"}, {"commit", "-q", "--allow-empty", "-m", "first"}} {
+		cmd := exec.Command("git", args...)
+		cmd.Dir, cmd.Env = repo, gitEnv
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+	a := startSessionIn(t, 90, 14, repo)
 	a.waitForScreen(t, "the branch", func(s string) bool {
-		return strings.Contains(s, "master") || strings.Contains(s, "main\n")
+		return strings.Contains(s, "side-branch")
 	})
 }
 
