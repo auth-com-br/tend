@@ -1906,6 +1906,71 @@ func TestAttachDragsTheSidebarDivider(t *testing.T) {
 	}
 }
 
+// TestAttachScrollsTheSpacesByTheirScrollbar: a list with more spaces than
+// fit has herdr's scrollbar; a press at the bottom of its track shows the
+// last space, and the thumb dragged back to the top shows the first, main. If it
+// regresses, a long list can only be scrolled with a wheel, which a trackpad
+// or a terminal that does not report one cannot give.
+func TestAttachScrollsTheSpacesByTheirScrollbar(t *testing.T) {
+	a := startSession(t, 100, 18)
+	a.waitForScreen(t, "a pane", func(s string) bool { return strings.Contains(s, "┌") })
+	for i := 0; i < 8; i++ {
+		a.send(t, "\x02N")
+		time.Sleep(150 * time.Millisecond)
+	}
+	a.waitForScreen(t, "nine spaces", func(string) bool {
+		return strings.Contains(a.sidebarText(), "space 9")
+	})
+	// A new space is shown when it is made, so the list is scrolled to its
+	// end now; the wheel takes it back to the top first.
+	for i := 0; i < 6; i++ {
+		a.send(t, "\x1b[<64;5;4M")
+	}
+	a.waitForScreen(t, "the top of the list", func(string) bool {
+		side := a.sidebarText()
+		return strings.Contains(side, "main")
+	})
+
+	// The track is the column of ▕ beside the entries, and the last line of
+	// it is where a press scrolls to the end.
+	track := func() (col, top, bottom int) {
+		col, top, bottom = -1, -1, -1
+		for y, line := range a.lines() {
+			r := []rune(line)
+			for x := 0; x < min(len(r), ui.SidebarWidth); x++ {
+				if r[x] == '▕' || r[x] == '▐' {
+					if top < 0 {
+						top = y
+					}
+					col, bottom = x, y
+				}
+			}
+		}
+		return col, top, bottom
+	}
+	col, top, bottom := track()
+	if col < 0 {
+		t.Fatalf("an overflowing list should have a scrollbar:\n%s", a.sidebarText())
+	}
+	a.clickAt(t, col+1, bottom+1)
+	a.waitForScreen(t, "the end of the list", func(string) bool {
+		side := a.sidebarText()
+		return strings.Contains(side, "space 9") && !strings.Contains(side, "main")
+	})
+
+	// The thumb is at the bottom now: held there and dragged to the top of
+	// the track, it takes the list back to its start.
+	a.send(t, "\x1b[<0;"+itoa(col+1)+";"+itoa(bottom+1)+"M")
+	time.Sleep(120 * time.Millisecond)
+	a.send(t, "\x1b[<32;"+itoa(col+1)+";"+itoa(top+1)+"M")
+	time.Sleep(200 * time.Millisecond)
+	a.send(t, "\x1b[<0;"+itoa(col+1)+";"+itoa(top+1)+"m")
+	a.waitForScreen(t, "the start of the list", func(string) bool {
+		side := a.sidebarText()
+		return strings.Contains(side, "main") && !strings.Contains(side, "space 9")
+	})
+}
+
 // TestAttachRenamesInAModal: the status bar is where tend says things, not
 // where the user says them. A field down there competes with the session name
 // for one row and puts what is being typed furthest from the eye.

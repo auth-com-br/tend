@@ -85,7 +85,12 @@ of tests. herdr's API has about 110 methods; tend's protocol has 18.
 - **Sidebar**: spaces as a folding tree of groups, git branch and ahead/behind
   per space, agents list flat or grouped, draggable divider between the two
   lists, its width dragged by its right edge, per-list scrolling with pinned headings, collapse/expand handles, a
-  session-wide "N waiting" count.
+  session-wide "N waiting" count. Each list that overflows has herdr's
+  scrollbar (`client/shell/scroll.rs` `render_list_scrollbar`,
+  `ui/scrollbar.rs`): a `▕` track beside the scrolling entries, a press on it
+  centres the thumb there, the thumb dragged follows the pointer by where it
+  was held. The thumb's math counts entries, as tend's list scroll does; the
+  track stops above the hide handle's corner.
 - **Mouse**: clickable tabs and sidebar, context menus with hover highlight,
   rename in a modal, wheel scrolling.
 - **Selection and copy**, on herdr's model: a program that asks for the mouse is
@@ -401,6 +406,7 @@ of tests. herdr's API has about 110 methods; tend's protocol has 18.
 | Terminal core | libghostty-vt via FFI | pure Go | owner's decision; no cgo |
 | Agent state | screen detection **and** hooks installed into each agent | screen detection **and** hooks (`tend integration install`); arbitration + automation socket | — |
 | Forced selection | none inside a mouse-holding program | alt+drag selects a block anywhere | fallback for programs that hold the mouse and do nothing with a drag |
+| Sidebar scrollbar thumb | the track's own `▕` in `overlay0` over a `surface_dim` track | a `▐` in the accent (`SidebarGroupActive`) over the dim `▕` track | the tokens herdr's two colours map to, Border and SidebarGroup, are the same muted style in every tend theme, so the thumb vanished and the bar read as a fixed rule |
 | Clipboard | OSC 52 only | local tool (`wl-copy`/`xclip`/`xsel`/`pbcopy`) when not over ssh, plus OSC 52 always | the owner's terminal refuses OSC 52 |
 | Space groups | only a repository's worktrees, grouped automatically | named groups of any spaces: "new group..." on a space makes one, "move to group..." (once there is a group) lists them, or leaves one, and a space dragged onto a group's heading or among its spaces joins it | the owner asked for spaces to be put together by hand |
 | Companies | user-defined Spaces (`src/user_space.rs`, `src/app/api/spaces.rs`): named sets of workspaces, many-to-many, saved with the session, with `space.create/rename/delete/assign/unassign` handlers — and, in the checkout read, no screen and no schema types for them yet | the same model in `internal/session/company.go` (herdr's sanitising on restore, a closed space leaving every company), saved in the state file, sent in the snapshot, and `company.create/rename/delete/assign/unassign` on the client protocol; called companies because tend's workspaces are already called spaces. tend's own on top: prefix+O or the mark at the right of the "spaces" heading opens a panel to make, rename and delete them, tick which spaces each holds, and choose one; while one is chosen the sidebar lists its spaces and their agents only, next/previous space stays among them, a new space goes into it, a worktree's space — made or opened by `worktree.create`/`worktree.open` on the server, from the space menu, the issues, errors and tickets panels or a script — goes into every company of the space it was asked from (the space named, else the one holding `cwd`), and going to a space outside it (the navigator, an agent's notice) chooses a company that has it. Which one is chosen is the client's, kept per session in the state directory; the heading shows "!" when an agent in a hidden space is waiting. Not on the automation socket yet | the owner's: many companies to work for, each with its clients' spaces, to be looked at one at a time |

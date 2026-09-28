@@ -351,7 +351,7 @@ func (t *tui) handleMouse(ev ui.MouseEvent) error {
 			}
 			return nil
 		}
-		if t.grabSidebarDivider(ev.X, ev.Y) {
+		if t.grabSidebarDivider(ev.X, ev.Y) || t.grabSidebarScrollbar(ev.X, ev.Y) {
 			return nil
 		}
 		if handled, err := t.clickTabBar(ev.X, ev.Y); handled {
@@ -431,7 +431,7 @@ func (t *tui) handleMouse(ev ui.MouseEvent) error {
 		if t.dragSelection(ev) {
 			return nil
 		}
-		if t.dragSidebarDivider(ev.Y) {
+		if t.dragSidebarDivider(ev.Y) || t.dragSidebarScrollbar(ev.Y) {
 			return nil
 		}
 		if t.dragSidebarWidth(ev.X) {
@@ -460,6 +460,7 @@ func (t *tui) handleMouse(ev ui.MouseEvent) error {
 		t.dragPane, t.dragSide = 0, ""
 		t.draggingSidebar = false
 		t.draggingSidebarWidth = false
+		t.draggingScrollbar = ui.SidebarNowhere
 		t.mu.Unlock()
 
 		return nil
@@ -538,6 +539,55 @@ func (t *tui) scrollSidebar(x, y, delta int) bool {
 
 func clampScroll(at int, s ui.SidebarSection, height int) int {
 	return min(max(at, 0), ui.SidebarMaxScroll(s, height))
+}
+
+// grabSidebarScrollbar handles a press on a list's scrollbar, and reports
+// whether the press was on one. herdr's: on the thumb it takes hold of it
+// where it was pressed, so the thumb does not jump under the pointer; on the
+// track it moves the list so the thumb is centred there.
+func (t *tui) grabSidebarScrollbar(x, y int) bool {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if !t.sidebar {
+		return false
+	}
+	list, bar, ok := ui.SidebarScrollbarAt(t.buildFrame(), x, y, t.rows)
+	if !ok {
+		return false
+	}
+	if bar.OnThumb(y) {
+		t.draggingScrollbar, t.scrollbarGrab = list, y-bar.ThumbTop
+		return true
+	}
+	t.setListScrollLocked(list, bar.ScrollAt(y, bar.ThumbLen/2))
+	return true
+}
+
+// dragSidebarScrollbar follows a held thumb, and reports whether one was
+// held. The pointer may leave the column while it drags; only its line counts.
+func (t *tui) dragSidebarScrollbar(y int) bool {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.draggingScrollbar == ui.SidebarNowhere {
+		return false
+	}
+	if bar, ok := ui.SidebarScrollbarOf(t.buildFrame(), t.rows, t.draggingScrollbar); ok {
+		t.setListScrollLocked(t.draggingScrollbar, bar.ScrollAt(y, t.scrollbarGrab))
+	}
+	return true
+}
+
+// setListScrollLocked scrolls one list, and marks the screen stale if that
+// moved it.
+func (t *tui) setListScrollLocked(list ui.SidebarPlace, at int) {
+	scroll := &t.spacesScroll
+	if list == ui.SidebarAgentsList {
+		scroll = &t.agentsScroll
+	}
+	if *scroll != at {
+		*scroll = at
+		t.dirty = true
+	}
 }
 
 // grabSidebarDivider takes hold of the line between the two lists, and reports

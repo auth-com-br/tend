@@ -227,6 +227,10 @@ type tui struct {
 	sidebarSplit int
 	// draggingSidebar marks that the divider is being moved.
 	draggingSidebar bool
+	// draggingScrollbar is the list whose scrollbar thumb is held, and
+	// scrollbarGrab how far into the thumb it was taken hold of.
+	draggingScrollbar ui.SidebarPlace
+	scrollbarGrab     int
 	// sidebarWidth is where the user dragged the sidebar's edge to, or zero
 	// for the settings' width; draggingSidebarWidth marks the drag, and
 	// lastEdgeClick is for herdr's double click back to the default. What

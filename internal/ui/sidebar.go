@@ -346,6 +346,141 @@ func sidebarScroll(s SidebarSection, height int) int {
 	return min(max(s.Scroll, 0), SidebarMaxScroll(s, height))
 }
 
+// SidebarScrollbar is a list's scrollbar, herdr's render_list_scrollbar: a
+// track down the list's right edge, beside the entries that scroll, and a thumb
+// saying how much of the list is in view and where. The arrows it replaces said
+// only that there was more; a thumb says how much, and can be taken hold of.
+//
+// Rows are screen lines. The offset it maps to counts in entries, as the
+// sidebar's scroll does everywhere else.
+type SidebarScrollbar struct {
+	// X, Y and Rows are the track.
+	X, Y, Rows int
+	// ThumbTop is the screen line the thumb starts on, ThumbLen its lines.
+	ThumbTop, ThumbLen int
+	// Max is the section's SidebarMaxScroll.
+	Max int
+}
+
+// OnThumb reports whether a line is on the thumb.
+func (b SidebarScrollbar) OnThumb(y int) bool {
+	return y >= b.ThumbTop && y < b.ThumbTop+b.ThumbLen
+}
+
+// ScrollAt is the offset that puts the thumb's grab line on a screen line:
+// grab is how far into the thumb it was taken hold of. herdr's
+// scrollbar_offset_from_drag_row; a click on the track is the same with the
+// thumb held by its middle (scrollbar_offset_from_row), so it centres there.
+func (b SidebarScrollbar) ScrollAt(y, grab int) int {
+	maxTop := b.Rows - b.ThumbLen
+	if maxTop <= 0 || b.Max <= 0 {
+		return 0
+	}
+	top := min(max(y-b.Y-grab, 0), maxTop)
+	return roundDiv(top*b.Max, maxTop)
+}
+
+// roundDiv is a/b rounded to the nearest, as herdr's f32 round is, for the
+// non-negative numbers a scrollbar deals in.
+func roundDiv(a, b int) int { return (2*a + b) / (2 * b) }
+
+// sectionScrollbar is a section's scrollbar, and whether it has one: only a
+// list with more than fits does, as only it has somewhere to go (herdr's
+// should_show_scrollbar), and only a column wide enough to give one up.
+//
+// The track stops short of the hide handle, which owns the column's last
+// corner: a list reaching the bottom of the sidebar would otherwise draw over
+// it, and a press there would have two meanings.
+func sectionScrollbar(s SidebarSection, region Rect, width, handleRow int) (SidebarScrollbar, bool) {
+	maxScroll := SidebarMaxScroll(s, region.Rows)
+	limit := width - 1
+	if maxScroll == 0 || limit < 4 {
+		return SidebarScrollbar{}, false
+	}
+	pinned, rest, room := scrollable(s, region.Rows)
+	top := region.Y
+	for _, r := range pinned {
+		top += r.height()
+	}
+	rows := room
+	if handleRow >= top && handleRow < top+rows {
+		rows = handleRow - top
+	}
+	if rows <= 0 || len(rest) == 0 {
+		return SidebarScrollbar{}, false
+	}
+
+	// herdr's scrollbar_thumb, with entries for its lines: the thumb is the
+	// share of the list in view, and sits as far down the track as the list
+	// is scrolled down its length.
+	viewport := len(rest) - maxScroll
+	length := min(max(roundDiv(viewport*rows, len(rest)), 1), rows)
+	maxTop := rows - length
+	at := 0
+	if maxTop > 0 {
+		at = min(roundDiv(sidebarScroll(s, region.Rows)*maxTop, maxScroll), maxTop)
+	}
+	return SidebarScrollbar{
+		X: limit - 1, Y: top, Rows: rows,
+		ThumbTop: top + at, ThumbLen: length,
+		Max: maxScroll,
+	}, true
+}
+
+// SidebarScrollbarAt is the list a point is on the scrollbar of, and that
+// scrollbar; ok is false when the point is on neither list's.
+func SidebarScrollbarAt(f Frame, x, y, rows int) (list SidebarPlace, bar SidebarScrollbar, ok bool) {
+	if !f.Sidebar || y >= SidebarHeight(rows) {
+		return SidebarNowhere, SidebarScrollbar{}, false
+	}
+	for _, list := range []SidebarPlace{SidebarSpacesList, SidebarAgentsList} {
+		bar, ok := SidebarScrollbarOf(f, rows, list)
+		if ok && x == bar.X && y >= bar.Y && y < bar.Y+bar.Rows {
+			return list, bar, true
+		}
+	}
+	return SidebarNowhere, SidebarScrollbar{}, false
+}
+
+// SidebarScrollbarOf is one list's scrollbar, which a drag that started on it
+// follows wherever the pointer goes afterwards.
+func SidebarScrollbarOf(f Frame, rows int, list SidebarPlace) (SidebarScrollbar, bool) {
+	if !f.Sidebar {
+		return SidebarScrollbar{}, false
+	}
+	spaces, agents, _ := sidebarRegions(f, rows)
+	width := sidebarWidthOf(f)
+	switch list {
+	case SidebarSpacesList:
+		return sectionScrollbar(f.Spaces, spaces, width, hideHandleRow(f, rows))
+	case SidebarAgentsList:
+		if agents.Rows > 0 {
+			return sectionScrollbar(f.Agents, agents, width, hideHandleRow(f, rows))
+		}
+	}
+	return SidebarScrollbar{}, false
+}
+
+// drawScrollbar draws a track and its thumb down the list's right edge: the
+// track herdr's thin dim line, the thumb a thicker block in the accent.
+//
+// herdr draws both with one glyph in two colours (surface_dim, overlay0). Here
+// the tokens those would map to — Border and SidebarGroup — are the same muted
+// style in every theme, so the thumb vanished into the track and the bar read
+// as a fixed rule that did not move. The accent and a wider glyph keep the two
+// apart whatever the theme, including the terminal's own colours.
+func drawScrollbar(dst *vt.Grid, b SidebarScrollbar, theme Theme) {
+	for y := b.Y; y < b.Y+b.Rows; y++ {
+		cell := vt.Cell{R: '▕', Style: theme.Border, Width: 1}
+		if b.OnThumb(y) {
+			cell = vt.Cell{R: '▐', Style: theme.SidebarGroupActive, Width: 1}
+		}
+		if row := dst.Line(y); row != nil {
+			row.SetCell(b.X, cell)
+		}
+	}
+}
+
 // drawSidebar draws the two lists down the left edge.
 func drawSidebar(dst *vt.Grid, f Frame, theme Theme) {
 	if !f.Sidebar {
@@ -373,10 +508,11 @@ func drawSidebar(dst *vt.Grid, f Frame, theme Theme) {
 		drawToolbar(dst, f, width, theme)
 	}
 	spaces, agents, divider := sidebarRegions(f, dst.Rows())
-	drawSection(dst, f.Spaces, spaces, width, theme)
+	handle := hideHandleRow(f, dst.Rows())
+	drawSection(dst, f.Spaces, spaces, width, handle, theme)
 	if divider >= 0 {
 		drawSidebarDivider(dst, divider, width, theme)
-		drawSection(dst, f.Agents, agents, width, theme)
+		drawSection(dst, f.Agents, agents, width, handle, theme)
 	}
 
 	// The handle that puts the column away, in the corner it would leave
@@ -450,13 +586,14 @@ func drawSidebarDivider(dst *vt.Grid, y, width int, theme Theme) {
 }
 
 // drawSection draws one list inside its region.
-func drawSection(dst *vt.Grid, s SidebarSection, region Rect, width int, theme Theme) {
+func drawSection(dst *vt.Grid, s SidebarSection, region Rect, width, handleRow int, theme Theme) {
 	if region.Rows <= 0 {
 		return
 	}
 	limit := width - 1
 	pinned, rest, room := scrollable(s, region.Rows)
 	from := sidebarScroll(s, region.Rows)
+	bar, scrolls := sectionScrollbar(s, region, width, handleRow)
 
 	y := region.Y
 	for _, r := range pinned {
@@ -464,15 +601,15 @@ func drawSection(dst *vt.Grid, s SidebarSection, region Rect, width int, theme T
 		y += r.height()
 	}
 
+	// The entries give the scrollbar its column when there is one, as
+	// herdr's list does, so a name is cut short rather than drawn under it.
 	head := y
-	last := from
 	for _, r := range rest[min(from, len(rest)):] {
 		if y+r.height() > head+room {
 			break
 		}
-		drawSidebarRow(dst, r, y, limit, theme)
+		drawSidebarRow(dst, r, y, entryLimit(limit, scrolls), theme)
 		y += r.height()
-		last++
 	}
 
 	// The footer is drawn against the bottom of the region rather than after
@@ -484,15 +621,22 @@ func drawSection(dst *vt.Grid, s SidebarSection, region Rect, width int, theme T
 		at += r.height()
 	}
 
-	// Say which way there is more. A list that silently ends is one the user
-	// believes they have seen all of, which is how a waiting agent goes
-	// unnoticed below the fold.
-	if from > 0 {
-		writeString(dst, limit-1, head, "↑", theme.SidebarGroup, width)
+	// Say that there is more, and how much. A list that silently ends is one
+	// the user believes they have seen all of, which is how a waiting agent
+	// goes unnoticed below the fold.
+	if scrolls {
+		drawScrollbar(dst, bar, theme)
 	}
-	if last < len(rest) {
-		writeString(dst, limit-1, region.Y+region.Rows-1, "↓", theme.SidebarGroup, width)
+}
+
+// entryLimit is the column a scrolling entry is drawn up to: one short of the
+// sidebar's when the list has a scrollbar to make room for. Drawing and
+// hit-testing both ask it, so a row's button is clicked where it is drawn.
+func entryLimit(limit int, scrollbar bool) int {
+	if scrollbar {
+		return limit - 1
 	}
+	return limit
 }
 
 func drawSidebarRow(dst *vt.Grid, r SidebarRow, y, limit int, theme Theme) {
@@ -794,14 +938,14 @@ func SidebarRowAt(f Frame, x, y, rows int) (SidebarRow, bool) {
 	width := sidebarWidthOf(f)
 	switch SidebarPlaceAt(f, x, y, rows) {
 	case SidebarSpacesList:
-		return rowInSection(f.Spaces, spaces, width, x, y)
+		return rowInSection(f.Spaces, spaces, width, hideHandleRow(f, rows), x, y)
 	case SidebarAgentsList:
-		return rowInSection(f.Agents, agents, width, x, y)
+		return rowInSection(f.Agents, agents, width, hideHandleRow(f, rows), x, y)
 	}
 	return SidebarRow{}, false
 }
 
-func rowInSection(s SidebarSection, region Rect, width, x, y int) (SidebarRow, bool) {
+func rowInSection(s SidebarSection, region Rect, width, handleRow, x, y int) (SidebarRow, bool) {
 	// The footer is looked at first: it is drawn over the bottom of the
 	// region, and a click there means the footer, not whatever entry would
 	// have reached that far.
@@ -817,11 +961,18 @@ func rowInSection(s SidebarSection, region Rect, width, x, y int) (SidebarRow, b
 	from := sidebarScroll(s, region.Rows)
 
 	at = region.Y
-	walk := append(append([]SidebarRow{}, pinned...), rest[min(from, len(rest)):]...)
-	for _, r := range walk {
+	for _, r := range pinned {
+		if y >= at && y < at+r.height() {
+			return resolveTrailing(r, width, x, y, at), true
+		}
+		at += r.height()
+	}
+	_, scrolls := sectionScrollbar(s, region, width, handleRow)
+	entries := entryLimit(width-1, scrolls) + 1
+	for _, r := range rest[min(from, len(rest)):] {
 		height := r.height()
 		if y >= at && y < at+height {
-			return resolveTrailing(r, width, x, y, at), true
+			return resolveTrailing(r, entries, x, y, at), true
 		}
 		at += height
 	}
