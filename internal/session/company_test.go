@@ -139,3 +139,49 @@ func TestCompaniesComeBackAfterARestart(t *testing.T) {
 	}
 	check(t, back)
 }
+
+// TestASpaceMadeFromAnotherJoinsItsCompanies: a worktree's space, opened
+// from a space in two companies, is put in both and in no other; one already
+// in a company stays there once; an origin that has gone leaves it unfiled
+// rather than failing. If it regresses, a worktree opened while a company is
+// chosen shows only under "all spaces" (issue #34).
+func TestASpaceMadeFromAnotherJoinsItsCompanies(t *testing.T) {
+	s := New()
+	origin, made, stray := s.AddWorkspace("origin"), s.AddWorkspace("made"), s.AddWorkspace("stray")
+	auth, _ := s.AddCompany("Auth")
+	acme, _ := s.AddCompany("Acme")
+	other, _ := s.AddCompany("Other")
+	for _, c := range []CompanyID{auth.ID, acme.ID} {
+		if err := s.AssignCompany(c, origin.ID); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := s.AssignCompany(acme.ID, made.ID); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := s.JoinCompaniesOf(made.ID, origin.ID); err != nil {
+		t.Fatal(err)
+	}
+	if got := s.CompaniesOf(made.ID); !slices.Equal(got, []CompanyID{auth.ID, acme.ID}) {
+		t.Errorf("made is in %v, want Auth and Acme", got)
+	}
+	if slices.Contains(other.Workspaces, made.ID) {
+		t.Error("made went into a company its origin is not in")
+	}
+	check(t, s)
+
+	if _, err := s.CloseWorkspace(origin.ID); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.JoinCompaniesOf(stray.ID, origin.ID); err != nil {
+		t.Errorf("an origin that has gone: %v", err)
+	}
+	if got := s.CompaniesOf(stray.ID); len(got) != 0 {
+		t.Errorf("stray is in %v, want none", got)
+	}
+	if err := s.JoinCompaniesOf(999, made.ID); !errors.Is(err, ErrNoSuchWorkspace) {
+		t.Errorf("a space that does not exist: %v", err)
+	}
+	check(t, s)
+}

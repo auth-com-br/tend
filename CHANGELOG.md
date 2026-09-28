@@ -5,6 +5,9 @@ release's notes on GitHub and what "what's new" shows inside tend.
 
 ## Unreleased
 
+#### Fixed
+- **A worktree stays in its company.** With a company chosen, opening a worktree — from the space menu, or `w` on an issue, error or ticket — made its space outside every company, and it showed only under "all spaces". It now goes into the companies of the space it was opened from, for every client and for scripts on the socket.
+
 ## v0.10.0 — 2026-09-27
 
 #### New

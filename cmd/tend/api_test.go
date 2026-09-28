@@ -631,6 +631,80 @@ func TestMakingAWorktreeFromTheSpaceMenu(t *testing.T) {
 	}
 }
 
+// TestAWorktreeMadeWhileACompanyIsChosenIsInIt: with a company chosen, a
+// worktree made from the menu of a space in it gets a space in it too. The
+// space is made by the server, on the automation socket, where only the
+// client's "new space" used to file a new space in the chosen company. If it
+// regresses, the worktree just asked for is nowhere in the list until "all
+// spaces" is chosen (issue #34).
+func TestAWorktreeMadeWhileACompanyIsChosenIsInIt(t *testing.T) {
+	runtimeDir := t.TempDir()
+	worktrees := t.TempDir()
+	cfg := filepath.Join(t.TempDir(), "tend.toml")
+	if err := os.WriteFile(cfg, []byte("[worktrees]\ndirectory = \""+worktrees+"\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("TEND_RUNTIME_DIR", runtimeDir)
+	t.Setenv("TEND_CONFIG", cfg)
+	bin := buildBinary(t)
+
+	repo := filepath.Join(t.TempDir(), "project")
+	if err := os.MkdirAll(repo, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	gitEnv := append(os.Environ(), "GIT_AUTHOR_NAME=t", "GIT_AUTHOR_EMAIL=t@t",
+		"GIT_COMMITTER_NAME=t", "GIT_COMMITTER_EMAIL=t@t")
+	for _, args := range [][]string{{"init", "-q", "-b", "main"}, {"commit", "-q", "--allow-empty", "-m", "first"}} {
+		cmd := exec.Command("git", args...)
+		cmd.Dir, cmd.Env = repo, gitEnv
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+
+	env := append(os.Environ(), "TEND_RUNTIME_DIR="+runtimeDir, "TEND_CONFIG="+cfg, "SHELL=/bin/sh")
+	p, err := pty.Start(bin, []string{"attach", "-s", "wtc"}, pty.Options{
+		Size: pty.Size{Cols: 120, Rows: 36}, Env: env, Dir: repo,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := &attached{pty: p, screen: vt.NewScreen(120, 36, 100)}
+	go func() { _, _ = io.Copy(a, p) }()
+	t.Cleanup(func() { _ = p.Close(); stopSession(t, "wtc") })
+	a.waitForScreen(t, "a pane", func(s string) bool { return strings.Contains(s, "┌") })
+
+	// A company holding the space, chosen.
+	a.send(t, "\x02O")
+	a.waitForScreen(t, "the panel", func(s string) bool { return strings.Contains(s, "COMPANIES") })
+	a.send(t, "n")
+	a.waitForScreen(t, "the name asked for", func(s string) bool { return strings.Contains(s, "new company:") })
+	a.send(t, "Auth\r")
+	a.waitForScreen(t, "its spaces offered", func(s string) bool { return strings.Contains(s, "[ ] main") })
+	a.send(t, " ")
+	a.waitForScreen(t, "the space ticked", func(s string) bool { return strings.Contains(s, "[✓] main") })
+	a.send(t, "\x1b")
+	a.waitForScreen(t, "the list with it", func(s string) bool {
+		return strings.Contains(s, "Auth") && strings.Contains(s, "1 space")
+	})
+	a.send(t, "\r")
+	a.waitForScreen(t, "the company chosen", func(s string) bool {
+		return !strings.Contains(s, "COMPANIES") && strings.Contains(s, "◆ Auth") && sidebarHas(s, "main")
+	})
+
+	a.openMenuOn(t, 6, a.lineContaining(t, "main"), "new worktree")
+	row := a.lineContaining(t, "new worktree")
+	a.clickAt(t, columnOfString(a.lines()[row-1], "new worktree")+2, row)
+	a.waitForScreen(t, "the branch prompt", func(s string) bool {
+		return strings.Contains(s, "new worktree — branch")
+	})
+	a.send(t, "\x15feature/auth\r")
+	a.waitForScreen(t, "the worktree as a space, the company still chosen", func(s string) bool {
+		return !strings.Contains(s, "enter · esc") && strings.Contains(s, "◆ Auth") &&
+			strings.Contains(a.sidebarText(), "feature/auth")
+	})
+}
+
 // TestAScriptCanAskTheClientToShowAPane: pane.focus over the socket reaches
 // the attached client, which moves to the pane — how a plugin brings the
 // panel it just opened into view. If it regresses, the call answers and

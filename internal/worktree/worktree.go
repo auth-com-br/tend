@@ -265,6 +265,13 @@ func canonical(path string) string {
 // Same reports whether two paths are the same directory.
 func Same(a, b string) bool { return canonical(a) == canonical(b) }
 
+// Within reports whether path is dir or somewhere under it, with symlinks
+// resolved in both.
+func Within(path, dir string) bool {
+	rel, err := filepath.Rel(canonical(dir), canonical(path))
+	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
+}
+
 // git runs git in dir and returns its output, or its complaint as the error.
 //
 // Nothing git runs may wait for a person: a hook or a credential helper that

@@ -117,8 +117,7 @@ func (s *Session) UnassignCompany(id CompanyID, ws WorkspaceID) error {
 	return nil
 }
 
-// CompaniesOf is the companies a workspace is in, in the order they were
-// made.
+// CompaniesOf is every company a workspace is in, in the order they were made.
 func (s *Session) CompaniesOf(ws WorkspaceID) []CompanyID {
 	var out []CompanyID
 	for _, c := range s.companies {
@@ -127,6 +126,26 @@ func (s *Session) CompaniesOf(ws WorkspaceID) []CompanyID {
 		}
 	}
 	return out
+}
+
+// JoinCompaniesOf puts a workspace in every company another one is in. A
+// space made from another — a worktree opened from a space — belongs where
+// the space it came from does: made while one company was chosen, it used to
+// land in none, and showed only under "all spaces" (issue #34).
+//
+// It only adds. A company the workspace is already in, or one the origin is
+// not, is left as it is; an origin that has gone since is not an error, since
+// the space it was asked for exists and is merely unfiled.
+func (s *Session) JoinCompaniesOf(ws, origin WorkspaceID) error {
+	if _, ok := s.Workspace(ws); !ok {
+		return fmt.Errorf("%w: %d", ErrNoSuchWorkspace, ws)
+	}
+	for _, id := range s.CompaniesOf(origin) {
+		if err := s.AssignCompany(id, ws); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // forgetWorkspace takes a closed workspace out of every company (herdr's
