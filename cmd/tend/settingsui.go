@@ -364,7 +364,7 @@ func (t *tui) drawSettings() {
 }
 
 // maxShownChoices is how many choices a row lists before it shows only the
-// current one: eighteen themes do not fit on a line, and do not need to.
+// current one: nineteen themes do not fit on a line, and do not need to.
 const maxShownChoices = 4
 
 // pad is the column padding the overlay uses, spelled here because ui's is

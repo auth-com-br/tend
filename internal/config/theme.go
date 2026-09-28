@@ -8,7 +8,8 @@ import (
 
 // ThemeNames are the palettes tend ships, in the order a list shows them.
 // They are herdr's (`config/theme.rs` THEME_NAMES), so a name that works in
-// one works in the other.
+// one works in the other — and, after them, tend's own, which herdr does not
+// have: "matrix", which the owner asked for.
 var ThemeNames = []string{
 	"catppuccin",
 	"catppuccin-latte",
@@ -28,6 +29,7 @@ var ThemeNames = []string{
 	"rose-pine",
 	"rose-pine-dawn",
 	"vesper",
+	"matrix",
 }
 
 // themeAliases are the other spellings herdr accepts for the same palettes.
@@ -48,6 +50,7 @@ var themeAliases = map[string]string{
 	"rosepine":         "rose-pine",
 	"rosepine-dawn":    "rose-pine-dawn",
 	"dawn":             "rose-pine-dawn",
+	"the-matrix":       "matrix",
 }
 
 // CanonicalTheme is the name a theme is known by, from any spelling of it:

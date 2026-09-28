@@ -417,6 +417,32 @@ var palettes = map[string]Palette{
 		Teal:        vt.RGBColor(102, 221, 204),
 		Peach:       vt.RGBColor(255, 199, 153),
 	},
+	// matrix is tend's own, not herdr's: the green-on-black of the film's
+	// rain (#00FF41, #008F11, #003B00, #0D0208). Only the chrome is green.
+	// The states keep colours of their own — gold working, red blocked,
+	// cyan done — because a sidebar where everything is green cannot say
+	// which agent is waiting, which is what the sidebar is for.
+	"matrix": {
+		Accent:      vt.RGBColor(0, 255, 65),
+		PanelBG:     vt.RGBColor(13, 2, 8),
+		SidebarBG:   vt.DefaultColor,
+		ActiveRowBG: vt.RGBColor(0, 59, 0),
+		SelectionBG: vt.RGBColor(0, 42, 12),
+		Surface0:    vt.RGBColor(0, 32, 8),
+		Surface1:    vt.RGBColor(0, 59, 0),
+		SurfaceDim:  vt.RGBColor(0, 24, 6),
+		Overlay0:    vt.RGBColor(0, 143, 17),
+		Overlay1:    vt.RGBColor(0, 190, 40),
+		Text:        vt.RGBColor(0, 255, 65),
+		Subtext0:    vt.RGBColor(0, 143, 17),
+		Mauve:       vt.RGBColor(120, 255, 140),
+		Green:       vt.RGBColor(0, 255, 65),
+		Yellow:      vt.RGBColor(255, 215, 0),
+		Red:         vt.RGBColor(255, 60, 60),
+		Blue:        vt.RGBColor(0, 200, 255),
+		Teal:        vt.RGBColor(0, 230, 230),
+		Peach:       vt.RGBColor(255, 170, 0),
+	},
 }
 
 // PaletteNamed is a theme's palette, from any spelling config accepts.

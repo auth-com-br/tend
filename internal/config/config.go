@@ -1017,7 +1017,7 @@ grouped = false
 # A named theme: catppuccin, catppuccin-latte, terminal, tokyo-night,
 # tokyo-night-day, dracula, nord, gruvbox, gruvbox-light, one-dark, one-light,
 # solarized, solarized-light, kanagawa, kanagawa-lotus, rose-pine,
-# rose-pine-dawn, vesper. Unset uses the terminal's own colours.
+# rose-pine-dawn, vesper, matrix. Unset uses the terminal's own colours.
 # name = "catppuccin"
 #
 # Or follow the terminal between light and dark, with a theme for each.

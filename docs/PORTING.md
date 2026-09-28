@@ -196,7 +196,8 @@ of tests. herdr's API has about 110 methods; tend's protocol has 18.
   refused outright if the result would not parse (herdr's
   `config/io.rs::upsert_section_raw`).
 - **Named themes** (herdr's `config/theme.rs` and `app/state.rs` Palette):
-  `[ui.theme] name = "tokyo-night"` picks one of herdr's eighteen palettes,
+  `[ui.theme] name = "tokyo-night"` picks one of herdr's eighteen palettes
+  (or tend's own `matrix`, see "Different from herdr on purpose"),
   by any of herdr's spellings (`Tokyo Night`, `tokyonight`, `latte`, ...),
   with the values transcribed from herdr's source by a script. The palette
   colours what herdr colours with it — accent for focus, overlay0 for frames
@@ -415,6 +416,7 @@ of tests. herdr's API has about 110 methods; tend's protocol has 18.
 | Focus, scroll and zoom over the API | `pane.focus`, `agent.focus`, `pane.scroll`, `pane.zoom`, `pane.current` are server methods | `pane.focus` and `tab.focus` ask every attached client to show the pane, and each client moves itself (the answer says how many were asked); scroll, zoom and `pane.current` are not offered | in tend these are client state (AGENTS.md: what one person is looking at stays in the client), so the server can ask but not set, and cannot answer for a client that may not be attached |
 | Names | workspace | space (in the UI; `workspace` in code and on the wire) | matches herdr's own UI wording |
 | Claude / JSONC settings | `jsonc_parser` preserves comments and compact layout | `encoding/json`; comments lost and **keys re-sorted alphabetically** on rewrite (content otherwise identical — checked against the owner's real 44 KB `settings.json`: install adds one `SessionStart` entry, a second install adds nothing, uninstall restores it exactly) | avoid a new dependency; invalid JSON is an error, not silently stripped |
+| Matrix theme | none; eighteen palettes | a nineteenth, `matrix` (`the matrix` too): green chrome on near-black, the states still gold, red, green and cyan | the owner asked for it; a name herdr would refuse, so a settings file that uses it is tend's |
 | Default theme | catppuccin | the terminal's own colours when no `name` is set | an unset theme keeps what tend has always looked like; the owner picks a palette in the settings screen or the file |
 | Window title on detach | writes "herdr" | saves the window's title when it first writes one (`CSI 22;0t`) and puts it back on detach (`CSI 23;0t`) | detaching should leave the window as tend found it; a terminal without the title stack keeps tend's last title, which is no worse than herdr's name |
 | Invalid tab bar entry | hidden, with a diagnostic | the settings file is refused at load, like every other value tend cannot use | one rule for every setting; a gap in the bar with the reason in a log nobody reads is harder to notice |
