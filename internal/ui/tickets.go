@@ -188,22 +188,16 @@ func TicketsLayout(v *TicketsView, cols, rows int) TicketsGeometry {
 		g.Link = Rect{X: box.X + 2 + min(runewidth.StringWidth(ticketsTitle(v))+2, max(box.Cols-lw-20, 0)), Y: box.Y + 1, Cols: lw, Rows: 1}
 	}
 	off := 0
-	chips := func(label string, names []string) []Rect {
-		var out []Rect
-		sx := box.X + 2 + runewidth.StringWidth(label+" ")
-		for _, name := range names {
-			r := Rect{X: sx, Y: box.Y + 2 + off, Cols: runewidth.StringWidth(" " + name + " "), Rows: 1}
-			out = append(out, r)
-			sx += r.Cols + 1
-		}
+	chips := func(label string, names []string, chosen int) []Rect {
+		out, _, _ := layoutChips(box.X+2+runewidth.StringWidth(label+" "), box.X+box.Cols-2, box.Y+2+off, names, chosen)
 		off++
 		return out
 	}
 	if len(v.Accounts) > 1 && v.Detail == nil {
-		g.AccountChips = chips("account", v.Accounts)
+		g.AccountChips = chips("account", v.Accounts, v.Active)
 	}
 	if len(v.Scopes) > 0 && v.Detail == nil {
-		g.ScopeChips = chips("scope  ", v.Scopes)
+		g.ScopeChips = chips("scope  ", v.Scopes, v.Scope)
 	}
 	x := box.X + 2
 	for _, name := range v.Filters {
@@ -464,21 +458,8 @@ func drawTicketList(dst *vt.Grid, v *TicketsView, g TicketsGeometry, theme Theme
 		count := fmt.Sprintf("%d", len(v.Tickets))
 		writeString(dst, right-7-runewidth.StringWidth(count), box.Y+1, count, theme.NotesSub, right)
 	}
-	chipRow := func(label string, rects []Rect, names []string, at int) {
-		if len(rects) == 0 {
-			return
-		}
-		writeString(dst, box.X+2, rects[0].Y, label, theme.NotesSub, right)
-		for i, r := range rects {
-			style := theme.NotesSub
-			if i == at {
-				style = theme.NotesButton
-			}
-			writeString(dst, r.X, r.Y, " "+names[i]+" ", style, right)
-		}
-	}
-	chipRow("account", g.AccountChips, v.Accounts, v.Active)
-	chipRow("scope", g.ScopeChips, v.Scopes, v.Scope)
+	drawChips(dst, box.X+2, "account", g.AccountChips, v.Accounts, v.Active, theme, right)
+	drawChips(dst, box.X+2, "scope", g.ScopeChips, v.Scopes, v.Scope, theme, right)
 	for i, r := range g.Filters {
 		style := theme.NotesSub
 		if i == v.Filter {

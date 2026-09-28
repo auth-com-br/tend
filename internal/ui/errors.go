@@ -203,22 +203,16 @@ func ErrorsLayout(v *ErrorsView, cols, rows int) ErrorsGeometry {
 	// A line of chips for the servers when there is more than one, then
 	// one for the projects: each pushes what is under it down a line.
 	off := 0
-	chips := func(label string, names []string) []Rect {
-		var out []Rect
-		sx := box.X + 2 + runewidth.StringWidth(label+" ")
-		for _, name := range names {
-			r := Rect{X: sx, Y: box.Y + 2 + off, Cols: runewidth.StringWidth(" " + name + " "), Rows: 1}
-			out = append(out, r)
-			sx += r.Cols + 1
-		}
+	chips := func(label string, names []string, chosen int) []Rect {
+		out, _, _ := layoutChips(box.X+2+runewidth.StringWidth(label+" "), box.X+box.Cols-2, box.Y+2+off, names, chosen)
 		off++
 		return out
 	}
 	if len(v.Sources) > 1 && v.Detail == nil {
-		g.SourceChips = chips("server ", v.Sources)
+		g.SourceChips = chips("server ", v.Sources, v.Source)
 	}
 	if len(v.Scopes) > 0 && v.Detail == nil {
-		g.ScopeChips = chips("project", v.Scopes)
+		g.ScopeChips = chips("project", v.Scopes, v.Scope)
 	}
 	x := box.X + 2
 	for _, name := range v.Filters {
@@ -606,26 +600,8 @@ func drawErrorList(dst *vt.Grid, v *ErrorsView, g ErrorsGeometry, theme Theme) {
 		count := fmt.Sprintf("%d", len(v.Errors))
 		writeString(dst, right-7-runewidth.StringWidth(count), box.Y+1, count, theme.NotesSub, right)
 	}
-	if len(g.SourceChips) > 0 {
-		writeString(dst, box.X+2, g.SourceChips[0].Y, "server", theme.NotesSub, right)
-		for i, r := range g.SourceChips {
-			style := theme.NotesSub
-			if i == v.Source {
-				style = theme.NotesButton
-			}
-			writeString(dst, r.X, r.Y, " "+v.Sources[i]+" ", style, right)
-		}
-	}
-	if len(g.ScopeChips) > 0 {
-		writeString(dst, box.X+2, g.ScopeChips[0].Y, "project", theme.NotesSub, right)
-		for i, r := range g.ScopeChips {
-			style := theme.NotesSub
-			if i == v.Scope {
-				style = theme.NotesButton
-			}
-			writeString(dst, r.X, r.Y, " "+v.Scopes[i]+" ", style, right)
-		}
-	}
+	drawChips(dst, box.X+2, "server", g.SourceChips, v.Sources, v.Source, theme, right)
+	drawChips(dst, box.X+2, "project", g.ScopeChips, v.Scopes, v.Scope, theme, right)
 	for i, r := range g.Filters {
 		style := theme.NotesSub
 		if i == v.Filter {
