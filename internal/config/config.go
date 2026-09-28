@@ -192,10 +192,11 @@ type Tickets struct {
 	Source  string                  `toml:"source"`
 }
 
-// TicketSource is one tracker account: Linear, Jira or ClickUp, its site
-// and email for Jira, its token — or where the keyring keeps it — and the
-// project folders whose tickets it has, each with the scope (a team, a
-// project, a workspace) to show, "" for all.
+// TicketSource is one tracker account: Linear, Jira, ClickUp or an Issue
+// Gateway, its site and email for Jira, its address for the Issue Gateway,
+// its token — or where the keyring keeps it — and the project folders
+// whose tickets it has, each with the scope (a team, a project, a
+// workspace) to show, "" for all.
 type TicketSource struct {
 	Kind     string            `toml:"kind"`
 	URL      string            `toml:"url"`

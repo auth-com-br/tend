@@ -14,8 +14,8 @@ import (
 	"github.com/auth-com-br/tend/internal/worktree"
 )
 
-// The tickets panel (internal/ui/tickets.go, internal/tickets): Linear, Jira
-// and ClickUp, as the errors panel is GlitchTip. The client talks to each
+// The tickets panel (internal/ui/tickets.go, internal/tickets): Linear, Jira,
+// ClickUp and the Issue Gateway, as the errors panel is GlitchTip. The client talks to each
 // tracker itself, with the accounts kept in its settings — tokens in the
 // system keyring when there is one — and does with a ticket what it does
 // with an error: types it into the pane the panel was opened from, starts
@@ -791,10 +791,14 @@ func (t *tui) ticketsConnectKey(key string) {
 		t.mu.Unlock()
 		return
 	}
-	jira := c.Kind < len(c.Kinds) && c.Kinds[c.Kind] == string(tickets.Jira)
-	// The fields a tracker asks for: the site and the email are Jira's.
+	kind := ""
+	if c.Kind < len(c.Kinds) {
+		kind = c.Kinds[c.Kind]
+	}
+	// The fields a tracker asks for: the site and the email are Jira's. The
+	// Issue Gateway has a fixed address, so it asks for the token alone.
 	fields := []int{0, 3}
-	if jira {
+	if tickets.Kind(kind) == tickets.Jira {
 		fields = []int{0, 1, 2, 3}
 	}
 	step := func(by int) {

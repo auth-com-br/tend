@@ -1,6 +1,6 @@
 // Package tickets reads and changes tickets in the trackers teams keep
-// their work in beside their code — Linear, Jira and ClickUp (#9) — for
-// the tickets panel: what is open, what is the user's, one ticket whole
+// their work in beside their code — Linear, Jira and ClickUp (#9), and the
+// Issue Gateway at issue.auth.com.br — for the tickets panel: what is open, what is the user's, one ticket whole
 // with its comments, a comment, and closing one, which each tracker does
 // its own way. The client talks to each tracker's web API itself, as it
 // talks to GlitchTip: a tracker is a web service, not something on the
@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 )
@@ -23,18 +24,20 @@ import (
 type Kind string
 
 const (
-	Linear  Kind = "linear"
-	Jira    Kind = "jira"
-	ClickUp Kind = "clickup"
+	Linear       Kind = "linear"
+	Jira         Kind = "jira"
+	ClickUp      Kind = "clickup"
+	IssueGateway Kind = "issuegateway"
 )
 
 // Kinds are the trackers tend knows, in the order it offers them.
-var Kinds = []Kind{Linear, Jira, ClickUp}
+var Kinds = []Kind{Linear, Jira, ClickUp, IssueGateway}
 
 // Account is one account on a tracker: its token, and for Jira the site
 // and, on Jira Cloud, the email the token belongs to (Jira Server and Data
-// Center take a personal access token alone). URL may also point Linear or
-// ClickUp elsewhere, which only a test does.
+// Center take a personal access token alone). An Issue Gateway is only
+// where it is hosted, so its URL is wanted too. URL may also point Linear
+// or ClickUp elsewhere, which only a test does.
 type Account struct {
 	Kind  Kind
 	URL   string
@@ -43,7 +46,7 @@ type Account struct {
 }
 
 // Scope is where tickets are kept: a Linear team, a Jira project, a
-// ClickUp workspace.
+// ClickUp workspace, whatever an Issue Gateway calls one.
 type Scope struct {
 	ID   string
 	Name string
@@ -74,7 +77,7 @@ func (f Filter) String() string {
 // Ticket is one ticket as the list shows it.
 type Ticket struct {
 	// Key is how people name it (ENG-12, PROJ-42, a ClickUp task's custom
-	// id or its id), and Ref how the tracker's API does.
+	// id or its id, IG-12), and Ref how the tracker's API does.
 	Key, Ref string
 	Title    string
 	State    string
@@ -125,6 +128,19 @@ var (
 	ErrNoToken = errors.New("this needs a token")
 )
 
+// DefaultIssueGatewayURL is where Auth's Issue Gateway is hosted: an account
+// on it is a token alone.
+const DefaultIssueGatewayURL = "https://issue.auth.com.br"
+
+// IssueGatewayURL is the gateway an account without an address talks to:
+// TEND_ISSUE_GATEWAY_URL when set, which a test or a staging gateway uses.
+func IssueGatewayURL() string {
+	if u := strings.TrimSpace(os.Getenv("TEND_ISSUE_GATEWAY_URL")); u != "" {
+		return u
+	}
+	return DefaultIssueGatewayURL
+}
+
 // New is a client for an account.
 func New(a Account) (Client, error) {
 	switch a.Kind {
@@ -137,6 +153,11 @@ func New(a Account) (Client, error) {
 		return &jira{a: a, http: httpClient()}, nil
 	case ClickUp:
 		return &clickup{a: a, http: httpClient()}, nil
+	case IssueGateway:
+		if strings.TrimSpace(a.URL) == "" {
+			a.URL = IssueGatewayURL()
+		}
+		return &issueGateway{a: a, http: httpClient()}, nil
 	}
 	return nil, fmt.Errorf("tend does not know the tracker %q", a.Kind)
 }
@@ -185,6 +206,16 @@ func call(c *http.Client, method, url string, header map[string]string, body, ou
 		return resp.StatusCode, ErrBadToken
 	case resp.StatusCode >= 300:
 		msg := strings.TrimSpace(string(raw))
+		// The Issue Gateway says what went wrong in a JSON body; its
+		// message is what a person can act on, the rest is noise.
+		var e struct {
+			Error struct {
+				Message string `json:"message"`
+			} `json:"error"`
+		}
+		if json.Unmarshal(raw, &e) == nil && e.Error.Message != "" {
+			msg = e.Error.Message
+		}
 		if len(msg) > 200 {
 			msg = msg[:200]
 		}
