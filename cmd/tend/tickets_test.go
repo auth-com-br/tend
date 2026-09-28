@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/auth-com-br/tend/internal/pty"
@@ -120,6 +121,7 @@ func TestTheTicketsPanelConnectsListsAndWorksATicket(t *testing.T) {
 // regresses, a gateway cannot be connected, or is kept with no address to
 // find it at again.
 func TestTheIssueGatewayIsConnectedByItsAddress(t *testing.T) {
+	var closed atomic.Int32
 	gw := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("Authorization") != "Bearer ig-tok" {
 			w.WriteHeader(http.StatusUnauthorized)
@@ -132,6 +134,13 @@ func TestTheIssueGatewayIsConnectedByItsAddress(t *testing.T) {
 			_, _ = io.WriteString(w, `{"items":[{"id":"s-1","name":"Sistema de Recarga"}]}`)
 		case "/v1/issues":
 			_, _ = io.WriteString(w, `{"items":[{"key":"IG-12","ref":"u-12","title":"recarga falha no pix","state":"published","done":false,"assignee":null,"scope":"Sistema de Recarga","updated":"2026-09-27T12:00:00Z","url":null}]}`)
+		case "/v1/issues/u-12/close":
+			if r.Method == http.MethodPost {
+				closed.Add(1)
+				w.WriteHeader(http.StatusNoContent)
+				return
+			}
+			w.WriteHeader(http.StatusMethodNotAllowed)
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
@@ -178,5 +187,27 @@ func TestTheIssueGatewayIsConnectedByItsAddress(t *testing.T) {
 	}
 	if strings.Contains(string(b), "email") || strings.Contains(string(b), "url") {
 		t.Errorf("an email or an address was kept:\n%s", b)
+	}
+
+	// Mark done with the mouse: the first click asks, the second is the
+	// answer. Before, only enter answered, and a click asked again.
+	row, col := -1, -1
+	for i, line := range a.lines() {
+		if c := columnOfString(line, "[ Mark done ]"); c >= 0 {
+			row, col = i, c
+		}
+	}
+	if row < 0 {
+		t.Fatalf("no Mark done button:\n%s", a.text())
+	}
+	a.clickAt(t, col+3, row+1)
+	a.waitForScreen(t, "the question", func(s string) bool { return strings.Contains(s, "mark IG-12 done?") })
+	if closed.Load() != 0 {
+		t.Fatal("the first click marked it done without asking")
+	}
+	a.clickAt(t, col+3, row+1)
+	a.waitForScreen(t, "IG-12 done", func(s string) bool { return strings.Contains(s, "IG-12 is done") })
+	if closed.Load() != 1 {
+		t.Errorf("the gateway was asked to close it %d times", closed.Load())
 	}
 }
