@@ -129,6 +129,14 @@ install: toolchain
 	$(STATIC) $(GO) build -ldflags "$(LDFLAGS)" -o "$(INSTALL_DIR)/tend" ./cmd/tend
 	@echo "installed $(INSTALL_DIR)/tend ($(VERSION))"
 	@command -v tend >/dev/null 2>&1 || echo "note: $(INSTALL_DIR) is not on PATH"
+	@# A GOBIN set by a version manager (asdf does) installs somewhere an
+	@# older tend earlier on PATH shadows: the build is new and what runs is
+	@# not, which looked exactly like a feature that did not work.
+	@found=$$(command -v tend 2>/dev/null); \
+	if [ -n "$$found" ] && [ "$$found" != "$(INSTALL_DIR)/tend" ]; then \
+		echo "warning: 'tend' on PATH is $$found, not the one just installed"; \
+		echo "         run: install -m 755 \"$(INSTALL_DIR)/tend\" \"$$found\"  (or set INSTALL_DIR)"; \
+	fi
 
 ## dist: cross-compile release binaries into dist/.
 dist: toolchain
