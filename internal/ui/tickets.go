@@ -422,7 +422,7 @@ func drawTickets(dst *vt.Grid, v *TicketsView, theme Theme) {
 			key = v.Tickets[v.Cursor].Key
 		}
 		writeString(dst, box.X+2, msgY, truncate("mark "+key+" done? it moves to the tracker's finished state", box.Cols-4), withBold(theme.Notes), right)
-		writeString(dst, box.X+2, hintY, "enter marks it done · esc keeps it", theme.NotesSub, right)
+		writeString(dst, box.X+2, hintY, "enter or Mark done again marks it done · esc keeps it", theme.NotesSub, right)
 	default:
 		msg := v.Message
 		if v.Loading {

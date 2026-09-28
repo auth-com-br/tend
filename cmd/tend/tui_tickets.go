@@ -1098,6 +1098,20 @@ func (t *tui) ticketsAction(id string) bool {
 		t.dirty = true
 		t.mu.Unlock()
 	}
+	// Mark done asks first; a second click on it is the answer, as enter is,
+	// and a click on anything else takes the question back. Without it a
+	// ticket could be marked done from the keyboard only.
+	t.mu.Lock()
+	confirming := t.tickets != nil && t.tickets.Confirm
+	if confirming {
+		t.tickets.Confirm = false
+		t.dirty = true
+	}
+	t.mu.Unlock()
+	if confirming && id == ui.TicketsDone {
+		t.markTicketDone()
+		return false
+	}
 	switch {
 	case strings.HasPrefix(id, "account:"):
 		fmt.Sscan(id[len("account:"):], &n)
