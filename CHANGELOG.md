@@ -5,8 +5,14 @@ release's notes on GitHub and what "what's new" shows inside tend.
 
 ## Unreleased
 
+## v0.11.0 — 2026-09-28
+
+#### New
+- **Scrollbars on the sidebar.** When the spaces or the agents don't fit, each list has a scrollbar down its right edge, the thumb showing how much is in view. Click the bar to jump there, or drag the thumb.
+
 #### Fixed
 - **A worktree stays in its company.** With a company chosen, opening a worktree — from the space menu, or `w` on an issue, error or ticket — made its space outside every company, and it showed only under "all spaces". It now goes into the companies of the space it was opened from, for every client and for scripts on the socket.
+- **`make install` says when it is not what runs.** With a Go version manager that sets `GOBIN` (asdf does), the new build went there while an older `tend` earlier on `PATH` kept running. It now names both.
 
 ## v0.10.0 — 2026-09-27
 
