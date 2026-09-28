@@ -5,6 +5,14 @@ release's notes on GitHub and what "what's new" shows inside tend.
 
 ## Unreleased
 
+## v0.11.1 — 2026-09-28
+
+#### New
+- **A Matrix theme.** Green on black, as in the film: choose `matrix` on the settings screen, or `name = "matrix"` under `[ui.theme]`. The agents' states keep their own colours, so the one waiting for you still stands out.
+
+#### Fixed
+- **Mark done works with the mouse.** In the tickets panel, Mark done asks before it closes a ticket, and only `enter` answered: clicking the button again asked again. A second click now confirms it, and clicking anything else takes the question back.
+
 ## v0.11.0 — 2026-09-28
 
 #### New
