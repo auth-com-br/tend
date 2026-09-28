@@ -229,12 +229,7 @@ func IssuesLayout(v *IssuesView, cols, rows int) IssuesGeometry {
 	off := 0
 	if len(v.Scopes) > 0 && v.Detail == nil && v.PR == nil {
 		off = 1
-		sx := box.X + 2 + runewidth.StringWidth("repository ")
-		for _, name := range v.Scopes {
-			r := Rect{X: sx, Y: box.Y + 2, Cols: runewidth.StringWidth(" " + name + " "), Rows: 1}
-			g.ScopeChips = append(g.ScopeChips, r)
-			sx += r.Cols + 1
-		}
+		g.ScopeChips, _, _ = layoutChips(box.X+2+runewidth.StringWidth("repository "), box.X+box.Cols-2, box.Y+2, v.Scopes, v.Scope)
 	}
 	x := box.X + 2
 	for _, name := range v.Filters {
@@ -463,16 +458,7 @@ func drawIssues(dst *vt.Grid, v *IssuesView, theme Theme) {
 		drawIssueDetail(dst, v, g, theme)
 		return
 	}
-	if len(g.ScopeChips) > 0 {
-		writeString(dst, box.X+2, g.ScopeChips[0].Y, "repository", theme.NotesSub, right)
-		for i, r := range g.ScopeChips {
-			style := theme.NotesSub
-			if i == v.Scope {
-				style = theme.NotesButton
-			}
-			writeString(dst, r.X, r.Y, " "+v.Scopes[i]+" ", style, right)
-		}
-	}
+	drawChips(dst, box.X+2, "repository", g.ScopeChips, v.Scopes, v.Scope, theme, right)
 	for i, r := range g.Modes {
 		style := theme.NotesSub
 		if (i == 1) == v.PullRequests {
