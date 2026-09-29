@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -305,6 +306,26 @@ func TestServerErrorsReachTheCaller(t *testing.T) {
 	ws, _ := h.client.NewWorkspace("main")
 	if _, _, err := h.client.NewTab(ws, "t", proto.PaneSpec{Command: []string{"/nonexistent"}}); err == nil {
 		t.Error("starting a missing command should fail")
+	}
+}
+
+// TestARefusalIsTellableFromABrokenConnection: what the server refuses comes
+// back as a Refusal carrying the server's reason, so the client can say it
+// and go on. If it regresses, a folder typed a few letters short closes tend
+// ("tend: group.set_dir: no such folder: …"), as it did.
+func TestARefusalIsTellableFromABrokenConnection(t *testing.T) {
+	h := newHarness(t)
+	ws, _ := h.client.NewWorkspace("main")
+	if err := h.client.GroupWorkspace(ws, "clients"); err != nil {
+		t.Fatal(err)
+	}
+	err := h.client.SetGroupDir("clients", filepath.Join(t.TempDir(), "retro-stud"))
+	var refused *Refusal
+	if !errors.As(err, &refused) || refused.Method != proto.MethodGroupSetDir || !strings.Contains(refused.Message, "no such folder") {
+		t.Errorf("err = %#v, want a Refusal saying no such folder", err)
+	}
+	if _, err := h.client.Snapshot(); err != nil {
+		t.Errorf("the connection did not survive the refusal: %v", err)
 	}
 }
 

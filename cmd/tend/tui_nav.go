@@ -214,9 +214,13 @@ func (t *tui) switchWorkspaceAcross(forward bool) error {
 func (t *tui) newWorkspace() error { return t.newWorkspaceIn("") }
 
 // newWorkspaceIn creates a space already in a group, which is what "new space
-// here" on a group heading means.
+// here" on a group heading means. A group with a folder set starts the space
+// there, its first terminal too: that is what the folder is for.
 func (t *tui) newWorkspaceIn(group string) error {
-	ws, err := t.client.NewWorkspace(t.nextName("space", len(t.snapshotWorkspaces())))
+	t.mu.Lock()
+	dir := t.groupDirLocked(group)
+	t.mu.Unlock()
+	ws, err := t.client.NewWorkspaceIn(t.nextName("space", len(t.snapshotWorkspaces())), dir)
 	if err != nil {
 		return err
 	}
@@ -236,7 +240,7 @@ func (t *tui) newWorkspaceIn(group string) error {
 			return err
 		}
 	}
-	if _, _, err := t.client.NewTab(ws, t.nextName("tab", 0), proto.PaneSpec{Command: t.paneShell()}); err != nil {
+	if _, _, err := t.client.NewTab(ws, t.nextName("tab", 0), proto.PaneSpec{Command: t.paneShell(), Dir: dir}); err != nil {
 		return err
 	}
 	t.mu.Lock()
@@ -555,31 +559,55 @@ func (t *tui) spaceRowsFrom(src spaceSource) []ui.SidebarRow {
 	// With a company chosen, the session being shown lists its spaces
 	// only; another machine's list is its own session's, and has none.
 	shown := func(w proto.WorkspaceInfo) bool { return !here || t.shownLocked(w.ID) }
-	for _, w := range src.snap.Workspaces {
-		if !shown(w) {
-			continue
-		}
-		if w.Group == "" {
-			rows = append(rows, t.spaceRowFrom(src, w, src.depth))
-			continue
-		}
-		if seen[w.Group] {
-			continue
-		}
-		seen[w.Group] = true
 
-		members := slices.DeleteFunc(groupMembersIn(src.snap, w.Group), func(m proto.WorkspaceInfo) bool { return !shown(m) })
-		folded := src.folded[w.Group]
+	// A group with no space in the list is still listed when it is the
+	// user's to see: always with no company chosen, and with one when the
+	// group has had a space of it. It is not where a member puts it, having
+	// none here, so it comes before the next group made after it that is
+	// placed by a member, or at the end — which keeps groups in the order
+	// they were made as far as the spaces' order lets them.
+	groups := groupsIn(src.snap)
+	company, chosen := uint64(0), false
+	if here {
+		if c, ok := t.companyLocked(); ok {
+			company, chosen = c.ID, true
+		}
+	}
+	placed := make(map[string]bool)
+	for _, w := range src.snap.Workspaces {
+		if w.Group != "" && shown(w) {
+			placed[w.Group] = true
+		}
+	}
+	unplaced := func(g proto.GroupInfo) bool {
+		return !placed[g.Name] && (!chosen || slices.Contains(g.Companies, company))
+	}
+	var emit func(name string)
+	flushBefore := func(name string) {
+		for _, g := range groups {
+			if g.Name == name {
+				return
+			}
+			if unplaced(g) && !seen[g.Name] {
+				emit(g.Name)
+			}
+		}
+	}
+
+	emit = func(name string) {
+		seen[name] = true
+		members := slices.DeleteFunc(groupMembersIn(src.snap, name), func(m proto.WorkspaceInfo) bool { return !shown(m) })
+		folded := src.folded[name]
 		inGroup := false
 		for _, m := range members {
 			inGroup = inGroup || m.ID == src.current
 		}
 		rows = append(rows, ui.SidebarRow{
 			Kind:     ui.SidebarSpaceGroup,
-			Label:    w.Group,
-			Group:    w.Group,
+			Label:    name,
+			Group:    name,
 			Folded:   folded,
-			DropHere: here && w.Group == t.spaceDropGroup,
+			DropHere: here && name == t.spaceDropGroup,
 			Action:   ui.ActionToggleGroup,
 			// A folded group still says what is happening inside it. Hiding
 			// that would make folding a way to stop being told an agent is
@@ -591,13 +619,61 @@ func (t *tui) spaceRowsFrom(src spaceSource) []ui.SidebarRow {
 			Stale:    src.stale,
 		})
 		if folded {
-			continue
+			return
 		}
 		for _, member := range members {
 			rows = append(rows, t.spaceRowFrom(src, member, src.depth+1))
 		}
 	}
+
+	for _, w := range src.snap.Workspaces {
+		if !shown(w) {
+			continue
+		}
+		if w.Group == "" {
+			rows = append(rows, t.spaceRowFrom(src, w, src.depth))
+			continue
+		}
+		if seen[w.Group] {
+			continue
+		}
+		flushBefore(w.Group)
+		emit(w.Group)
+	}
+	for _, g := range groups {
+		if unplaced(g) && !seen[g.Name] {
+			emit(g.Name)
+		}
+	}
 	return rows
+}
+
+// groupDirLocked is the folder a group's new spaces start in, or "".
+func (t *tui) groupDirLocked(group string) string {
+	for _, g := range t.snap.Groups {
+		if g.Name == group {
+			return g.Dir
+		}
+	}
+	return ""
+}
+
+// groupsIn is a session's groups in the order they were made: the ones its
+// server keeps, empty ones too, or from a server that keeps no record of
+// them the names its spaces carry, as a group was before.
+func groupsIn(snap *proto.SessionSnapshot) []proto.GroupInfo {
+	if len(snap.Groups) > 0 {
+		return snap.Groups
+	}
+	var out []proto.GroupInfo
+	seen := make(map[string]bool)
+	for _, w := range snap.Workspaces {
+		if w.Group != "" && !seen[w.Group] {
+			seen[w.Group] = true
+			out = append(out, proto.GroupInfo{Name: w.Group})
+		}
+	}
+	return out
 }
 
 // spaceRowFrom is one space, at the given depth.
@@ -624,14 +700,9 @@ func (t *tui) spaceRowFrom(src spaceSource, w proto.WorkspaceInfo, depth int) ui
 	}
 }
 
-// hasGroupsLocked reports whether any space is in a group.
+// hasGroupsLocked reports whether there is a group to move a space to.
 func (t *tui) hasGroupsLocked() bool {
-	for _, w := range t.snap.Workspaces {
-		if w.Group != "" {
-			return true
-		}
-	}
-	return false
+	return len(groupsIn(&t.snap)) > 0
 }
 
 // groupOfLocked is the group a space is in, or "".

@@ -115,6 +115,18 @@ const (
 	MethodCompanyDelete   = "company.delete"
 	MethodCompanyAssign   = "company.assign"
 	MethodCompanyUnassign = "company.unassign"
+	// The group methods rename and delete a group of spaces. A group is
+	// made by putting a space in it (workspace.group) and lasts, empty or
+	// not, until group.delete; the groups travel in the snapshot.
+	MethodGroupRename = "group.rename"
+	MethodGroupDelete = "group.delete"
+	// MethodGroupSetDir sets the folder a group's new spaces start in.
+	MethodGroupSetDir = "group.set_dir"
+	// MethodDirList lists the folders in a folder on the server's machine,
+	// for picking one with the mouse rather than typing its path: the
+	// folders that matter are where the panes run, which over ssh is not
+	// where the client is.
+	MethodDirList = "dir.list"
 	// MethodPaneFocus says which pane the client is looking at, so programs
 	// that asked for focus events are told.
 	MethodPaneFocus = "pane.focus"
@@ -237,6 +249,10 @@ var KnownMethods = []string{
 	MethodCompanyDelete,
 	MethodCompanyAssign,
 	MethodCompanyUnassign,
+	MethodGroupRename,
+	MethodGroupDelete,
+	MethodGroupSetDir,
+	MethodDirList,
 }
 
 // ErrUnknownMethod is what a server answers when it has never heard of a
@@ -321,6 +337,9 @@ const (
 	// repository are every repository under it (GitHubIssuesResult.Multi),
 	// each issue and pull request saying its own.
 	FeatureGitHubFolders = "github-folders"
+	// FeatureGroups: the snapshot lists the groups of spaces
+	// (SessionSnapshot.Groups), the empty ones too.
+	FeatureGroups = "groups"
 )
 
 // KnownFeatures is every feature this build knows of, for the same reason
@@ -330,6 +349,7 @@ var KnownFeatures = []string{
 	FeatureLifecycle, FeatureWindowTitle, FeatureTabBarStatus, FeatureDone, FeatureWindowFocus,
 	FeatureFocusRequest, FeatureAgentView, FeatureServerShell, FeaturePopup, FeatureUpdate,
 	FeatureDockUnless, FeatureContext, FeatureContextArrived, FeatureFollowCwd, FeatureGitHubFolders,
+	FeatureGroups,
 }
 
 // --- session ---------------------------------------------------------------
@@ -498,6 +518,42 @@ type SessionSnapshot struct {
 	// Companies are the user's groupings of workspaces, in the order they
 	// were made. Which one is being looked at is the client's.
 	Companies []CompanyInfo `json:"companies,omitempty"`
+	// Groups are the groups of spaces, in the order they were made, empty
+	// ones included. A server without FeatureGroups sends none, and a group
+	// is then only the name its spaces carry.
+	Groups []GroupInfo `json:"groups,omitempty"`
+}
+
+// GroupInfo is one group of spaces, and the companies it has had spaces of:
+// with a company chosen, a group is listed when one of its spaces is in it,
+// or when it once was.
+type GroupInfo struct {
+	Name      string   `json:"name"`
+	Companies []uint64 `json:"companies,omitempty"`
+	// Dir is the folder a space made in the group starts in, if one is set.
+	Dir string `json:"dir,omitempty"`
+}
+
+// DirListParams names the folder to list; empty is the home folder of the
+// user the server runs as, and a leading ~ is that folder too.
+type DirListParams struct {
+	Path string `json:"path,omitempty"`
+}
+
+// DirListResult is a folder and the folders in it, by name, sorted. Parent
+// is the folder above, empty at the root.
+type DirListResult struct {
+	Path   string   `json:"path"`
+	Parent string   `json:"parent,omitempty"`
+	Dirs   []string `json:"dirs"`
+}
+
+// GroupParams names a group, and for group.rename its new name, for
+// group.set_dir its folder (empty clears it).
+type GroupParams struct {
+	Group string `json:"group"`
+	Name  string `json:"name,omitempty"`
+	Dir   string `json:"dir,omitempty"`
 }
 
 // CompanyInfo is one company and its workspaces, in its order.

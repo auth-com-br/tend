@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -930,15 +931,36 @@ func TestSidebarDrawsAFoldedGroup(t *testing.T) {
 // TestGroupMenuActsOnTheGroup: a group has no record of its own, so its menu
 // carries the name rather than an identifier.
 func TestGroupMenuActsOnTheGroup(t *testing.T) {
-	m := GroupMenu("clients", false, 0, 0)
+	m := GroupMenu("clients", false, "", 0, 0)
 	if m.Group != "clients" || m.Workspace != 0 {
 		t.Errorf("group menu targets %+v", m)
 	}
 	if m.Items[0].Label != "fold" {
 		t.Errorf("an open group offers to fold, got %q", m.Items[0].Label)
 	}
-	if shut := GroupMenu("clients", true, 0, 0); shut.Items[0].Label != "unfold" {
+	if shut := GroupMenu("clients", true, "", 0, 0); shut.Items[0].Label != "unfold" {
 		t.Errorf("a folded group offers to unfold, got %q", shut.Items[0].Label)
+	}
+}
+
+// TestGroupMenuSaysWhichFolderItStartsIn: with no folder the menu offers to
+// set one; with one it names it and offers to clear it. If it regresses, the
+// only way to see a group's folder is to open the prompt that changes it.
+func TestGroupMenuSaysWhichFolderItStartsIn(t *testing.T) {
+	labels := func(m Menu) []string {
+		var out []string
+		for _, it := range m.Items {
+			out = append(out, it.Label)
+		}
+		return out
+	}
+	none := labels(GroupMenu("clients", false, "", 0, 0))
+	if !slices.Contains(none, "set folder...") || slices.Contains(none, "clear folder") {
+		t.Errorf("with no folder the menu is %v", none)
+	}
+	set := labels(GroupMenu("clients", false, "~/work/acme", 0, 0))
+	if !slices.Contains(set, "folder: ~/work/acme") || !slices.Contains(set, "clear folder") {
+		t.Errorf("with a folder the menu is %v", set)
 	}
 }
 

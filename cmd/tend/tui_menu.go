@@ -94,7 +94,7 @@ func (t *tui) menuFor(x, y int) (ui.Menu, bool) {
 		case ui.SidebarSpace:
 			return ui.SpaceMenu(row.Workspace, groups, x, y), true
 		case ui.SidebarSpaceGroup:
-			return ui.GroupMenu(row.Group, row.Folded, x, y), true
+			return ui.GroupMenu(row.Group, row.Folded, tildeHome(t.groupDirLocked(row.Group)), x, y), true
 		case ui.SidebarAgent:
 			return ui.AgentMenu(row.Pane, row.Tab, row.Workspace, x, y), true
 		}
@@ -215,20 +215,34 @@ func (t *tui) runMenu(m ui.Menu, item ui.MenuItem) error {
 
 	case ui.MenuMoveToGroup:
 		t.mu.Lock()
-		current, groups := "", []string(nil)
-		seen := make(map[string]bool)
-		for _, w := range t.snap.Workspaces {
-			if w.ID == m.Workspace {
-				current = w.Group
-			}
-			if w.Group != "" && !seen[w.Group] {
-				seen[w.Group] = true
-				groups = append(groups, w.Group)
-			}
+		current, groups := t.groupOfLocked(m.Workspace), []string(nil)
+		for _, g := range groupsIn(&t.snap) {
+			groups = append(groups, g.Name)
 		}
 		t.mu.Unlock()
 		t.openMenu(ui.GroupPickMenu(m.Workspace, current, groups, m.X, m.Y))
 		return nil
+
+	case ui.MenuGroupDir:
+		if !t.client.Supports(proto.MethodGroupSetDir) {
+			t.setMessage("this needs a newer server: run tend handoff", true)
+			return nil
+		}
+		if t.client.Supports(proto.MethodDirList) {
+			t.openFolderPick(m.Group)
+			return nil
+		}
+		t.mu.Lock()
+		t.promptGroup = m.Group
+		t.mu.Unlock()
+		t.startPrompt(promptGroupDir)
+		return nil
+
+	case ui.MenuGroupDirClear:
+		if err := t.client.SetGroupDir(m.Group, ""); err != nil {
+			return err
+		}
+		return t.refresh()
 
 	case ui.MenuPickGroup:
 		return t.moveSpaceToGroup(m.Workspace, item.Arg)
@@ -363,9 +377,33 @@ func (t *tui) moveSpaceToGroup(workspace uint64, group string) error {
 	return t.refresh()
 }
 
-// renameGroup moves every space in a group to a new name, which is what
-// renaming a group means when a group is only the set of spaces naming it.
+// renameGroup names a group again. The server does it in one step, keeping
+// the group whether or not it has spaces; a server from before groups had
+// records is asked to move every space in it, which is what renaming meant
+// when a group was only the set of spaces naming it. An empty name is
+// deleting the group.
 func (t *tui) renameGroup(group, name string) error {
+	if name == "" && t.client.Supports(proto.MethodGroupDelete) {
+		t.mu.Lock()
+		delete(t.folded, group)
+		t.mu.Unlock()
+		if err := t.client.DeleteGroup(group); err != nil {
+			return err
+		}
+		return t.refresh()
+	}
+	if name != "" && t.client.Supports(proto.MethodGroupRename) {
+		t.mu.Lock()
+		folded := t.folded[group]
+		delete(t.folded, group)
+		t.folded[name] = folded
+		t.mu.Unlock()
+		if err := t.client.RenameGroup(group, name); err != nil {
+			return err
+		}
+		return t.refresh()
+	}
+
 	t.mu.Lock()
 	var ids []uint64
 	for _, w := range t.snap.Workspaces {
@@ -418,7 +456,7 @@ func (t *tui) renameFor(m ui.Menu) error {
 func (t *tui) closeFor(m ui.Menu) error {
 	switch {
 	case m.Group != "":
-		// "Ungroup" is renaming the group to nothing: its spaces stay, they
+		// Deleting a group is the one way it goes: its spaces stay, they
 		// just stop being kept together.
 		return t.renameGroup(m.Group, "")
 	case m.Pane != 0:

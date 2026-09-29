@@ -22,6 +22,18 @@ import (
 // ErrClosed is returned once the connection is gone.
 var ErrClosed = errors.New("client: connection closed")
 
+// Refusal is a request the server answered with an error of its own: a
+// folder that is not there, a name that is empty, a pane that has gone. The
+// connection is fine and the server said no, which is something to tell the
+// user, never a reason to stop — a client that quit on it closed tend over a
+// mistyped folder.
+type Refusal struct {
+	Method  string
+	Message string
+}
+
+func (r *Refusal) Error() string { return r.Method + ": " + r.Message }
+
 // callTimeout bounds a request. A server that stops answering must surface as
 // a failed call rather than a hung client.
 const callTimeout = 30 * time.Second
@@ -175,7 +187,7 @@ func (c *Client) Call(method string, params, result any) error {
 				// caller can say what it means rather than repeating it.
 				return fmt.Errorf("%s: %w", method, proto.ErrUnknownMethod)
 			}
-			return fmt.Errorf("%s: %s", method, resp.Error)
+			return &Refusal{Method: method, Message: resp.Error}
 		}
 		if result == nil || len(resp.Result) == 0 {
 			return nil
@@ -335,6 +347,28 @@ func (c *Client) CloseTab(tab uint64) error {
 // is empty.
 func (c *Client) GroupWorkspace(ws uint64, group string) error {
 	return c.Call(proto.MethodWorkspaceGroup, proto.WorkspaceGroupParams{Workspace: ws, Group: group}, nil)
+}
+
+// RenameGroup names a group of spaces again, with every space in it.
+func (c *Client) RenameGroup(group, name string) error {
+	return c.Call(proto.MethodGroupRename, proto.GroupParams{Group: group, Name: name}, nil)
+}
+
+// DeleteGroup deletes a group of spaces; its spaces stay, in no group.
+func (c *Client) DeleteGroup(group string) error {
+	return c.Call(proto.MethodGroupDelete, proto.GroupParams{Group: group}, nil)
+}
+
+// SetGroupDir sets the folder a group's new spaces start in; empty clears it.
+func (c *Client) SetGroupDir(group, dir string) error {
+	return c.Call(proto.MethodGroupSetDir, proto.GroupParams{Group: group, Dir: dir}, nil)
+}
+
+// ListDirs lists the folders in a folder on the server's machine.
+func (c *Client) ListDirs(path string) (proto.DirListResult, error) {
+	var out proto.DirListResult
+	err := c.Call(proto.MethodDirList, proto.DirListParams{Path: path}, &out)
+	return out, err
 }
 
 // CreateCompany makes a company, with a workspace in it already when ws is

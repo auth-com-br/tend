@@ -449,6 +449,8 @@ type Frame struct {
 	Toast *Toast
 	// WorktreeOpen is herdr's open-worktree popup, when it is up.
 	WorktreeOpen *WorktreeOpen
+	// FolderPick is the folder picker, when it is up.
+	FolderPick *FolderPick
 
 	// Selection is a range of text being marked in a pane, or nil.
 	Selection *Selection
@@ -662,6 +664,9 @@ func Draw(dst *vt.Grid, f Frame, theme Theme) {
 	}
 	if f.WorktreeOpen != nil {
 		drawWorktreeOpen(dst, *f.WorktreeOpen, theme)
+	}
+	if f.FolderPick != nil {
+		drawFolderPick(dst, *f.FolderPick, theme)
 	}
 	if f.Menu != nil {
 		drawMenu(dst, *f.Menu, theme)

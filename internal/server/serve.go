@@ -92,6 +92,10 @@ var Methods = []string{
 	proto.MethodCompanyDelete,
 	proto.MethodCompanyAssign,
 	proto.MethodCompanyUnassign,
+	proto.MethodGroupRename,
+	proto.MethodGroupDelete,
+	proto.MethodGroupSetDir,
+	proto.MethodDirList,
 }
 
 // Serve accepts connections until the listener is closed.
@@ -482,6 +486,20 @@ func (c *clientConn) dispatch(req proto.Request) (any, error) {
 			return nil, err
 		}
 		return nil, c.srv.RenameWorkspace(session.WorkspaceID(p.Workspace), p.Name)
+
+	case proto.MethodDirList:
+		var p proto.DirListParams
+		if err := decodeParams(req.Params, &p); err != nil {
+			return nil, err
+		}
+		return listDirs(p.Path)
+
+	case proto.MethodGroupRename, proto.MethodGroupDelete, proto.MethodGroupSetDir:
+		var p proto.GroupParams
+		if err := decodeParams(req.Params, &p); err != nil {
+			return nil, err
+		}
+		return nil, c.srv.Group(req.Method, p)
 
 	case proto.MethodCompanyCreate, proto.MethodCompanyRename, proto.MethodCompanyDelete,
 		proto.MethodCompanyAssign, proto.MethodCompanyUnassign:
@@ -944,6 +962,7 @@ func (s *Server) snapshot() proto.SessionSnapshot {
 	snap.Update = s.updateSnapshotLocked()
 	sess := s.session
 	snap.Companies = companiesSnapshotLocked(sess)
+	snap.Groups = groupsSnapshotLocked(sess)
 	if active := sess.ActiveWorkspace(); active != nil {
 		snap.ActiveWorkspace = uint64(active.ID)
 	}

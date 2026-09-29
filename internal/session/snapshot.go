@@ -43,6 +43,18 @@ type Snapshot struct {
 	// session that never used them read the same.
 	Companies   []CompanySnapshot `json:"companies,omitempty"`
 	NextCompany uint64            `json:"next_company,omitempty"`
+
+	// Groups are the user's named sets of spaces (group.go), empty ones
+	// included. A file from before groups had records has none, and gets
+	// them from the names its workspaces carry.
+	Groups []GroupSnapshot `json:"groups,omitempty"`
+}
+
+// GroupSnapshot is one group and the companies it has had spaces of.
+type GroupSnapshot struct {
+	Name      string   `json:"name"`
+	Companies []uint64 `json:"companies,omitempty"`
+	Dir       string   `json:"dir,omitempty"`
 }
 
 // CompanySnapshot is one company and its workspaces, in its order.
@@ -140,6 +152,13 @@ func (s *Session) SnapshotWith(dirs map[PaneID]string, sessions map[PaneID]Agent
 			cs.Workspaces = append(cs.Workspaces, uint64(w))
 		}
 		snap.Companies = append(snap.Companies, cs)
+	}
+	for _, g := range s.groups {
+		gs := GroupSnapshot{Name: g.Name, Dir: g.Dir}
+		for _, c := range g.Companies {
+			gs.Companies = append(gs.Companies, uint64(c))
+		}
+		snap.Groups = append(snap.Groups, gs)
 	}
 	for _, w := range s.workspaces {
 		ws := WorkspaceSnapshot{
@@ -321,6 +340,15 @@ func Restore(snap Snapshot) (*Session, error) {
 		s.companies = append(s.companies, c)
 	}
 	s.sanitizeCompanies()
+
+	for _, gs := range snap.Groups {
+		g := &Group{Name: gs.Name, Dir: gs.Dir}
+		for _, c := range gs.Companies {
+			g.Companies = append(g.Companies, CompanyID(c))
+		}
+		s.groups = append(s.groups, g)
+	}
+	s.sanitizeGroups()
 
 	if err := s.CheckInvariants(); err != nil {
 		return nil, fmt.Errorf("session: snapshot does not describe a valid session: %w", err)

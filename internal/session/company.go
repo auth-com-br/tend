@@ -84,6 +84,7 @@ func (s *Session) RemoveCompany(id CompanyID) error {
 	for i, c := range s.companies {
 		if c.ID == id {
 			s.companies = slices.Delete(s.companies, i, i+1)
+			s.forgetCompanyInGroups(id)
 			return nil
 		}
 	}
@@ -103,6 +104,10 @@ func (s *Session) AssignCompany(id CompanyID, ws WorkspaceID) error {
 	if !slices.Contains(c.Workspaces, ws) {
 		c.Workspaces = append(c.Workspaces, ws)
 	}
+	// The space's group has now had a space of this company, and stays
+	// listed there after the space is gone.
+	w, _ := s.Workspace(ws)
+	s.noteCompanies(w)
 	return nil
 }
 

@@ -32,6 +32,9 @@ const (
 	// promptRenameGroup renames a group, which means moving every space in it
 	// at once: a group is only the set of spaces naming it.
 	promptRenameGroup
+	// promptGroupDir asks for the folder a group's new spaces start in,
+	// with the one set, or the space in view's, already in the box.
+	promptGroupDir
 	// promptOpenURL asks for a page to open in the browser (tui_browser.go),
 	// the last one opened already in the box.
 	promptOpenURL
@@ -92,6 +95,16 @@ func (t *tui) startPrompt(kind promptKind) {
 		}
 	case promptRenameGroup:
 		t.promptText = t.promptGroup
+	case promptGroupDir:
+		t.promptText = t.groupDirLocked(t.promptGroup)
+		if t.promptText == "" {
+			// Most often the group is for the project being looked at, so
+			// its folder is the likeliest answer.
+			if w, ok := t.workspaceLocked(); ok {
+				t.promptText = w.Dir
+			}
+		}
+		t.promptText = tildeHome(t.promptText)
 	}
 	t.dirty = true
 	t.mu.Unlock()
@@ -288,6 +301,15 @@ func (t *tui) commitPrompt() error {
 			return nil
 		}
 		return t.renameGroup(group, name)
+	case promptGroupDir:
+		if group == "" {
+			return nil
+		}
+		// The server expands ~ and checks the folder, on the machine the
+		// panes run on; what it refuses is said on the status line.
+		if err := t.client.SetGroupDir(group, name); err != nil {
+			return err
+		}
 	default:
 		return nil
 	}
@@ -309,6 +331,8 @@ func (t *tui) promptLabelLocked() string {
 		return "new group — name"
 	case promptRenameGroup:
 		return "rename group"
+	case promptGroupDir:
+		return "folder for " + t.promptGroup
 	case promptOpenURL:
 		return "open in browser"
 	}

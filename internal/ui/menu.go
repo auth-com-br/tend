@@ -44,6 +44,10 @@ const (
 	// taking the space out of the group it is in.
 	MenuMoveToGroup = "menu-move-to-group"
 	MenuPickGroup   = "menu-pick-group"
+	// MenuGroupDir asks for the folder a group's new spaces start in, and
+	// MenuGroupDirClear forgets it.
+	MenuGroupDir      = "menu-group-dir"
+	MenuGroupDirClear = "menu-group-dir-clear"
 	// MenuContinueIn offers the agents a pane's task can be handed to, and
 	// MenuContinueWith hands it to the one in Arg (docs/MEMORY.md).
 	MenuContinueIn   = "continue-in"
@@ -302,21 +306,30 @@ func GroupPickMenu(workspace uint64, current string, groups []string, x, y int) 
 //
 // It acts on the group as a whole, which is the set of spaces naming it: there
 // is no group record to rename, so renaming one moves every member.
-func GroupMenu(group string, folded bool, x, y int) Menu {
+//
+// folder is the one the group's new spaces start in, shown as it is written
+// on the status line, or empty when none is set: the item that sets it says
+// which it is now, so finding out does not mean opening the prompt.
+func GroupMenu(group string, folded bool, folder string, x, y int) Menu {
 	fold := "fold"
 	if folded {
 		fold = "unfold"
 	}
-	return Menu{
-		Title: "group",
-		Items: []MenuItem{
-			{Label: fold, Action: MenuFold},
-			{Label: "new space here", Action: MenuNewSpace},
-			{Label: "rename group", Action: MenuRename},
-			{Label: "ungroup", Action: MenuClose},
-		},
-		X: x, Y: y, Group: group,
+	items := []MenuItem{
+		{Label: fold, Action: MenuFold},
+		{Label: "new space here", Action: MenuNewSpace},
 	}
+	if folder == "" {
+		items = append(items, MenuItem{Label: "set folder...", Action: MenuGroupDir})
+	} else {
+		items = append(items,
+			MenuItem{Label: "folder: " + folder, Action: MenuGroupDir},
+			MenuItem{Label: "clear folder", Action: MenuGroupDirClear})
+	}
+	items = append(items,
+		MenuItem{Label: "rename group", Action: MenuRename},
+		MenuItem{Label: "delete group", Action: MenuClose})
+	return Menu{Title: "group", Items: items, X: x, Y: y, Group: group}
 }
 
 // AgentMenu is what a right-click on an agent row offers. It acts on the

@@ -1585,9 +1585,9 @@ func TestAttachGroupsSpacesIntoATree(t *testing.T) {
 	})
 }
 
-// TestAttachUngroupsFromTheGroupMenu: ungrouping keeps the spaces and drops
-// only the heading.
-func TestAttachUngroupsFromTheGroupMenu(t *testing.T) {
+// TestAttachDeletesAGroupFromItsMenu: deleting a group keeps the spaces and
+// drops only the heading.
+func TestAttachDeletesAGroupFromItsMenu(t *testing.T) {
 	a := startSession(t, 100, 20)
 	a.waitForScreen(t, "a pane", func(s string) bool { return strings.Contains(s, "┌") })
 	a.send(t, "\x02N")
@@ -1599,12 +1599,144 @@ func TestAttachUngroupsFromTheGroupMenu(t *testing.T) {
 		return strings.Contains(a.sidebarText(), "clients")
 	})
 
-	a.openMenuOn(t, 4, a.lineContaining(t, "clients"), "ungroup")
-	a.clickAt(t, 6, a.lineContaining(t, "ungroup"))
+	a.openMenuOn(t, 4, a.lineContaining(t, "clients"), "delete group")
+	a.clickAt(t, 6, a.lineContaining(t, "delete group"))
 
 	a.waitForScreen(t, "the group to go", func(string) bool {
 		side := a.sidebarText()
 		return !strings.Contains(side, "clients") && strings.Contains(side, "space 2")
+	})
+}
+
+// TestAttachKeepsAGroupWhoseSpacesAreAllClosed: closing the last space in a
+// group leaves the group listed, empty, and still offered by "move to
+// group..."; only deleting it takes it away. If it regresses, a group the
+// user made disappears the moment its spaces are closed, and has to be made
+// again.
+func TestAttachKeepsAGroupWhoseSpacesAreAllClosed(t *testing.T) {
+	a := startSession(t, 100, 24)
+	a.waitForScreen(t, "a pane", func(s string) bool { return strings.Contains(s, "┌") })
+	a.send(t, "\x02N")
+	a.waitForScreen(t, "a second space", func(string) bool { return strings.Contains(a.sidebarText(), "space 2") })
+	a.groupSpace(t, "space 2", "clients")
+	a.waitForScreen(t, "the group", func(string) bool { return strings.Contains(a.sidebarText(), "▼ clients") })
+
+	a.openMenuOn(t, 6, a.lineContaining(t, "space 2"), "close space")
+	a.clickAt(t, 8, a.lineContaining(t, "close space"))
+	a.waitForScreen(t, "the space to close and the group to stay", func(string) bool {
+		side := a.sidebarText()
+		return !strings.Contains(side, "space 2") && strings.Contains(side, "clients")
+	})
+
+	// Still a group to move a space into.
+	a.openMenuOn(t, 6, a.lineContaining(t, "main"), "move to group...")
+	a.clickAt(t, 8, a.lineContaining(t, "move to group..."))
+	a.waitForScreen(t, "the group offered", func(s string) bool {
+		return strings.Contains(s, "move to group ─") && strings.Contains(s, "│ clients")
+	})
+	a.send(t, "\x1b")
+	a.waitForScreen(t, "the menu to close", func(s string) bool {
+		return !strings.Contains(s, "move to group ─") && strings.Contains(a.sidebarText(), "▼ clients")
+	})
+
+	a.openMenuOn(t, 4, a.lineContaining(t, "clients"), "delete group")
+	a.clickAt(t, 6, a.lineContaining(t, "delete group"))
+	a.waitForScreen(t, "the group to go", func(string) bool {
+		return !strings.Contains(a.sidebarText(), "clients")
+	})
+}
+
+// TestAttachStartsAGroupsNewSpaceInItsFolder: "set folder..." on a group's
+// menu takes a folder typed into the picker, the menu then names it, and "new space here" starts
+// the space's terminal there. If it regresses, a group's new spaces open in
+// whatever folder tend was first run from, and the folder is decoration.
+func TestAttachStartsAGroupsNewSpaceInItsFolder(t *testing.T) {
+	folder := t.TempDir()
+	a := startSession(t, 100, 24)
+	a.waitForScreen(t, "a pane", func(s string) bool { return strings.Contains(s, "┌") })
+	a.send(t, "\x02N")
+	a.waitForScreen(t, "a second space", func(string) bool { return strings.Contains(a.sidebarText(), "space 2") })
+	a.groupSpace(t, "space 2", "clients")
+	a.waitForScreen(t, "the group", func(string) bool { return strings.Contains(a.sidebarText(), "▼ clients") })
+
+	a.openMenuOn(t, 4, a.lineContaining(t, "clients"), "set folder...")
+	a.clickAt(t, 6, a.lineContaining(t, "set folder..."))
+	a.waitForScreen(t, "the folder picker", func(s string) bool {
+		return strings.Contains(s, "folder for clients") && !strings.Contains(s, "reading…")
+	})
+	// Typed rather than clicked: a path typed into the picker's filter
+	// goes there on enter, and enter on the first row takes it.
+	a.send(t, folder+"\r")
+	a.waitForScreen(t, "the picker at the folder", func(s string) bool {
+		return strings.Contains(s, "│ "+folder) && strings.Contains(s, "type to filter")
+	})
+	a.send(t, "\r")
+	a.waitForScreen(t, "the picker to close", func(s string) bool { return !strings.Contains(s, "folder for clients") })
+
+	a.openMenuOn(t, 4, a.lineContaining(t, "clients"), "folder:")
+	a.clickAt(t, 6, a.lineContaining(t, "new space here"))
+	a.waitForScreen(t, "the new space", func(string) bool { return strings.Contains(a.sidebarText(), "space 3") })
+
+	a.send(t, "pwd\r")
+	a.waitForScreen(t, "the terminal in the group's folder", func(s string) bool {
+		// The pwd's answer, at the start of a line of the pane.
+		return strings.Contains(s, "│"+folder)
+	})
+}
+
+// TestAttachPicksAGroupsFolderWithClicks: "set folder..." puts the folder
+// picker up; a click goes into a folder, another takes it, and the group's
+// new space starts there; and a folder the server refuses is said on the
+// status line with tend still running. If it regresses, a group's folder can
+// only be typed — which is how it was typed short and refused — or a refusal
+// closes tend.
+func TestAttachPicksAGroupsFolderWithClicks(t *testing.T) {
+	root := t.TempDir()
+	if err := os.Mkdir(filepath.Join(root, "acme"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	a := startSessionIn(t, 100, 30, root)
+	a.waitForScreen(t, "a pane", func(s string) bool { return strings.Contains(s, "┌") })
+	a.send(t, "\x02N")
+	a.waitForScreen(t, "a second space", func(string) bool { return strings.Contains(a.sidebarText(), "space 2") })
+	a.groupSpace(t, "space 2", "clients")
+	a.waitForScreen(t, "the group", func(string) bool { return strings.Contains(a.sidebarText(), "▼ clients") })
+
+	a.openMenuOn(t, 4, a.lineContaining(t, "clients"), "set folder...")
+	a.clickAt(t, 6, a.lineContaining(t, "set folder..."))
+	a.waitForScreen(t, "the picker at the space's folder", func(s string) bool {
+		return strings.Contains(s, "folder for clients") && strings.Contains(s, "acme/")
+	})
+	row := a.lineContaining(t, "acme/")
+	a.clickAt(t, columnOf(a.lines()[row-1], '▸')+1, row)
+	a.waitForScreen(t, "the picker in acme", func(s string) bool {
+		return strings.Contains(s, filepath.Join(root, "acme")) && !strings.Contains(s, "acme/")
+	})
+	row = a.lineContaining(t, "use this folder")
+	a.clickAt(t, columnOf(a.lines()[row-1], '✓')+1, row)
+	a.waitForScreen(t, "the picker to close", func(s string) bool { return !strings.Contains(s, "folder for clients") })
+
+	a.openMenuOn(t, 4, a.lineContaining(t, "clients"), "folder:")
+	a.clickAt(t, 6, a.lineContaining(t, "new space here"))
+	a.waitForScreen(t, "the new space", func(string) bool { return strings.Contains(a.sidebarText(), "space 3") })
+	a.send(t, "pwd\r")
+	a.waitForScreen(t, "the terminal in acme", func(s string) bool {
+		return strings.Contains(s, "│"+filepath.Join(root, "acme"))
+	})
+
+	// The folder goes away under the group; setting it again by the path
+	// the picker reached before is refused, and tend says so and stays.
+	if err := os.Remove(filepath.Join(root, "acme")); err != nil {
+		t.Fatal(err)
+	}
+	a.openMenuOn(t, 4, a.lineContaining(t, "clients"), "folder:")
+	a.clickAt(t, 6, a.lineContaining(t, "folder:"))
+	a.waitForScreen(t, "the picker to say the folder is gone", func(s string) bool {
+		return strings.Contains(s, "no such folder")
+	})
+	a.send(t, "\x1b")
+	a.waitForScreen(t, "tend still up", func(s string) bool {
+		return !strings.Contains(s, "folder for clients") && strings.Contains(a.sidebarText(), "clients")
 	})
 }
 

@@ -128,6 +128,9 @@ type Session struct {
 	companies   []*Company
 	nextCompany uint64
 
+	// groups are the user's named sets of spaces (group.go).
+	groups []*Group
+
 	// stateSeq numbers state changes, for Pane.StateSeq.
 	stateSeq uint64
 
@@ -252,22 +255,6 @@ func (s *Session) AddWorkspaceIn(name, dir string) *Workspace {
 	s.workspaces = append(s.workspaces, w)
 	s.active = len(s.workspaces) - 1
 	return w
-}
-
-// GroupWorkspace moves a workspace into a group, or out of one when the name
-// is empty.
-//
-// Groups have no records of their own: a group is the set of workspaces that
-// name it. That means creating one is naming it, the last workspace leaving
-// removes it, and there is no way for a group to exist while empty or for a
-// workspace to point at one that does not.
-func (s *Session) GroupWorkspace(id WorkspaceID, group string) error {
-	w, ok := s.Workspace(id)
-	if !ok {
-		return fmt.Errorf("%w: %d", ErrNoSuchWorkspace, id)
-	}
-	w.Group = group
-	return nil
 }
 
 // FocusWorkspace focuses a workspace by id.
@@ -690,7 +677,10 @@ func (s *Session) CheckInvariants() error {
 			return fmt.Errorf("index maps pane %d to tab %d, the tree says %d", id, tab.ID, want)
 		}
 	}
-	return s.checkCompanies()
+	if err := s.checkCompanies(); err != nil {
+		return err
+	}
+	return s.checkGroups()
 }
 
 func checkNode(n *node) error {

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -191,6 +192,8 @@ type tui struct {
 	linkHover *ui.LinkHover
 	// worktreeOpen is herdr's open-worktree popup while it is up.
 	worktreeOpen *worktreeOpenState
+	// folderPick is the folder picker while it is up (tui_folderpick.go).
+	folderPick *folderPickState
 	// toast is the notification card shown, and toastQueue those waiting.
 	toast      *toastEntry
 	toastQueue []toastEntry
@@ -456,7 +459,14 @@ func (t *tui) run() error {
 				return nil
 			}
 			if err := t.handleInput(data); err != nil {
-				if !t.reportStaleServer(err) {
+				// What the server refused is said and the session goes on;
+				// only a failure of the client itself ends it.
+				var refused *client.Refusal
+				switch {
+				case t.reportStaleServer(err):
+				case errors.As(err, &refused):
+					t.setMessage(refused.Message, true)
+				default:
 					return err
 				}
 			}
@@ -1052,7 +1062,7 @@ func (t *tui) wantsMotionLocked() bool {
 	if !t.config.UI.Mouse {
 		return false
 	}
-	if t.menu != nil || t.navigator != nil || t.worktreeOpen != nil {
+	if t.menu != nil || t.navigator != nil || t.worktreeOpen != nil || t.folderPick != nil {
 		return true
 	}
 	inView := make(map[uint64]bool, len(t.rects))
@@ -1139,6 +1149,7 @@ func (t *tui) buildFrame() ui.Frame {
 		LinkHover:    t.linkHover,
 
 		WorktreeOpen: t.worktreeOpenFrameLocked(),
+		FolderPick:   t.folderPickFrameLocked(),
 		Selection:    t.sel,
 		Waiting:      t.waitingLocked(),
 		Zoomed:       t.zoom,
@@ -1411,6 +1422,11 @@ func (t *tui) handleInput(data []byte) error {
 
 	if t.worktreeOpenUp() {
 		t.worktreeOpenKeys(forward)
+		forward = nil
+	}
+
+	if t.folderPickUp() {
+		t.folderPickKeys(forward)
 		forward = nil
 	}
 
