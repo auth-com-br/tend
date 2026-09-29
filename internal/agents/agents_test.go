@@ -108,3 +108,23 @@ func TestAMemoryToolIsFoundRunningOrOfferedTheWayTheMachineCan(t *testing.T) {
 		t.Errorf("a running ai-memory: %+v", mem)
 	}
 }
+
+// TestAntigravityIsInTheCatalog: the manager lists the Antigravity CLI as
+// agy, the name its screens are read and its hooks installed under, with
+// the installer its vendor documents. If it regresses, an agy on the machine
+// is detected in a pane but missing from the manager.
+func TestAntigravityIsInTheCatalog(t *testing.T) {
+	for _, d := range Catalog() {
+		if d.ID != "agy" {
+			continue
+		}
+		if len(d.Binaries) == 0 || d.Binaries[0] != "agy" {
+			t.Errorf("binaries = %v", d.Binaries)
+		}
+		if len(d.Methods) == 0 || d.Methods[0].Command != "curl -fsSL https://antigravity.google/cli/install.sh | bash" {
+			t.Errorf("methods = %+v", d.Methods)
+		}
+		return
+	}
+	t.Error("no agy in the catalog")
+}

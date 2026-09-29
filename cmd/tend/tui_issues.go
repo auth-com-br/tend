@@ -970,9 +970,12 @@ func (t *tui) reloadIssue() {
 }
 
 // issueAgents is how each agent is started with a prompt of its own: as
-// the first argument for most, behind -i for Gemini, whose first argument
-// runs once and exits. An agent not here is started with nothing.
+// the first argument for most, behind -i for Gemini and Antigravity, whose
+// bare prompt runs once and exits (agy's -i is --prompt-interactive: the
+// prompt, then the session goes on). An agent not here is started with
+// nothing.
 var issueAgents = map[string][]string{
+	"agy":    {"agy", "-i"},
 	"claude": {"claude"},
 	"codex":  {"codex"},
 	"cursor": {"cursor-agent"},

@@ -16,6 +16,7 @@ func init() {
 		claudeDocs   = "https://code.claude.com/docs/en/setup"
 		codexDocs    = "https://github.com/openai/codex"
 		geminiDocs   = "https://github.com/google-gemini/gemini-cli"
+		agyDocs      = "https://github.com/google-antigravity/antigravity-cli"
 		opencodeDocs = "https://github.com/anomalyco/opencode"
 		copilotDocs  = "https://github.com/github/copilot-cli"
 		qwenDocs     = "https://github.com/QwenLM/qwen-code"
@@ -56,6 +57,11 @@ func init() {
 		"gemini": {
 			npm("@google/gemini-cli", geminiDocs),
 			brew("gemini-cli", geminiDocs),
+		},
+		// Read on 2026-09-29: the curl installer is the only one its page
+		// documents for macOS and Linux.
+		"agy": {
+			script("curl -fsSL https://antigravity.google/cli/install.sh | bash", agyDocs),
 		},
 		"opencode": {
 			script("curl -fsSL https://opencode.ai/install | bash", opencodeDocs),

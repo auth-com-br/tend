@@ -27,6 +27,13 @@ func Catalog() []Definition {
 			Methods:  methods["gemini"],
 		},
 		{
+			// herdr's antigravity_cli: its screens are read and its hooks
+			// installed as agy (internal/detect, internal/integration).
+			ID: "agy", Name: "Antigravity CLI", Description: "Google Antigravity's agent in the terminal",
+			Binaries: binariesOf(integration.TargetAntigravityCLI),
+			Methods:  methods["agy"],
+		},
+		{
 			ID: "opencode", Name: "OpenCode", Description: "open source coding agent",
 			Binaries: binariesOf(integration.TargetOpencode),
 			Methods:  methods["opencode"],
