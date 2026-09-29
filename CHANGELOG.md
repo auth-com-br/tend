@@ -5,6 +5,16 @@ release's notes on GitHub and what "what's new" shows inside tend.
 
 ## Unreleased
 
+## v0.12.0 — 2026-09-29
+
+#### New
+- **Groups stay until you delete them.** Closing or moving out the last space of a group no longer makes it disappear: an empty group stays in the sidebar and in "move to group...", and goes only with **delete group** on its menu (its spaces stay, out of any group). With a company chosen, an empty group is listed in the companies it has had spaces of.
+- **A folder for each group.** Right-click a group and choose **set folder...**: a folder picker opens — click a folder to go in, `..` to go up, **use this folder** to take it; typing filters, and a path typed after `/` or `~` goes straight there. **new space here** then starts the space, and its terminal, in that folder. The menu shows the folder, and **clear folder** removes it.
+- **Antigravity CLI** (`agy`) in the agent manager, with Google's installer, and among the agents work can be handed to ("continue in...", and `w`/`f` in the issues, errors and tickets panels).
+
+#### Fixed
+- **A refused request no longer closes tend.** Something the server refuses — a folder that does not exist, say — is shown on the status line, and tend carries on. It used to exit.
+
 ## v0.11.1 — 2026-09-28
 
 #### New
