@@ -5,6 +5,14 @@ release's notes on GitHub and what "what's new" shows inside tend.
 
 ## Unreleased
 
+## v0.13.0 — 2026-10-01
+
+#### New
+- **Start an agent from a group.** Right-click a group and choose **new agent here...**: tend lists the agents installed on your machine (Claude Code, Codex, Gemini, Antigravity, Cursor, …), and the one you pick starts in a new space of the group, **in the group's folder**. When the agent exits, the terminal stays as a shell in that folder.
+
+#### Fixed
+- **Qoder opened the editor instead of the CLI.** tend looked for the Qoder CLI under `qoder` too, which on Linux is the Qoder editor. It now looks only for `qodercli`.
+
 ## v0.12.0 — 2026-09-29
 
 #### New
