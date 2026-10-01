@@ -5,6 +5,12 @@ release's notes on GitHub and what "what's new" shows inside tend.
 
 ## Unreleased
 
+## v0.14.0 — 2026-10-01
+
+#### New
+- **MCP servers, for every agent, in one place.** `ctrl+b M` — or **menu → MCP servers** under the spaces list — shows the MCP servers of Claude Code, Codex, Gemini CLI, Cursor and OpenCode as one grid: a row per server, a column per agent, ✓ on, ○ off, · not set up. Switch a server on or off in any agent, copy it to another agent, **test it** (tend talks to it and says whether it answers, how fast, and how many tools it has — or why not), add one from a single line, and remove one. Right-click a server for every action in words; `?` explains it all. Each agent's file is edited safely (its own lock, a backup a day) and secrets never leave the machine the agents run on. `tend mcp list` and `tend mcp test` do the same from the command line.
+- **All tools from the menu.** **menu → all tools...** lists everything tend has — agents, MCP servers, sessions, issues, errors, tickets and more — each with what it is for and its key.
+
 ## v0.13.0 — 2026-10-01
 
 #### New
