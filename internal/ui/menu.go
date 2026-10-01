@@ -71,7 +71,31 @@ const (
 	// MenuAbout opens the about panel (about.go), tend's own: which tend
 	// is running, the server's, who makes it and where it lives.
 	MenuAbout = "menu-about"
+	// MenuMCP opens the MCP manager, and MenuTools the list of every tool
+	// tend has, each said in words with its key: tend's own, so that one
+	// menu leads to everything for somebody who knows none of the keys.
+	MenuMCP   = "menu-mcp"
+	MenuTools = "menu-tools"
+	// MenuTool opens the tool in Arg (a toolbar id).
+	MenuTool = "menu-tool"
+	// MenuMCPDo is an action on the MCP manager's row, from its own menu;
+	// Arg is the action and the agent it is for, "action:agent".
+	MenuMCPDo = "menu-mcp-do"
 )
+
+// ToolChoice is a tool as the tools menu offers it.
+type ToolChoice struct {
+	ID, Label string
+}
+
+// ToolsMenu lists every tool, said in words.
+func ToolsMenu(tools []ToolChoice, x, y int) Menu {
+	items := make([]MenuItem, 0, len(tools))
+	for _, t := range tools {
+		items = append(items, MenuItem{Label: t.Label, Action: MenuTool, Arg: t.ID})
+	}
+	return Menu{Title: "tools", Items: items, X: x, Y: y}
+}
 
 // VersionLine says which tend is running: this client's build, and the
 // server's beside it when they differ — which is the server that outlived
@@ -107,6 +131,9 @@ func GlobalMenu(stale, ready, notes bool, x, y int) Menu {
 	}
 	items := []MenuItem{{Label: about, Action: MenuAbout}}
 	items = append(items, []MenuItem{
+		// tend's own, above herdr's: where to find everything else.
+		{Label: "all tools...", Action: MenuTools},
+		{Label: "MCP servers", Action: MenuMCP},
 		{Label: "settings", Action: MenuSettings},
 		{Label: "keybinds", Action: MenuKeybinds},
 		{Label: "reload config", Action: MenuReload},

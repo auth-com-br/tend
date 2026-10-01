@@ -30,6 +30,7 @@ import (
 	"github.com/auth-com-br/tend/internal/agent"
 	"github.com/auth-com-br/tend/internal/agentsessions"
 	"github.com/auth-com-br/tend/internal/detect"
+	"github.com/auth-com-br/tend/internal/mcp"
 	"github.com/auth-com-br/tend/internal/policy"
 	"github.com/auth-com-br/tend/internal/proto"
 	"github.com/auth-com-br/tend/internal/pty"
@@ -337,6 +338,10 @@ type Server struct {
 	// keeps on this machine, read when the sessions list first asks.
 	sessionsOnce   sync.Once
 	claudeSessions *agentsessions.Claude
+	// mcpOnce makes mcp, the MCP manager (mcp.go), on first use.
+	mcpOnce sync.Once
+	mcp     *mcp.Manager
+	mcpErr  error
 
 	mu       sync.Mutex
 	session  *session.Session

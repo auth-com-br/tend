@@ -18,6 +18,7 @@ const ToolbarRows = 2
 const (
 	ToolFiles    = "files"
 	ToolAgents   = "agents"
+	ToolMCP      = "mcp"
 	ToolSessions = "sessions"
 	ToolIssues   = "issues"
 	ToolErrors   = "errors"
@@ -43,6 +44,7 @@ type ToolbarItem struct {
 var toolIcons = map[string][3]string{
 	ToolFiles:    {"\uf07b", "📁", "F"},
 	ToolAgents:   {"\uee0d", "🤖", "A"},
+	ToolMCP:      {"\uf1e6", "🔌", "M"},
 	ToolSessions: {"\uf1da", "🕘", "S"},
 	ToolIssues:   {"\uf09b", "🐙", "I"},
 	ToolErrors:   {"\uf188", "🐞", "E"},

@@ -348,6 +348,44 @@ func TestInputReachesThePane(t *testing.T) {
 	})
 }
 
+// TestASlowMCPTestDoesNotHoldTheKeyboard: while the server tests an MCP
+// server that never answers, a pane still gets what is typed and still
+// shows it. If it regresses, pressing T in the MCP manager freezes every
+// pane for twenty seconds, since keystrokes and requests share one loop.
+func TestASlowMCPTestDoesNotHoldTheKeyboard(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("CLAUDE_CONFIG_DIR", "")
+	if err := os.WriteFile(filepath.Join(home, ".claude.json"),
+		[]byte(`{"mcpServers": {"stuck": {"type": "stdio", "command": "sleep", "args": ["60"]}}}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	h := newHarness(t)
+	ws, _ := h.client.NewWorkspace("main")
+	_, pane, err := h.client.NewTab(ws, "t", shellSpec(`read line; printf 'got:%s' "$line"; sleep 10`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	testing := make(chan struct{})
+	go func() {
+		close(testing)
+		_, _ = h.client.MCPTest("claude", "stuck")
+	}()
+	<-testing
+	time.Sleep(200 * time.Millisecond) // the test is under way on the server
+	start := time.Now()
+	if err := h.client.SendInput(pane, []byte("ping\n")); err != nil {
+		t.Fatal(err)
+	}
+	waitFor(t, "the pane to echo the input during the MCP test", func() bool {
+		scr, err := h.client.PaneScreen(pane)
+		return err == nil && strings.Contains(scr.Text, "got:ping")
+	})
+	if time.Since(start) > 5*time.Second {
+		t.Errorf("the pane answered only after %s", time.Since(start))
+	}
+}
+
 // TestSubscribedPanesStreamTheirScreens covers the push path: a subscribed
 // pane's screen arrives without being asked for.
 func TestSubscribedPanesStreamTheirScreens(t *testing.T) {

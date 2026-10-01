@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -96,6 +97,11 @@ var Methods = []string{
 	proto.MethodGroupDelete,
 	proto.MethodGroupSetDir,
 	proto.MethodDirList,
+	proto.MethodMCPList,
+	proto.MethodMCPTest,
+	proto.MethodMCPSetEnabled,
+	proto.MethodMCPAdd,
+	proto.MethodMCPRemove,
 }
 
 // Serve accepts connections until the listener is closed.
@@ -338,6 +344,14 @@ func (c *clientConn) serveRequests() {
 
 		switch frame.Type {
 		case proto.FrameRequest:
+			if slowRequest(frame.Payload) {
+				// Answered beside the loop: an MCP test takes up to
+				// twenty seconds, and the keystrokes for the panes come
+				// down this same loop. Writes to the connection are
+				// serialised, and the client matches answers by id.
+				go func(payload []byte) { _ = c.handleRequest(payload) }(frame.Payload)
+				continue
+			}
 			if err := c.handleRequest(frame.Payload); err != nil {
 				return
 			}
@@ -353,6 +367,19 @@ func (c *clientConn) serveRequests() {
 			continue
 		}
 	}
+}
+
+// slowRequest reports whether a request is one of the MCP manager's, which
+// do I/O that can take seconds and touch nothing a later request depends
+// on being done first.
+func slowRequest(payload []byte) bool {
+	var req struct {
+		Method string `json:"method"`
+	}
+	if json.Unmarshal(payload, &req) != nil {
+		return false
+	}
+	return strings.HasPrefix(req.Method, "mcp.")
 }
 
 func (c *clientConn) handleRequest(payload []byte) error {
@@ -486,6 +513,33 @@ func (c *clientConn) dispatch(req proto.Request) (any, error) {
 			return nil, err
 		}
 		return nil, c.srv.RenameWorkspace(session.WorkspaceID(p.Workspace), p.Name)
+
+	case proto.MethodMCPList:
+		return c.srv.MCPList(), nil
+	case proto.MethodMCPTest:
+		var p proto.MCPRef
+		if err := decodeParams(req.Params, &p); err != nil {
+			return nil, err
+		}
+		return c.srv.MCPTest(p)
+	case proto.MethodMCPSetEnabled:
+		var p proto.MCPSetParams
+		if err := decodeParams(req.Params, &p); err != nil {
+			return nil, err
+		}
+		return nil, c.srv.MCPSetEnabled(p)
+	case proto.MethodMCPAdd:
+		var p proto.MCPAddParams
+		if err := decodeParams(req.Params, &p); err != nil {
+			return nil, err
+		}
+		return c.srv.MCPAdd(p), nil
+	case proto.MethodMCPRemove:
+		var p proto.MCPRemoveParams
+		if err := decodeParams(req.Params, &p); err != nil {
+			return nil, err
+		}
+		return c.srv.MCPRemove(p), nil
 
 	case proto.MethodDirList:
 		var p proto.DirListParams

@@ -21,6 +21,7 @@ var commands = []struct{ name, help string }{
 	{"notify", "tell whoever is watching the session"},
 	{"context", "add to, list or clear what the agents are to be handed"},
 	{"gitlab", "keep a token for a GitLab: login, logout, status"},
+	{"mcp", "the agents' MCP servers: list them, test them"},
 	{"browser", "the session's browsers: status, open, select, attach"},
 	{"terminal", "set or clear the outer window's title"},
 	{"layout", "save or rebuild a tab's arrangement"},

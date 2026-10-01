@@ -53,6 +53,7 @@ Concretely, for `internal/vt` and the render loop:
 | `internal/activity` | The record of what agents did: the log file, runs folded from it, git facts, export |
 | `internal/usage` | Tokens an agent's conversation spent, read from its own files, and their price |
 | `internal/policy` | Rules on where agents may run, checked against facts it is given |
+| `internal/mcp` | The agents' MCP servers: each agent's file read and edited safely, the stash, and a test that speaks MCP |
 | `cmd/tend` | CLI entry point |
 
 ## Terminal core
@@ -451,6 +452,35 @@ is normal. An unknown key is an error rather than being ignored: a setting
 silently dropped is one the user believes is in effect, which is the most
 confusing way for configuration to fail. Settings are read before anything else
 is checked, so a broken file is reported wherever tend is being run from.
+
+### The MCP manager
+
+prefix+M shows every agent's MCP servers as one grid, a row per server and a
+column per agent. `internal/mcp` has one adapter per agent (Claude Code, Codex,
+Gemini CLI, Cursor, OpenCode; global scope only) over the agent's own file.
+
+- **Reading** is the file, never the agent's CLI: `claude mcp list` starts every
+  server to look at one.
+- **Writing** edits the file directly, because the files belong to running
+  programs that rewrite them. Each write:
+  - takes the agent's own lock (Claude Code's `~/.claude.json.lock`, found by
+    tracing its own writes);
+  - edits again when the file changed between the read and the write;
+  - writes atomically and keeps the file's mode;
+  - checks that nothing but the one server changed;
+  - backs up the day's first version under the state directory.
+- **Off** uses the agent's own switch where it has one that holds everywhere
+  (Codex `enabled = false`, Gemini's `mcp-server-enablement.json`, OpenCode's
+  `enabled`). Elsewhere (Claude Code, Cursor) the server moves into tend's
+  stash and comes back unchanged on.
+- **A test** speaks MCP to the server over stdio, streamable HTTP or SSE:
+  initialize, initialized, tools/list.
+
+Everything happens in the server, where the agents and their files are.
+Lists carry the names of env vars and headers, not their values, and a copy
+between agents is made there, so a secret never crosses the connection.
+The `mcp.*` requests are answered beside the connection's request loop: a
+test can take twenty seconds, and keystrokes come down the same loop.
 
 ## Scope
 

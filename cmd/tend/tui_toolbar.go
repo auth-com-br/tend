@@ -3,6 +3,7 @@ package main
 import (
 	"time"
 
+	"github.com/auth-com-br/tend/internal/config"
 	"github.com/auth-com-br/tend/internal/ui"
 )
 
@@ -17,6 +18,7 @@ import (
 var toolLabels = map[string]string{
 	ui.ToolFiles:    "Files — the files panel (prefix+f)",
 	ui.ToolAgents:   "Agents — find and install agents (prefix+A)",
+	ui.ToolMCP:      "MCP servers — the tools your agents can use: on/off, test, add (prefix+M)",
 	ui.ToolSessions: "Sessions — find, resume and delete agent sessions (prefix+S)",
 	ui.ToolIssues:   "Issues — this project's GitHub issues (prefix+I)",
 	ui.ToolErrors:   "Errors — what GlitchTip caught, to fix (prefix+E)",
@@ -73,6 +75,8 @@ func (t *tui) runTool(id string) error {
 		return t.toggleFiles()
 	case ui.ToolAgents:
 		return t.openAgentManager()
+	case ui.ToolMCP:
+		return t.openMCPManager()
 	case ui.ToolSessions:
 		return t.openSessions()
 	case ui.ToolIssues:
@@ -128,4 +132,17 @@ func (t *tui) hoverToolbar(x, y int) bool {
 		t.wakeUp()
 	}
 	return onBar
+}
+
+// toolChoices are the tools as the tools menu lists them: every one, in the
+// toolbar's default order whatever the toolbar shows, each its name and
+// what it is for, with its key.
+func toolChoices() []ui.ToolChoice {
+	var out []ui.ToolChoice
+	for _, id := range config.ToolbarTools {
+		if label, ok := toolLabels[id]; ok {
+			out = append(out, ui.ToolChoice{ID: id, Label: label})
+		}
+	}
+	return out
 }

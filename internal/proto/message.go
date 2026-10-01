@@ -122,6 +122,15 @@ const (
 	MethodGroupDelete = "group.delete"
 	// MethodGroupSetDir sets the folder a group's new spaces start in.
 	MethodGroupSetDir = "group.set_dir"
+	// The MCP methods are the MCP manager's (internal/mcp): the agents'
+	// servers, read and written where the agents run, and tested there.
+	// They are answered off the connection's request loop, since a test
+	// can take seconds and keystrokes come down the same loop.
+	MethodMCPList       = "mcp.list"
+	MethodMCPTest       = "mcp.test"
+	MethodMCPSetEnabled = "mcp.set_enabled"
+	MethodMCPAdd        = "mcp.add"
+	MethodMCPRemove     = "mcp.remove"
 	// MethodDirList lists the folders in a folder on the server's machine,
 	// for picking one with the mouse rather than typing its path: the
 	// folders that matter are where the panes run, which over ssh is not
@@ -253,6 +262,11 @@ var KnownMethods = []string{
 	MethodGroupDelete,
 	MethodGroupSetDir,
 	MethodDirList,
+	MethodMCPList,
+	MethodMCPTest,
+	MethodMCPSetEnabled,
+	MethodMCPAdd,
+	MethodMCPRemove,
 }
 
 // ErrUnknownMethod is what a server answers when it has never heard of a
@@ -532,6 +546,97 @@ type GroupInfo struct {
 	Companies []uint64 `json:"companies,omitempty"`
 	// Dir is the folder a space made in the group starts in, if one is set.
 	Dir string `json:"dir,omitempty"`
+}
+
+// MCPAgent is an agent whose MCP servers the manager reads.
+type MCPAgent struct {
+	ID      string `json:"id"`
+	Name    string `json:"name"`
+	Path    string `json:"path,omitempty"`
+	Present bool   `json:"present,omitempty"`
+	Error   string `json:"error,omitempty"`
+}
+
+// MCPEntry is one server in one agent, as it can be shown: env and header
+// values are not in it, only their names, and arguments and URLs have
+// whatever looks secret taken out.
+type MCPEntry struct {
+	Agent       string   `json:"agent"`
+	Name        string   `json:"name"`
+	Enabled     bool     `json:"enabled"`
+	Via         string   `json:"via,omitempty"`
+	Reason      string   `json:"reason,omitempty"`
+	Transport   string   `json:"transport"`
+	Command     string   `json:"command,omitempty"`
+	Args        []string `json:"args,omitempty"`
+	URL         string   `json:"url,omitempty"`
+	EnvKeys     []string `json:"env_keys,omitempty"`
+	HeaderKeys  []string `json:"header_keys,omitempty"`
+	Extras      []string `json:"extras,omitempty"`
+	Fingerprint string   `json:"fingerprint,omitempty"`
+}
+
+// MCPListResult is mcp.list's answer.
+type MCPListResult struct {
+	Agents  []MCPAgent `json:"agents"`
+	Entries []MCPEntry `json:"entries"`
+}
+
+// MCPRef names one server in one agent.
+type MCPRef struct {
+	Agent string `json:"agent"`
+	Name  string `json:"name"`
+}
+
+// MCPTestResult is what testing a server found (mcp.Probe).
+type MCPTestResult struct {
+	Status   string `json:"status"`
+	Millis   int64  `json:"millis"`
+	Tools    int    `json:"tools"`
+	Server   string `json:"server,omitempty"`
+	Version  string `json:"version,omitempty"`
+	Protocol string `json:"protocol,omitempty"`
+	Error    string `json:"error,omitempty"`
+	Stderr   string `json:"stderr,omitempty"`
+}
+
+// MCPSetParams turns a server in an agent on or off.
+type MCPSetParams struct {
+	Agent   string `json:"agent"`
+	Name    string `json:"name"`
+	Enabled bool   `json:"enabled"`
+}
+
+// MCPDef is a server typed in by the user, values and all.
+type MCPDef struct {
+	Transport string            `json:"transport"`
+	Command   string            `json:"command,omitempty"`
+	Args      []string          `json:"args,omitempty"`
+	Env       map[string]string `json:"env,omitempty"`
+	URL       string            `json:"url,omitempty"`
+	Headers   map[string]string `json:"headers,omitempty"`
+}
+
+// MCPAddParams adds a server to agents: copied from one an agent has
+// (From), so its secrets stay on the server's side, or as typed in (Def).
+type MCPAddParams struct {
+	Name   string   `json:"name"`
+	Agents []string `json:"agents"`
+	From   *MCPRef  `json:"from,omitempty"`
+	Def    *MCPDef  `json:"def,omitempty"`
+}
+
+// MCPRemoveParams removes a server from agents.
+type MCPRemoveParams struct {
+	Name   string   `json:"name"`
+	Agents []string `json:"agents"`
+}
+
+// MCPWriteResult is what a write did, agent by agent.
+type MCPWriteResult struct {
+	Done     []string          `json:"done,omitempty"`
+	Failed   map[string]string `json:"failed,omitempty"`
+	Warnings []string          `json:"warnings,omitempty"`
 }
 
 // DirListParams names the folder to list; empty is the home folder of the

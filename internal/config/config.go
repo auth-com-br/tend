@@ -483,8 +483,13 @@ type Toolbar struct {
 	Items   []string `toml:"items"`
 }
 
-// ToolbarTools are the tools a toolbar can hold, in their default order.
-var ToolbarTools = []string{"files", "agents", "sessions", "issues", "errors", "tickets", "browser", "context"}
+// ToolbarTools are the tools a toolbar can hold, in their order.
+var ToolbarTools = []string{"files", "agents", "mcp", "sessions", "issues", "errors", "tickets", "browser", "context"}
+
+// DefaultToolbarTools are the ones it holds when the settings do not say:
+// all but mcp, since a ninth tool does not fit the sidebar's default width
+// and the last one would be cut off. The MCP manager is in the menu.
+var DefaultToolbarTools = []string{"files", "agents", "sessions", "issues", "errors", "tickets", "browser", "context"}
 
 // ToolbarItems is the tools the sidebar shows, none when it is off.
 func (c Config) ToolbarItems() []string {
@@ -492,7 +497,7 @@ func (c Config) ToolbarItems() []string {
 		return nil
 	}
 	if len(c.UI.Toolbar.Items) == 0 {
-		return ToolbarTools
+		return DefaultToolbarTools
 	}
 	return c.UI.Toolbar.Items
 }
@@ -1011,6 +1016,7 @@ grouped = false
 # agents, browser and context. items picks which, in order.
 # [ui.toolbar]
 # enabled = true
+# (mcp, the MCP manager, can be added too.)
 # items = ["files", "agents", "sessions", "issues", "errors", "tickets", "browser", "context"]
 
 [ui.theme]

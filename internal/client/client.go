@@ -364,6 +364,35 @@ func (c *Client) SetGroupDir(group, dir string) error {
 	return c.Call(proto.MethodGroupSetDir, proto.GroupParams{Group: group, Dir: dir}, nil)
 }
 
+// MCPList is every agent's MCP servers, as they can be shown.
+func (c *Client) MCPList() (proto.MCPListResult, error) {
+	var out proto.MCPListResult
+	return out, c.Call(proto.MethodMCPList, nil, &out)
+}
+
+// MCPTest tests one agent's server, on the server's machine.
+func (c *Client) MCPTest(agent, name string) (proto.MCPTestResult, error) {
+	var out proto.MCPTestResult
+	return out, c.Call(proto.MethodMCPTest, proto.MCPRef{Agent: agent, Name: name}, &out)
+}
+
+// MCPSetEnabled turns a server on or off in one agent.
+func (c *Client) MCPSetEnabled(agent, name string, on bool) error {
+	return c.Call(proto.MethodMCPSetEnabled, proto.MCPSetParams{Agent: agent, Name: name, Enabled: on}, nil)
+}
+
+// MCPAdd adds a server to agents.
+func (c *Client) MCPAdd(p proto.MCPAddParams) (proto.MCPWriteResult, error) {
+	var out proto.MCPWriteResult
+	return out, c.Call(proto.MethodMCPAdd, p, &out)
+}
+
+// MCPRemove removes a server from agents.
+func (c *Client) MCPRemove(name string, agents []string) (proto.MCPWriteResult, error) {
+	var out proto.MCPWriteResult
+	return out, c.Call(proto.MethodMCPRemove, proto.MCPRemoveParams{Name: name, Agents: agents}, &out)
+}
+
 // ListDirs lists the folders in a folder on the server's machine.
 func (c *Client) ListDirs(path string) (proto.DirListResult, error) {
 	var out proto.DirListResult

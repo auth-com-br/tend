@@ -422,6 +422,8 @@ type Frame struct {
 	About *AboutView
 	// AgentManager is the agent manager, when it is up (agentmanager.go).
 	AgentManager *AgentManagerView
+	// MCPManager is the MCP manager, when it is up.
+	MCPManager *MCPManagerView
 	// Sessions is the sessions list, when it is up (sessions.go).
 	Sessions *SessionsView
 	// Companies is the companies panel, when it is up (companies.go).
@@ -637,6 +639,9 @@ func Draw(dst *vt.Grid, f Frame, theme Theme) {
 	}
 	if f.AgentManager != nil {
 		drawAgentManager(dst, f.AgentManager, theme)
+	}
+	if f.MCPManager != nil {
+		drawMCPManager(dst, f.MCPManager, theme)
 	}
 	if f.Sessions != nil {
 		drawSessions(dst, f.Sessions, theme)

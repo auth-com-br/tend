@@ -366,6 +366,15 @@ func (t *tui) runMenu(m ui.Menu, item ui.MenuItem) error {
 	case ui.MenuAbout:
 		t.openAbout()
 		return nil
+	case ui.MenuMCP:
+		return t.openMCPManager()
+	case ui.MenuTools:
+		t.openMenu(ui.ToolsMenu(toolChoices(), m.X, m.Y))
+		return nil
+	case ui.MenuTool:
+		return t.runTool(item.Arg)
+	case ui.MenuMCPDo:
+		return t.mcpMenuAction(item.Arg)
 	case ui.MenuDetach:
 		t.detach = true
 		return nil

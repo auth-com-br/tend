@@ -63,13 +63,13 @@ func TestUpdateReadyIsOnTheStatusBarAndTheMenu(t *testing.T) {
 		}
 		return strings.Join(out, ", ")
 	}
-	if got := labels(GlobalMenu(false, true, true, 0, 0)); got != "about tend, settings, keybinds, reload config, update ready ●, detach" {
+	if got := labels(GlobalMenu(false, true, true, 0, 0)); got != "about tend, all tools..., MCP servers, settings, keybinds, reload config, update ready ●, detach" {
 		t.Errorf("ready: %s", got)
 	}
-	if got := labels(GlobalMenu(false, false, true, 0, 0)); got != "about tend, settings, keybinds, reload config, what's new, detach" {
+	if got := labels(GlobalMenu(false, false, true, 0, 0)); got != "about tend, all tools..., MCP servers, settings, keybinds, reload config, what's new, detach" {
 		t.Errorf("notes: %s", got)
 	}
-	if got := labels(GlobalMenu(false, false, false, 0, 0)); got != "about tend, settings, keybinds, reload config, detach" {
+	if got := labels(GlobalMenu(false, false, false, 0, 0)); got != "about tend, all tools..., MCP servers, settings, keybinds, reload config, detach" {
 		t.Errorf("none: %s", got)
 	}
 }

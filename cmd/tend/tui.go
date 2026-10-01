@@ -268,6 +268,10 @@ type tui struct {
 	// agentMgr is the agent manager while it is up, and agentStatus the
 	// list it shows, in the same order (tui_agents.go).
 	agentMgr *ui.AgentManagerView
+	// mcpMgr is the MCP manager while it is up, and mcp what it was drawn
+	// from (tui_mcp.go).
+	mcpMgr *ui.MCPManagerView
+	mcp    *mcpState
 	// sessions is the sessions list while it is up, and sessionList what
 	// the server last said, which its search filters.
 	// about is the about panel while it is up (tui_version.go).
@@ -1137,6 +1141,7 @@ func (t *tui) buildFrame() ui.Frame {
 		ReleaseNotes: t.notes,
 		About:        t.about,
 		AgentManager: t.agentMgr,
+		MCPManager:   t.mcpMgr,
 		Sessions:     t.sessions,
 		Companies:    t.companies,
 		Tickets:      t.tickets,
@@ -1342,6 +1347,9 @@ func (t *tui) handleInput(data []byte) error {
 	}
 	if t.agentManagerUp() {
 		return t.agentManagerInput(data)
+	}
+	if t.mcpManagerUp() {
+		return t.mcpManagerInput(data)
 	}
 	if t.sessionsUp() {
 		return t.sessionsInput(data)
@@ -1566,6 +1574,8 @@ func (t *tui) command(action ui.Action) error {
 
 	case ui.CommandAgentManager:
 		return t.openAgentManager()
+	case ui.CommandMCPManager:
+		return t.openMCPManager()
 	case ui.CommandSessions:
 		return t.openSessions()
 	case ui.CommandCompanies:
