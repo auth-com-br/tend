@@ -80,8 +80,11 @@ func Catalog() []Definition {
 		},
 		{
 			ID: "qodercli", Name: "Qoder CLI", Description: "Qoder's coding agent",
-			// The docs run it as qoder; the package and its binary are qodercli.
-			Binaries: append(binariesOf(integration.TargetQoderCLI), "qoder"),
+			// qodercli only, as herdr looks for it outside Windows
+			// (qodercli_command_names). "qoder" is the Qoder editor's
+			// launcher on Linux: found under that name, the CLI picked from a
+			// group's menu opened the editor's window instead.
+			Binaries: binariesOf(integration.TargetQoderCLI),
 			Methods:  methods["qodercli"],
 		},
 		{

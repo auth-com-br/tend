@@ -128,3 +128,24 @@ func TestAntigravityIsInTheCatalog(t *testing.T) {
 	}
 	t.Error("no agy in the catalog")
 }
+
+// TestQoderIsFoundOnlyAsItsCLI: the Qoder CLI is looked for as qodercli and
+// never as qoder, the Qoder editor's launcher. If it regresses, a machine
+// with the editor installed lists the CLI as installed, and starting it
+// opens the editor's window.
+func TestQoderIsFoundOnlyAsItsCLI(t *testing.T) {
+	env := Env{
+		LookPath: func(name string) (string, error) {
+			if name == "qoder" {
+				return "/usr/bin/qoder", nil
+			}
+			return "", errors.New("not found")
+		},
+		Output: func(context.Context, string, ...string) (string, error) { return "", nil },
+	}
+	for _, s := range Find(env, Catalog()) {
+		if s.ID == "qodercli" && s.Installed {
+			t.Errorf("the editor's %s was taken for the Qoder CLI", s.Path)
+		}
+	}
+}
