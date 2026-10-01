@@ -48,6 +48,10 @@ const (
 	// MenuGroupDirClear forgets it.
 	MenuGroupDir      = "menu-group-dir"
 	MenuGroupDirClear = "menu-group-dir-clear"
+	// MenuGroupAgent lists the agents installed here, and MenuGroupAgentStart
+	// starts the one in Arg in a new space of the group, in its folder.
+	MenuGroupAgent      = "menu-group-agent"
+	MenuGroupAgentStart = "menu-group-agent-start"
 	// MenuContinueIn offers the agents a pane's task can be handed to, and
 	// MenuContinueWith hands it to the one in Arg (docs/MEMORY.md).
 	MenuContinueIn   = "continue-in"
@@ -318,6 +322,7 @@ func GroupMenu(group string, folded bool, folder string, x, y int) Menu {
 	items := []MenuItem{
 		{Label: fold, Action: MenuFold},
 		{Label: "new space here", Action: MenuNewSpace},
+		{Label: "new agent here...", Action: MenuGroupAgent},
 	}
 	if folder == "" {
 		items = append(items, MenuItem{Label: "set folder...", Action: MenuGroupDir})
@@ -345,6 +350,22 @@ func AgentMenu(pane, tab, workspace uint64, x, y int) Menu {
 		},
 		X: x, Y: y, Pane: pane, Tab: tab, Workspace: workspace,
 	}
+}
+
+// AgentChoice is an agent a menu offers to start: its catalog id, and the
+// name it is shown by.
+type AgentChoice struct {
+	ID, Name string
+}
+
+// GroupAgentMenu lists the agents that can be started in a group: each one
+// starts in a new space of the group, in the group's folder.
+func GroupAgentMenu(group string, agents []AgentChoice, x, y int) Menu {
+	items := make([]MenuItem, 0, len(agents))
+	for _, a := range agents {
+		items = append(items, MenuItem{Label: a.Name, Action: MenuGroupAgentStart, Arg: a.ID})
+	}
+	return Menu{Title: "start in " + group, Items: items, X: x, Y: y, Group: group}
 }
 
 // ContinueMenu lists the agents a pane's task can be handed to — the same

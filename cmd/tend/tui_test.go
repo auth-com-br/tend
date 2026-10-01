@@ -1740,6 +1740,58 @@ func TestAttachPicksAGroupsFolderWithClicks(t *testing.T) {
 	})
 }
 
+// TestAttachStartsAnAgentInAGroupsFolder: "new agent here..." on a group
+// lists the agents installed on the server's machine; picking one makes a
+// space in the group, named after it, running it in the group's folder, and
+// when it exits the terminal is a shell in that folder still. If it
+// regresses, starting an agent for a group means making a space, finding
+// the folder and typing the agent's name.
+//
+// The agent is a stand-in named claude, first on PATH: what is tested is
+// tend finding it, starting it where the group says and keeping the
+// terminal, not anything Claude Code does.
+func TestAttachStartsAnAgentInAGroupsFolder(t *testing.T) {
+	folder, bin := t.TempDir(), t.TempDir()
+	fake := "#!/bin/sh\ncase \"$1\" in --version) echo 9.9.9; exit 0;; esac\necho \"FAKE AGENT IN $(pwd)\"\n"
+	if err := os.WriteFile(filepath.Join(bin, "claude"), []byte(fake), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	a := startSession(t, 100, 30)
+	a.waitForScreen(t, "a pane", func(s string) bool { return strings.Contains(s, "┌") })
+	a.send(t, "\x02N")
+	a.waitForScreen(t, "a second space", func(string) bool { return strings.Contains(a.sidebarText(), "space 2") })
+	a.groupSpace(t, "space 2", "clients")
+	a.waitForScreen(t, "the group", func(string) bool { return strings.Contains(a.sidebarText(), "▼ clients") })
+
+	a.openMenuOn(t, 4, a.lineContaining(t, "clients"), "set folder...")
+	a.clickAt(t, 6, a.lineContaining(t, "set folder..."))
+	a.waitForScreen(t, "the folder picker", func(s string) bool {
+		return strings.Contains(s, "folder for clients") && !strings.Contains(s, "reading…")
+	})
+	a.send(t, folder+"\r")
+	a.waitForScreen(t, "the picker at the folder", func(s string) bool { return strings.Contains(s, "│ "+folder) })
+	a.send(t, "\r")
+	a.waitForScreen(t, "the picker to close", func(s string) bool { return !strings.Contains(s, "folder for clients") })
+
+	a.openMenuOn(t, 4, a.lineContaining(t, "clients"), "new agent here...")
+	a.clickAt(t, 6, a.lineContaining(t, "new agent here..."))
+	a.waitForScreen(t, "the installed agents", func(s string) bool {
+		return strings.Contains(s, "start in clients") && strings.Contains(s, "Claude Code")
+	})
+	a.clickAt(t, 6, a.lineContaining(t, "Claude Code"))
+
+	a.waitForScreen(t, "the agent in the group's folder", func(s string) bool {
+		return strings.Contains(s, "FAKE AGENT IN "+folder) && strings.Contains(a.sidebarText(), "Claude Code")
+	})
+	// The agent has exited; the terminal is a shell, in the same folder.
+	a.send(t, "pwd\r")
+	a.waitForScreen(t, "a shell left in the folder", func(s string) bool {
+		return strings.Contains(s, "│"+folder)
+	})
+}
+
 // TestASpaceMovesIntoAGroupPickedFromTheMenu: "move to group..." lists the
 // groups there are, and picking one puts the space in it. If it regresses,
 // joining a group means typing its exact name again.

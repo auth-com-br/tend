@@ -943,6 +943,25 @@ func TestGroupMenuActsOnTheGroup(t *testing.T) {
 	}
 }
 
+// TestAGroupOffersToStartAnAgent: the group's menu has "new agent here...",
+// and the list it opens has an item per agent, carrying its id, acting on
+// the group. If it regresses, starting an agent in a group's folder means
+// making a space and typing the agent's name in it.
+func TestAGroupOffersToStartAnAgent(t *testing.T) {
+	found := false
+	for _, it := range GroupMenu("clients", false, "", 0, 0).Items {
+		found = found || (it.Label == "new agent here..." && it.Action == MenuGroupAgent)
+	}
+	if !found {
+		t.Error("the group menu has no new agent here...")
+	}
+	m := GroupAgentMenu("clients", []AgentChoice{{ID: "claude", Name: "Claude Code"}, {ID: "agy", Name: "Antigravity CLI"}}, 0, 0)
+	if m.Group != "clients" || len(m.Items) != 2 || m.Items[1].Label != "Antigravity CLI" ||
+		m.Items[1].Arg != "agy" || m.Items[1].Action != MenuGroupAgentStart {
+		t.Errorf("agent menu = %+v", m)
+	}
+}
+
 // TestGroupMenuSaysWhichFolderItStartsIn: with no folder the menu offers to
 // set one; with one it names it and offers to clear it. If it regresses, the
 // only way to see a group's folder is to open the prompt that changes it.

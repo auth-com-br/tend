@@ -217,10 +217,19 @@ func (t *tui) newWorkspace() error { return t.newWorkspaceIn("") }
 // here" on a group heading means. A group with a folder set starts the space
 // there, its first terminal too: that is what the folder is for.
 func (t *tui) newWorkspaceIn(group string) error {
+	return t.newWorkspaceRunning(group, t.nextName("space", len(t.snapshotWorkspaces())), t.nextName("tab", 0),
+		func(dir string) proto.PaneSpec { return proto.PaneSpec{Command: t.paneShell(), Dir: dir} })
+}
+
+// newWorkspaceRunning creates a space in a group, in the group's folder,
+// whose first tab runs what spec gives for that folder. A first tab that
+// does not start takes the space with it: an empty space named after an
+// agent that never ran is a leftover, not something the user made.
+func (t *tui) newWorkspaceRunning(group, name, tabName string, spec func(dir string) proto.PaneSpec) error {
 	t.mu.Lock()
 	dir := t.groupDirLocked(group)
 	t.mu.Unlock()
-	ws, err := t.client.NewWorkspaceIn(t.nextName("space", len(t.snapshotWorkspaces())), dir)
+	ws, err := t.client.NewWorkspaceIn(name, dir)
 	if err != nil {
 		return err
 	}
@@ -240,7 +249,8 @@ func (t *tui) newWorkspaceIn(group string) error {
 			return err
 		}
 	}
-	if _, _, err := t.client.NewTab(ws, t.nextName("tab", 0), proto.PaneSpec{Command: t.paneShell(), Dir: dir}); err != nil {
+	if _, _, err := t.client.NewTab(ws, tabName, spec(dir)); err != nil {
+		_ = t.client.CloseWorkspace(ws)
 		return err
 	}
 	t.mu.Lock()

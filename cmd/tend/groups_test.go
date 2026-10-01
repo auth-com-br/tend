@@ -62,3 +62,19 @@ func TestAnEmptyGroupIsListedWhereItBelongs(t *testing.T) {
 		t.Errorf("from an older server the groups are %v, want the one a space names", got)
 	}
 }
+
+// TestAGroupStartsOnlyInstalledAgents: the list a group offers is the
+// catalog's agents that are installed, without the memory tools listed
+// with them. If it regresses, picking an agent that is not there leaves a
+// space with a terminal that says "not found".
+func TestAGroupStartsOnlyInstalledAgents(t *testing.T) {
+	got := installedAgents([]proto.AgentStatus{
+		{ID: "claude", Name: "Claude Code", Installed: true},
+		{ID: "codex", Name: "Codex"},
+		{ID: "graphify", Name: "Graphify", Installed: true, Kind: "memory"},
+		{ID: "agy", Name: "Antigravity CLI", Installed: true},
+	})
+	if len(got) != 2 || got[0].ID != "claude" || got[1].ID != "agy" {
+		t.Errorf("offered %+v, want Claude Code and Antigravity CLI", got)
+	}
+}
