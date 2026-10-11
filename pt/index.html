@@ -7,7 +7,7 @@
   <meta name="description" content="O tend pega as issues do GitHub e os erros de produção, abre um worktree e entrega a tarefa ao seu agente de código. Você acompanha todos os agentes, e fecha o que foi resolvido, na mesma tela.">
   <meta property="og:title" content="tend — do ticket e do erro até o PR, com agentes">
   <meta property="og:description" content="O tend pega as issues do GitHub e os erros de produção, abre um worktree e entrega a tarefa ao seu agente de código. Você acompanha todos os agentes, e fecha o que foi resolvido, na mesma tela.">
-  <meta property="og:image" content="https://tend.auth.com.br/session.png">
+  <meta property="og:image" content="https://tend.auth.com.br/img/session.png">
   <meta name="twitter:card" content="summary_large_image">
   <link rel="alternate" hreflang="en" href="https://tend.auth.com.br/">
   <link rel="alternate" hreflang="pt-BR" href="https://tend.auth.com.br/pt/">
@@ -98,6 +98,7 @@
       <a href="#install">instalar</a>
       <a href="#session">sessão</a>
       <a href="#tools">ferramentas</a>
+      <a href="#phone">celular</a>
       <a href="#keys">teclas</a>
       <a href="https://github.com/auth-com-br/tend">código</a>
       <span class="langs"><a href="./" data-lang="pt" aria-current="page" onclick="try{localStorage.setItem('tend-lang','pt')}catch(e){}">pt</a> · <a href="../" data-lang="en" onclick="try{localStorage.setItem('tend-lang','en')}catch(e){}">en</a> · <a href="../es/" data-lang="es" onclick="try{localStorage.setItem('tend-lang','es')}catch(e){}">es</a> · <a href="../ja/" data-lang="ja" onclick="try{localStorage.setItem('tend-lang','ja')}catch(e){}">ja</a> · <a href="../zh/" data-lang="zh" onclick="try{localStorage.setItem('tend-lang','zh')}catch(e){}">zh</a></span>
@@ -145,91 +146,14 @@
     </section>
 
     <section id="session" class="stage" aria-label="Uma sessão do tend">
-      <div class="term">
+      <div class="term shot">
         <div class="term-chrome" aria-hidden="true">
           <span class="term-dots"><i></i><i></i><i></i></span>
           <span class="term-title">tend — work</span>
         </div>
-        <div class="frame">
-          <aside class="side">
-            <p class="tools"><span>F</span><span class="on">A</span><span>S</span><span>I</span><span>B</span><span>C</span></p>
-            <p class="rule" aria-hidden="true"></p>
-            <p class="side-h">spaces</p>
-            <p class="entry on"><span class="name"><span class="dot"></span>tend</span><span class="sub">main</span></p>
-            <p class="entry"><span class="name"><span class="dot idle"></span>website</span><span class="sub">feat/hero</span></p>
-            <p class="entry"><span class="name"><span class="dot idle"></span>docs</span><span class="sub">readme</span></p>
-            <p class="rule" aria-hidden="true"></p>
-            <p class="side-h">agents <span>flat</span></p>
-            <p class="entry on"><span class="name"><span class="dot work"></span>claude</span><span class="sub">working</span></p>
-            <p class="entry"><span class="name"><span class="dot block"></span>codex</span><span class="sub">blocked</span></p>
-            <p class="entry"><span class="name"><span class="dot idle"></span>cursor</span><span class="sub">idle</span></p>
-            <p class="hide" aria-hidden="true">«</p>
-          </aside>
-          <div class="workspace">
-            <div class="tabs" aria-hidden="true">
-              <span class="tab on">agents</span>
-              <span class="tab">website</span>
-              <span class="tab add">+</span>
-              <span class="tabs-right">21:14</span>
-            </div>
-            <div class="panes">
-              <article class="pane focus">
-                <header><span class="id">1</span> claude <span class="st work" title="working">●</span></header>
-                <pre><span class="logo"> ▐▛███▜▌
-▝▜█████▛▘
-  ▘▘ ▝▝</span>
-<span class="dim">Claude Code</span>  <span class="accent">~/src/tend</span>
-
-<span class="prompt">❯</span> keep the agents running after I detach
-
-<span class="ok">●</span> The session is a background server.
-  Closing this window does not stop them.
-
-<span class="ok">●</span> Detach with ctrl+b d. Attach again
-  and the same panes are there, still
-  marked working, blocked or idle.
-
-<span class="spin">⠋</span> <span class="work">Writing the status line…</span>
-<span class="dim">   esc to interrupt</span></pre>
-              </article>
-              <article class="pane">
-                <header><span class="id">2</span> codex <span class="st block" title="blocked">▲</span></header>
-                <pre><span class="dim">codex</span>  <span class="accent">~/src/tend</span>
-
-<span class="block">Do you want to proceed?</span>
-
-  Run <span class="str">make check</span> before the commit
-
-  <span class="dim">internal/ui/draw.go
-  cmd/tend/tui.go</span>
-
-<span class="prompt">❯</span> <span class="pick">1. Yes</span>
-  2. No
-
-<span class="dim">~/src/tend  feat/hero</span></pre>
-              </article>
-              <aside class="files" aria-label="Files panel">
-                <p class="files-h">FILES <span>⚙</span></p>
-                <p class="files-git">tend · main <span>⟳</span></p>
-                <p class="rule" aria-hidden="true"></p>
-                <pre> cmd/
-   tend/
- internal/
-   server/
-   ui/
- <span class="accent">site/</span>
-   index.html
-   site.css
- AGENTS.md
- <span class="work">README.md  M</span></pre>
-              </aside>
-            </div>
-          </div>
-        </div>
-        <p class="status"><span>work · tend · agents</span><span>1:claude ●</span><span>2:codex ▲</span></p>
+        <img src="../img/session.png" width="2948" height="1624" alt="tend num terminal: os spaces e os agentes à esquerda, um Claude Code trabalhando, outro esperando aprovação, e o painel de arquivos">
       </div>
-
-      <p class="stage-cap">Uma sessão. O servidor continua quando ninguém está olhando.</p>
+      <p class="stage-cap">Uma sessão de verdade: um agente trabalhando, um esperando você aprovar um comando, um terceiro adormecido, e os arquivos do projeto ao lado. O servidor continua quando ninguém está olhando.</p>
     </section>
 
     <section class="usage">
@@ -288,6 +212,18 @@
           <dd>Atende várias empresas? Guarde os spaces de cada uma juntos e escolha uma: a barra lateral mostra os projetos e agentes daquela empresa, e um agente esperando em outra continua sendo avisado.</dd>
         </div>
         <div>
+          <dt>MCP e permissões <kbd>M</kbd> <kbd>P</kbd></dt>
+          <dd>Os servidores MCP de todos os agentes numa grade só — ligue, desligue, teste, copie de um agente para outro. E o que cada agente pode fazer sem perguntar: mude uma regra entre permitir, perguntar e negar, ou abra o arquivo no seu editor.</dd>
+        </div>
+        <div>
+          <dt>Agentes adormecidos</dt>
+          <dd>Depois de reiniciar, um agente só é iniciado quando você vai ao painel dele, na conversa em que estava. Um que fica parado devolve a memória sozinho, e vinte agentes em vários projetos não pesam na máquina.</dd>
+        </div>
+        <div>
+          <dt>No celular</dt>
+          <dd><code>tend web</code> serve uma página para o seu celular, na rede de casa ou na sua VPN: cada agente com o que está fazendo, a tela dele ao vivo, um campo para mandar mensagem e um aviso quando algum precisa de você. Só agentes — nunca um shell.</dd>
+        </div>
+        <div>
           <dt>Atualizações</dt>
           <dd>O tend percebe um release novo e avisa. <kbd>u</kbd> nas notas instala e passa a sessão para a versão nova, sem parar os programas dos painéis.</dd>
         </div>
@@ -333,6 +269,26 @@
       </div>
 
         <p class="stage-cap">A lista de sessões, prefix+S. Enter retoma uma numa aba nova, onde ela aconteceu; <kbd>ctrl</kbd><kbd>o</kbd> marca as de um mês atrás, <kbd>ctrl</kbd><kbd>d</kbd> apaga. Uma sessão aberta num painel nunca é apagada.</p>
+      </div>
+    </section>
+
+    <section id="phone" class="facts">
+      <h2>No celular</h2>
+      <p class="note">Longe da mesa, os agentes continuam trabalhando — e você continua acompanhando. <code>tend web</code> serve uma página para o seu celular: sem aplicativo para instalar, e nada sai da sua rede.</p>
+      <div class="phones">
+        <figure class="phone">
+          <img src="../img/phone-list.png" width="780" height="1280" loading="lazy" alt="Todos os agentes, por empresa: quem precisa de você, quem está trabalhando, quem está dormindo.">
+          <figcaption>Todos os agentes, por empresa: quem precisa de você, quem está trabalhando, quem está dormindo.</figcaption>
+        </figure>
+        <figure class="phone">
+          <img src="../img/phone-agent.png" width="780" height="1560" loading="lazy" alt="A tela de um agente, ao vivo. Responda à pergunta dele com um toque, ou escreva para ele.">
+          <figcaption>A tela de um agente, ao vivo. Responda à pergunta dele com um toque, ou escreva para ele.</figcaption>
+        </figure>
+        <div class="phone-how">
+          <pre class="cmd">tend web</pre>
+          <p>Rode no computador e abra no celular o endereço que ele mostra — uma vez, para parear — ou crie um login e senha com <code>tend web -set-password</code>. O celular vibra quando um agente precisa de você ou termina. Adicione à tela inicial e ele abre como um aplicativo.</p>
+          <p>Só alcança agentes, com uma lista fixa de ações: uma mensagem, as teclas que o agente pede, acordar e adormecer. Nunca um shell. Na rede de casa, ou de qualquer lugar pela sua VPN.</p>
+        </div>
       </div>
     </section>
 

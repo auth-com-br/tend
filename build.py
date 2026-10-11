@@ -39,7 +39,15 @@ LANGS = {
         "windows_p2": "On Windows, run the Linux installer inside WSL, or clone and <code>make install</code> on a Unix machine. The <a href=\"https://github.com/auth-com-br/tend/blob/master/docs/WINDOWS.md\">WSL guide</a> walks through it.",
         "deck": "From the ticket and the production error to the pull request, with agents, without leaving the terminal. tend takes a GitHub issue or a GlitchTip error, opens a worktree and hands it to Claude Code, Codex or any agent you use. You follow them all — each pane marked working, blocked or idle — and close what was fixed, on the same screen.",
         "stage_label": "A tend session",
-        "stage_cap": "A session. The server is still there when nobody is looking.",
+        "nav_phone": "phone",
+        "stage_alt": "tend in a terminal: the spaces and agents down the left, one Claude Code working, another waiting for approval, and the files panel",
+        "stage_cap": "A real session: one agent working, one waiting for you to approve a command, a third asleep, and the project's files beside them. The server is still there when nobody is looking.",
+        "phone_h": "On your phone",
+        "phone_p": "Away from the desk, the agents keep working — and you keep following them. <code>tend web</code> serves a page for your phone: no app to install, nothing leaves your network.",
+        "phone_cap1": "Every agent, by company: who needs you, who is working, who is asleep.",
+        "phone_cap2": "One agent's screen, live. Answer its question with a tap, or write to it.",
+        "phone_how": "Run it on the computer and open the address it prints on the phone — once, to pair it — or set a login and password with <code>tend web -set-password</code>. The phone buzzes when an agent needs you or finishes. Add it to the home screen and it opens like an app.",
+        "phone_safe": "It reaches agents only, with a fixed list of actions: a message, the keys an agent asks for, wake and sleep. Never a shell. On your home network, or anywhere through your VPN.",
         "facts_h": "What stays when you detach",
         "fact1_t": "The programs",
         "fact1_d": "A session is a background server. <kbd>ctrl</kbd><kbd>b</kbd> then <kbd>d</kbd> leaves the agents running. Opening tend again attaches to the same panes.",
@@ -66,6 +74,12 @@ LANGS = {
         "tool7_d": "What your systems' GlitchTip servers caught, as many servers as you report to. Open an error to read its stack; <kbd>f</kbd> hands it to your agent, <kbd>w</kbd> fixes it in a worktree, <kbd>ctrl</kbd><kbd>x</kbd> resolves it. Each project can open on its own server. Tickets from Linear, Jira and ClickUp are in a panel of their own, <kbd>T</kbd>, with the same way to hand one to your agent.",
         "tool8_t": "Companies <kbd>O</kbd>",
         "tool8_d": "Working for several companies? Keep each one's spaces together and choose one: the sidebar shows that company's projects and agents, and an agent waiting in another is still flagged.",
+        "tool9_t": "MCP and permissions <kbd>M</kbd> <kbd>P</kbd>",
+        "tool9_d": "Every agent's MCP servers in one grid — switch them on and off, test them, copy one to another agent. And what each agent may do without asking: change a rule between allow, ask and deny, or open its file in your editor.",
+        "tool10_t": "Sleeping agents",
+        "tool10_d": "After a restart an agent starts only when you go to its pane, in the conversation it was in. One left idle gives its memory back by itself, so twenty agents across projects do not weigh on the machine.",
+        "tool11_t": "Your phone",
+        "tool11_d": "<code>tend web</code> serves a page for your phone, on your home network or your VPN: every agent with what it is doing, its screen live, a box to message it, and a buzz when one needs you. Agents only — never a shell.",
         "issues_cap": "The issues panel, prefix+I. <kbd>w</kbd> on #42 makes a worktree on <code>issue-42-checkout-button-is-grey</code> and starts your agent in it.",
         "sessions_cap": "The sessions list, prefix+S. Enter resumes one in a new tab, where it was held; <kbd>ctrl</kbd><kbd>o</kbd> marks what is a month old, <kbd>ctrl</kbd><kbd>d</kbd> deletes it. One open in a pane is never deleted.",
         "keys_h": "Prefix is ctrl+b",
@@ -121,7 +135,15 @@ LANGS = {
         "windows_p2": "No Windows, rode o instalador Linux no WSL, ou clone e <code>make install</code> numa máquina Unix. O <a href=\"https://github.com/auth-com-br/tend/blob/master/docs/WINDOWS.md\">guia do WSL</a> mostra o caminho.",
         "deck": "Do ticket e do erro de produção até o pull request, com agentes, sem sair do terminal. O tend pega uma issue do GitHub ou um erro do GlitchTip, abre um worktree e entrega ao Claude Code, ao Codex ou ao agente que você usa. Você acompanha todos — cada painel marcado como working, blocked ou idle — e fecha o que foi resolvido, na mesma tela.",
         "stage_label": "Uma sessão do tend",
-        "stage_cap": "Uma sessão. O servidor continua quando ninguém está olhando.",
+        "nav_phone": "celular",
+        "stage_alt": "tend num terminal: os spaces e os agentes à esquerda, um Claude Code trabalhando, outro esperando aprovação, e o painel de arquivos",
+        "stage_cap": "Uma sessão de verdade: um agente trabalhando, um esperando você aprovar um comando, um terceiro adormecido, e os arquivos do projeto ao lado. O servidor continua quando ninguém está olhando.",
+        "phone_h": "No celular",
+        "phone_p": "Longe da mesa, os agentes continuam trabalhando — e você continua acompanhando. <code>tend web</code> serve uma página para o seu celular: sem aplicativo para instalar, e nada sai da sua rede.",
+        "phone_cap1": "Todos os agentes, por empresa: quem precisa de você, quem está trabalhando, quem está dormindo.",
+        "phone_cap2": "A tela de um agente, ao vivo. Responda à pergunta dele com um toque, ou escreva para ele.",
+        "phone_how": "Rode no computador e abra no celular o endereço que ele mostra — uma vez, para parear — ou crie um login e senha com <code>tend web -set-password</code>. O celular vibra quando um agente precisa de você ou termina. Adicione à tela inicial e ele abre como um aplicativo.",
+        "phone_safe": "Só alcança agentes, com uma lista fixa de ações: uma mensagem, as teclas que o agente pede, acordar e adormecer. Nunca um shell. Na rede de casa, ou de qualquer lugar pela sua VPN.",
         "facts_h": "O que fica quando você desconecta",
         "fact1_t": "Os programas",
         "fact1_d": "Uma sessão é um servidor em segundo plano. <kbd>ctrl</kbd><kbd>b</kbd> e depois <kbd>d</kbd> deixa os agentes rodando. Abrir o tend de novo volta aos mesmos painéis.",
@@ -148,6 +170,12 @@ LANGS = {
         "tool7_d": "O que os servidores GlitchTip dos seus sistemas pegaram, quantos servidores você tiver. Abra um erro para ler a pilha; <kbd>f</kbd> entrega ao seu agente, <kbd>w</kbd> conserta num worktree, <kbd>ctrl</kbd><kbd>x</kbd> resolve. Cada projeto pode abrir no seu próprio servidor. Os tickets do Linear, Jira e ClickUp têm um painel próprio, <kbd>T</kbd>, com o mesmo jeito de entregar ao agente.",
         "tool8_t": "Empresas <kbd>O</kbd>",
         "tool8_d": "Atende várias empresas? Guarde os spaces de cada uma juntos e escolha uma: a barra lateral mostra os projetos e agentes daquela empresa, e um agente esperando em outra continua sendo avisado.",
+        "tool9_t": "MCP e permissões <kbd>M</kbd> <kbd>P</kbd>",
+        "tool9_d": "Os servidores MCP de todos os agentes numa grade só — ligue, desligue, teste, copie de um agente para outro. E o que cada agente pode fazer sem perguntar: mude uma regra entre permitir, perguntar e negar, ou abra o arquivo no seu editor.",
+        "tool10_t": "Agentes adormecidos",
+        "tool10_d": "Depois de reiniciar, um agente só é iniciado quando você vai ao painel dele, na conversa em que estava. Um que fica parado devolve a memória sozinho, e vinte agentes em vários projetos não pesam na máquina.",
+        "tool11_t": "No celular",
+        "tool11_d": "<code>tend web</code> serve uma página para o seu celular, na rede de casa ou na sua VPN: cada agente com o que está fazendo, a tela dele ao vivo, um campo para mandar mensagem e um aviso quando algum precisa de você. Só agentes — nunca um shell.",
         "issues_cap": "O painel de issues, prefix+I. <kbd>w</kbd> na #42 cria um worktree em <code>issue-42-checkout-button-is-grey</code> e abre seu agente nele.",
         "sessions_cap": "A lista de sessões, prefix+S. Enter retoma uma numa aba nova, onde ela aconteceu; <kbd>ctrl</kbd><kbd>o</kbd> marca as de um mês atrás, <kbd>ctrl</kbd><kbd>d</kbd> apaga. Uma sessão aberta num painel nunca é apagada.",
         "keys_h": "O prefixo é ctrl+b",
@@ -203,7 +231,15 @@ LANGS = {
         "windows_p2": "En Windows, ejecuta el instalador Linux en WSL, o clona y <code>make install</code> en una máquina Unix. La <a href=\"https://github.com/auth-com-br/tend/blob/master/docs/WINDOWS.md\">guía de WSL</a> lo explica paso a paso.",
         "deck": "Del ticket y el error de producción al pull request, con agentes, sin salir de la terminal. tend toma una issue de GitHub o un error de GlitchTip, abre un worktree y se lo entrega a Claude Code, Codex o el agente que uses. Los sigues a todos — cada panel marcado como working, blocked o idle — y cierras lo resuelto, en la misma pantalla.",
         "stage_label": "Una sesión de tend",
-        "stage_cap": "Una sesión. El servidor sigue ahí cuando nadie mira.",
+        "nav_phone": "móvil",
+        "stage_alt": "tend en una terminal: los spaces y los agentes a la izquierda, un Claude Code trabajando, otro esperando aprobación, y el panel de archivos",
+        "stage_cap": "Una sesión real: un agente trabajando, otro esperando que apruebes un comando, un tercero dormido, y los archivos del proyecto al lado. El servidor sigue ahí cuando nadie mira.",
+        "phone_h": "En tu teléfono",
+        "phone_p": "Lejos del escritorio, los agentes siguen trabajando — y tú sigues al tanto. <code>tend web</code> sirve una página para tu teléfono: sin aplicación que instalar, y nada sale de tu red.",
+        "phone_cap1": "Todos los agentes, por empresa: quién te necesita, quién trabaja, quién duerme.",
+        "phone_cap2": "La pantalla de un agente, en vivo. Responde a su pregunta con un toque, o escríbele.",
+        "phone_how": "Ejecútalo en el ordenador y abre en el teléfono la dirección que muestra — una vez, para emparejarlo — o crea un usuario y contraseña con <code>tend web -set-password</code>. El teléfono vibra cuando un agente te necesita o termina. Añádelo a la pantalla de inicio y se abre como una aplicación.",
+        "phone_safe": "Solo alcanza a los agentes, con una lista fija de acciones: un mensaje, las teclas que pide el agente, despertar y dormir. Nunca un shell. En la red de casa, o desde cualquier lugar por tu VPN.",
         "facts_h": "Qué queda al desconectarte",
         "fact1_t": "Los programas",
         "fact1_d": "Una sesión es un servidor en segundo plano. <kbd>ctrl</kbd><kbd>b</kbd> y luego <kbd>d</kbd> deja los agentes en marcha. Abrir tend otra vez vuelve a los mismos paneles.",
@@ -230,6 +266,12 @@ LANGS = {
         "tool7_d": "Lo que capturaron los servidores GlitchTip de tus sistemas, tantos como uses. Abre un error para leer su traza; <kbd>f</kbd> se lo entrega a tu agente, <kbd>w</kbd> lo arregla en un worktree, <kbd>ctrl</kbd><kbd>x</kbd> lo resuelve. Cada proyecto puede abrir en su propio servidor. Los tickets de Linear, Jira y ClickUp tienen su propio panel, <kbd>T</kbd>, con la misma forma de entregarlos al agente.",
         "tool8_t": "Empresas <kbd>O</kbd>",
         "tool8_d": "¿Trabajas para varias empresas? Agrupa los spaces de cada una y elige una: la barra lateral muestra sus proyectos y agentes, y un agente esperando en otra sigue avisándose.",
+        "tool9_t": "MCP y permisos <kbd>M</kbd> <kbd>P</kbd>",
+        "tool9_d": "Los servidores MCP de todos los agentes en una sola cuadrícula — actívalos, desactívalos, pruébalos, copia uno a otro agente. Y lo que cada agente puede hacer sin preguntar: cambia una regla entre permitir, preguntar y denegar, o abre su archivo en tu editor.",
+        "tool10_t": "Agentes dormidos",
+        "tool10_d": "Tras un reinicio, un agente solo arranca cuando vas a su panel, en la conversación en la que estaba. Uno inactivo devuelve su memoria por sí solo, y veinte agentes en varios proyectos no pesan en la máquina.",
+        "tool11_t": "En tu teléfono",
+        "tool11_d": "<code>tend web</code> sirve una página para tu teléfono, en la red de casa o en tu VPN: cada agente con lo que está haciendo, su pantalla en vivo, un campo para enviarle un mensaje y un aviso cuando alguno te necesita. Solo agentes — nunca un shell.",
         "issues_cap": "El panel de issues, prefix+I. <kbd>w</kbd> en #42 crea un worktree en <code>issue-42-checkout-button-is-grey</code> y abre tu agente en él.",
         "sessions_cap": "La lista de sesiones, prefix+S. Enter reanuda una en una pestaña nueva, donde ocurrió; <kbd>ctrl</kbd><kbd>o</kbd> marca las de hace un mes, <kbd>ctrl</kbd><kbd>d</kbd> las borra. Una sesión abierta en un panel nunca se borra.",
         "keys_h": "El prefijo es ctrl+b",
@@ -285,7 +327,15 @@ LANGS = {
         "windows_p2": "Windows では WSL 上で Linux 用インストーラを使うか、Unix でクローンして <code>make install</code> してください。 手順は <a href=\"https://github.com/auth-com-br/tend/blob/master/docs/WINDOWS.md\">WSL ガイド</a> を参照してください。",
         "deck": "チケットと本番エラーからプルリクエストまで、エージェントと一緒に、ターミナルから離れずに。tend は GitHub の issue や GlitchTip のエラーを受け取り、worktree を作って Claude Code や Codex など使っているエージェントに渡します。各ペインは working・blocked・idle と示され、解決したものは同じ画面で閉じられます。",
         "stage_label": "tend のセッション",
-        "stage_cap": "セッション。誰も見ていなくてもサーバーは動き続けます。",
+        "nav_phone": "スマホ",
+        "stage_alt": "ターミナル上の tend：左に space とエージェントの一覧、作業中の Claude Code、承認待ちの Claude Code、そしてファイルパネル",
+        "stage_cap": "実際のセッション：作業中のエージェント、コマンドの承認を待つエージェント、スリープ中のエージェント、そして横にプロジェクトのファイル。誰も見ていなくてもサーバーは動き続けます。",
+        "phone_h": "スマートフォンから",
+        "phone_p": "机を離れてもエージェントは作業を続け、あなたはそれを見守れます。<code>tend web</code> がスマートフォン向けのページを提供します。アプリのインストールは不要で、データはネットワークの外に出ません。",
+        "phone_cap1": "会社ごとのすべてのエージェント：あなたを待っているもの、作業中のもの、スリープ中のもの。",
+        "phone_cap2": "エージェントの画面をライブで。質問にはタップで答えるか、メッセージを送れます。",
+        "phone_how": "コンピューターで実行し、表示されたアドレスをスマートフォンで一度開いてペアリングします。または <code>tend web -set-password</code> でログイン名とパスワードを設定します。エージェントがあなたを必要としたとき、あるいは完了したときにスマートフォンが振動します。ホーム画面に追加すればアプリのように開けます。",
+        "phone_safe": "操作できるのはエージェントだけで、できることは決まっています：メッセージ、エージェントが求めるキー、起動とスリープ。シェルは使えません。自宅のネットワークで、または VPN 経由でどこからでも。",
         "facts_h": "デタッチしても残るもの",
         "fact1_t": "プログラム",
         "fact1_d": "セッションはバックグラウンドのサーバーです。<kbd>ctrl</kbd><kbd>b</kbd> のあと <kbd>d</kbd> でエージェントは動き続けます。tend を開き直すと同じペインに戻ります。",
@@ -312,6 +362,12 @@ LANGS = {
         "tool7_d": "システムの GlitchTip サーバーが捕捉したエラー（複数サーバー対応）。エラーを開いてスタックを読み、<kbd>f</kbd> でエージェントに渡し、<kbd>w</kbd> で worktree で修正、<kbd>ctrl</kbd><kbd>x</kbd> で解決。プロジェクトごとに開くサーバーを決められます。 Linear・Jira・ClickUp のチケットは専用パネル <kbd>T</kbd> で、同じようにエージェントに渡せます。",
         "tool8_t": "会社 <kbd>O</kbd>",
         "tool8_d": "複数の会社の仕事をしていますか。会社ごとに space をまとめて選ぶと、サイドバーにはその会社のプロジェクトとエージェントだけが表示されます。ほかの会社で待っているエージェントも知らせます。",
+        "tool9_t": "MCP と権限 <kbd>M</kbd> <kbd>P</kbd>",
+        "tool9_d": "すべてのエージェントの MCP サーバーを一つの表で — オン・オフ、テスト、別のエージェントへのコピー。そして各エージェントが確認なしでできること：ルールを許可・確認・拒否で切り替えたり、設定ファイルをエディタで開いたりできます。",
+        "tool10_t": "スリープするエージェント",
+        "tool10_d": "再起動後、エージェントはそのペインに移動したときにだけ、元の会話のまま起動します。アイドルのままのエージェントは自動的にメモリを解放するので、多数のエージェントを抱えていてもマシンが重くなりません。",
+        "tool11_t": "スマートフォンから",
+        "tool11_d": "<code>tend web</code> は自宅のネットワークや VPN 上のスマートフォン向けページを提供します：各エージェントの状態、ライブ画面、メッセージ入力欄、そしてエージェントがあなたを必要としたときの通知。操作できるのはエージェントだけで、シェルは使えません。",
         "issues_cap": "issue パネル（prefix+I）。#42 で <kbd>w</kbd> を押すと <code>issue-42-checkout-button-is-grey</code> に worktree を作り、そこでエージェントを起動します。",
         "sessions_cap": "セッション一覧（prefix+S）。enter で元の場所の新しいタブで再開。<kbd>ctrl</kbd><kbd>o</kbd> で1か月前のものをマークし、<kbd>ctrl</kbd><kbd>d</kbd> で削除。ペインで開いているものは削除されません。",
         "keys_h": "プレフィックスは ctrl+b",
@@ -367,7 +423,15 @@ LANGS = {
         "windows_p2": "在 Windows 上，请在 WSL 中运行 Linux 安装命令，或在 Unix 机器上克隆后执行 <code>make install</code>。 步骤见 <a href=\"https://github.com/auth-com-br/tend/blob/master/docs/WINDOWS.md\">WSL 指南</a>。",
         "deck": "从工单和生产错误到 pull request，交给智能体，不离开终端。tend 接收一个 GitHub issue 或 GlitchTip 错误，创建 worktree，交给 Claude Code、Codex 或你使用的任何智能体。每个窗格标为 working、blocked 或 idle，已解决的在同一屏幕上关闭。",
         "stage_label": "一个 tend 会话",
-        "stage_cap": "一次会话。没人看着的时候，服务器也还在。",
+        "nav_phone": "手机",
+        "stage_alt": "终端里的 tend：左侧是 space 和智能体列表，一个 Claude Code 正在工作，另一个等待批准，旁边是文件面板",
+        "stage_cap": "一次真实的会话：一个智能体在工作，一个在等你批准命令，第三个在休眠，旁边是项目文件。没人看着的时候，服务器也还在。",
+        "phone_h": "在手机上",
+        "phone_p": "离开书桌，智能体仍在工作——你也能继续关注。<code>tend web</code> 为你的手机提供一个页面：无需安装应用，数据不会离开你的网络。",
+        "phone_cap1": "按公司列出所有智能体：谁需要你、谁在工作、谁在休眠。",
+        "phone_cap2": "实时查看某个智能体的屏幕。轻点即可回答它的提问，或给它发消息。",
+        "phone_how": "在电脑上运行它，然后在手机上打开它显示的地址——只需一次，用于配对——或用 <code>tend web -set-password</code> 设置登录名和密码。智能体需要你或完成任务时，手机会振动。添加到主屏幕后，它就像应用一样打开。",
+        "phone_safe": "它只能操作智能体，且动作固定：发消息、智能体要求的按键、唤醒和休眠。绝不是 shell。可在家庭网络中使用，或通过 VPN 在任何地方使用。",
         "facts_h": "断开后仍会留下的",
         "fact1_t": "程序",
         "fact1_d": "会话是后台服务器。<kbd>ctrl</kbd><kbd>b</kbd> 再按 <kbd>d</kbd> 后智能体继续运行。再次打开 tend 会回到同样的窗格。",
@@ -394,6 +458,12 @@ LANGS = {
         "tool7_d": "你的系统的 GlitchTip 服务器捕获的错误，支持多个服务器。打开错误查看堆栈；<kbd>f</kbd> 交给智能体，<kbd>w</kbd> 在 worktree 中修复，<kbd>ctrl</kbd><kbd>x</kbd> 标记解决。每个项目可以打开自己的服务器。 Linear、Jira 和 ClickUp 的工单有自己的面板 <kbd>T</kbd>，同样可以交给智能体。",
         "tool8_t": "公司 <kbd>O</kbd>",
         "tool8_d": "同时为多家公司工作？把每家公司的 space 放在一起并选择一家：侧边栏只显示该公司的项目和智能体，其他公司里等待的智能体仍会提示。",
+        "tool9_t": "MCP 与权限 <kbd>M</kbd> <kbd>P</kbd>",
+        "tool9_d": "所有智能体的 MCP 服务器集中在一张表格里——开启、关闭、测试，或复制到另一个智能体。还有每个智能体无需询问即可执行的操作：在允许、询问、拒绝之间切换规则，或用你的编辑器打开它的配置文件。",
+        "tool10_t": "休眠的智能体",
+        "tool10_d": "重启之后，只有当你切换到某个智能体的窗格时它才会启动，并回到原来的对话。空闲的智能体会自动释放内存，因此多个项目里的二十个智能体也不会拖慢机器。",
+        "tool11_t": "在手机上",
+        "tool11_d": "<code>tend web</code> 为你的手机提供一个页面，可在家庭网络或 VPN 中访问：每个智能体及其状态、实时屏幕、发送消息的输入框，以及智能体需要你时的提醒。只能操作智能体，绝不是 shell。",
         "issues_cap": "issue 面板（prefix+I）。在 #42 上按 <kbd>w</kbd>，会在 <code>issue-42-checkout-button-is-grey</code> 上创建 worktree 并在其中启动你的代理。",
         "sessions_cap": "会话列表（prefix+S）。回车在原位置的新标签页中恢复；<kbd>ctrl</kbd><kbd>o</kbd> 标记一个月前的会话，<kbd>ctrl</kbd><kbd>d</kbd> 删除。在窗格中打开的会话永远不会被删除。",
         "keys_h": "前缀是 ctrl+b",
@@ -463,93 +533,6 @@ ISSUES_MOCK = """\
 <span class="accent">35</span>    Export orders as CSV               <span class="dim">enhancement  carla    5d</span>
 
 <span class="dim">enter open · w start work · c comment · x close · → pull requests · esc</span></pre>
-      </div>
-"""
-
-
-SESSION_MOCK = """\
-      <div class="term">
-        <div class="term-chrome" aria-hidden="true">
-          <span class="term-dots"><i></i><i></i><i></i></span>
-          <span class="term-title">tend — work</span>
-        </div>
-        <div class="frame">
-          <aside class="side">
-            <p class="tools"><span>F</span><span class="on">A</span><span>S</span><span>I</span><span>B</span><span>C</span></p>
-            <p class="rule" aria-hidden="true"></p>
-            <p class="side-h">spaces</p>
-            <p class="entry on"><span class="name"><span class="dot"></span>tend</span><span class="sub">main</span></p>
-            <p class="entry"><span class="name"><span class="dot idle"></span>website</span><span class="sub">feat/hero</span></p>
-            <p class="entry"><span class="name"><span class="dot idle"></span>docs</span><span class="sub">readme</span></p>
-            <p class="rule" aria-hidden="true"></p>
-            <p class="side-h">agents <span>flat</span></p>
-            <p class="entry on"><span class="name"><span class="dot work"></span>claude</span><span class="sub">working</span></p>
-            <p class="entry"><span class="name"><span class="dot block"></span>codex</span><span class="sub">blocked</span></p>
-            <p class="entry"><span class="name"><span class="dot idle"></span>cursor</span><span class="sub">idle</span></p>
-            <p class="hide" aria-hidden="true">«</p>
-          </aside>
-          <div class="workspace">
-            <div class="tabs" aria-hidden="true">
-              <span class="tab on">agents</span>
-              <span class="tab">website</span>
-              <span class="tab add">+</span>
-              <span class="tabs-right">21:14</span>
-            </div>
-            <div class="panes">
-              <article class="pane focus">
-                <header><span class="id">1</span> claude <span class="st work" title="working">●</span></header>
-                <pre><span class="logo"> ▐▛███▜▌
-▝▜█████▛▘
-  ▘▘ ▝▝</span>
-<span class="dim">Claude Code</span>  <span class="accent">~/src/tend</span>
-
-<span class="prompt">❯</span> keep the agents running after I detach
-
-<span class="ok">●</span> The session is a background server.
-  Closing this window does not stop them.
-
-<span class="ok">●</span> Detach with ctrl+b d. Attach again
-  and the same panes are there, still
-  marked working, blocked or idle.
-
-<span class="spin">⠋</span> <span class="work">Writing the status line…</span>
-<span class="dim">   esc to interrupt</span></pre>
-              </article>
-              <article class="pane">
-                <header><span class="id">2</span> codex <span class="st block" title="blocked">▲</span></header>
-                <pre><span class="dim">codex</span>  <span class="accent">~/src/tend</span>
-
-<span class="block">Do you want to proceed?</span>
-
-  Run <span class="str">make check</span> before the commit
-
-  <span class="dim">internal/ui/draw.go
-  cmd/tend/tui.go</span>
-
-<span class="prompt">❯</span> <span class="pick">1. Yes</span>
-  2. No
-
-<span class="dim">~/src/tend  feat/hero</span></pre>
-              </article>
-              <aside class="files" aria-label="Files panel">
-                <p class="files-h">FILES <span>⚙</span></p>
-                <p class="files-git">tend · main <span>⟳</span></p>
-                <p class="rule" aria-hidden="true"></p>
-                <pre> cmd/
-   tend/
- internal/
-   server/
-   ui/
- <span class="accent">site/</span>
-   index.html
-   site.css
- AGENTS.md
- <span class="work">README.md  M</span></pre>
-              </aside>
-            </div>
-          </div>
-        </div>
-        <p class="status"><span>work · tend · agents</span><span>1:claude ●</span><span>2:codex ▲</span></p>
       </div>
 """
 
@@ -638,6 +621,7 @@ RELEASES = "https://github.com/auth-com-br/tend/releases/latest"
 def page(code: str, t: dict) -> str:
     css = "site.css" if t["dir"] == "." else "../site.css"
     js = "site.js" if t["dir"] == "." else "../site.js"
+    img = "img/" if t["dir"] == "." else "../img/"
     h = t["href"]
 
     def lang_link(key: str, label: str) -> str:
@@ -667,7 +651,7 @@ def page(code: str, t: dict) -> str:
   <meta name="description" content="{t["description"]}">
   <meta property="og:title" content="{t["title"]}">
   <meta property="og:description" content="{t["description"]}">
-  <meta property="og:image" content="https://tend.auth.com.br/session.png">
+  <meta property="og:image" content="https://tend.auth.com.br/img/session.png">
   <meta name="twitter:card" content="summary_large_image">
   <link rel="alternate" hreflang="en" href="https://tend.auth.com.br/">
   <link rel="alternate" hreflang="pt-BR" href="https://tend.auth.com.br/pt/">
@@ -689,6 +673,7 @@ def page(code: str, t: dict) -> str:
       <a href="#install">{t["nav_install"]}</a>
       <a href="#session">{t["nav_session"]}</a>
       <a href="#tools">{t["nav_tools"]}</a>
+      <a href="#phone">{t["nav_phone"]}</a>
       <a href="#keys">{t["nav_keys"]}</a>
       <a href="https://github.com/auth-com-br/tend">{t["nav_source"]}</a>
       <span class="langs">{langs}</span>
@@ -736,7 +721,13 @@ def page(code: str, t: dict) -> str:
     </section>
 
     <section id="session" class="stage" aria-label="{t["stage_label"]}">
-{SESSION_MOCK}
+      <div class="term shot">
+        <div class="term-chrome" aria-hidden="true">
+          <span class="term-dots"><i></i><i></i><i></i></span>
+          <span class="term-title">tend — work</span>
+        </div>
+        <img src="{img}session.png" width="2948" height="1624" alt="{t["stage_alt"]}">
+      </div>
       <p class="stage-cap">{t["stage_cap"]}</p>
     </section>
 
@@ -796,6 +787,18 @@ def page(code: str, t: dict) -> str:
           <dd>{t["tool8_d"]}</dd>
         </div>
         <div>
+          <dt>{t["tool9_t"]}</dt>
+          <dd>{t["tool9_d"]}</dd>
+        </div>
+        <div>
+          <dt>{t["tool10_t"]}</dt>
+          <dd>{t["tool10_d"]}</dd>
+        </div>
+        <div>
+          <dt>{t["tool11_t"]}</dt>
+          <dd>{t["tool11_d"]}</dd>
+        </div>
+        <div>
           <dt>{t["tool6_t"]}</dt>
           <dd>{t["tool6_d"]}</dd>
         </div>
@@ -807,6 +810,26 @@ def page(code: str, t: dict) -> str:
       <div class="stage">
 {SESSIONS_MOCK}
         <p class="stage-cap">{t["sessions_cap"]}</p>
+      </div>
+    </section>
+
+    <section id="phone" class="facts">
+      <h2>{t["phone_h"]}</h2>
+      <p class="note">{t["phone_p"]}</p>
+      <div class="phones">
+        <figure class="phone">
+          <img src="{img}phone-list.png" width="780" height="1280" loading="lazy" alt="{t["phone_cap1"]}">
+          <figcaption>{t["phone_cap1"]}</figcaption>
+        </figure>
+        <figure class="phone">
+          <img src="{img}phone-agent.png" width="780" height="1560" loading="lazy" alt="{t["phone_cap2"]}">
+          <figcaption>{t["phone_cap2"]}</figcaption>
+        </figure>
+        <div class="phone-how">
+          <pre class="cmd">tend web</pre>
+          <p>{t["phone_how"]}</p>
+          <p>{t["phone_safe"]}</p>
+        </div>
       </div>
     </section>
 

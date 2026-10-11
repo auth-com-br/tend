@@ -7,7 +7,7 @@
   <meta name="description" content="tend は GitHub の issue と本番環境のエラーを取り込み、worktree を作ってコーディングエージェントに渡します。すべてのエージェントの様子と、解決した項目のクローズを、ひとつの画面で。">
   <meta property="og:title" content="tend — チケットとエラーから PR まで、エージェントと">
   <meta property="og:description" content="tend は GitHub の issue と本番環境のエラーを取り込み、worktree を作ってコーディングエージェントに渡します。すべてのエージェントの様子と、解決した項目のクローズを、ひとつの画面で。">
-  <meta property="og:image" content="https://tend.auth.com.br/session.png">
+  <meta property="og:image" content="https://tend.auth.com.br/img/session.png">
   <meta name="twitter:card" content="summary_large_image">
   <link rel="alternate" hreflang="en" href="https://tend.auth.com.br/">
   <link rel="alternate" hreflang="pt-BR" href="https://tend.auth.com.br/pt/">
@@ -98,6 +98,7 @@
       <a href="#install">インストール</a>
       <a href="#session">セッション</a>
       <a href="#tools">ツール</a>
+      <a href="#phone">スマホ</a>
       <a href="#keys">キー</a>
       <a href="https://github.com/auth-com-br/tend">ソース</a>
       <span class="langs"><a href="../pt/" data-lang="pt" onclick="try{localStorage.setItem('tend-lang','pt')}catch(e){}">pt</a> · <a href="../" data-lang="en" onclick="try{localStorage.setItem('tend-lang','en')}catch(e){}">en</a> · <a href="../es/" data-lang="es" onclick="try{localStorage.setItem('tend-lang','es')}catch(e){}">es</a> · <a href="./" data-lang="ja" aria-current="page" onclick="try{localStorage.setItem('tend-lang','ja')}catch(e){}">ja</a> · <a href="../zh/" data-lang="zh" onclick="try{localStorage.setItem('tend-lang','zh')}catch(e){}">zh</a></span>
@@ -145,91 +146,14 @@
     </section>
 
     <section id="session" class="stage" aria-label="tend のセッション">
-      <div class="term">
+      <div class="term shot">
         <div class="term-chrome" aria-hidden="true">
           <span class="term-dots"><i></i><i></i><i></i></span>
           <span class="term-title">tend — work</span>
         </div>
-        <div class="frame">
-          <aside class="side">
-            <p class="tools"><span>F</span><span class="on">A</span><span>S</span><span>I</span><span>B</span><span>C</span></p>
-            <p class="rule" aria-hidden="true"></p>
-            <p class="side-h">spaces</p>
-            <p class="entry on"><span class="name"><span class="dot"></span>tend</span><span class="sub">main</span></p>
-            <p class="entry"><span class="name"><span class="dot idle"></span>website</span><span class="sub">feat/hero</span></p>
-            <p class="entry"><span class="name"><span class="dot idle"></span>docs</span><span class="sub">readme</span></p>
-            <p class="rule" aria-hidden="true"></p>
-            <p class="side-h">agents <span>flat</span></p>
-            <p class="entry on"><span class="name"><span class="dot work"></span>claude</span><span class="sub">working</span></p>
-            <p class="entry"><span class="name"><span class="dot block"></span>codex</span><span class="sub">blocked</span></p>
-            <p class="entry"><span class="name"><span class="dot idle"></span>cursor</span><span class="sub">idle</span></p>
-            <p class="hide" aria-hidden="true">«</p>
-          </aside>
-          <div class="workspace">
-            <div class="tabs" aria-hidden="true">
-              <span class="tab on">agents</span>
-              <span class="tab">website</span>
-              <span class="tab add">+</span>
-              <span class="tabs-right">21:14</span>
-            </div>
-            <div class="panes">
-              <article class="pane focus">
-                <header><span class="id">1</span> claude <span class="st work" title="working">●</span></header>
-                <pre><span class="logo"> ▐▛███▜▌
-▝▜█████▛▘
-  ▘▘ ▝▝</span>
-<span class="dim">Claude Code</span>  <span class="accent">~/src/tend</span>
-
-<span class="prompt">❯</span> keep the agents running after I detach
-
-<span class="ok">●</span> The session is a background server.
-  Closing this window does not stop them.
-
-<span class="ok">●</span> Detach with ctrl+b d. Attach again
-  and the same panes are there, still
-  marked working, blocked or idle.
-
-<span class="spin">⠋</span> <span class="work">Writing the status line…</span>
-<span class="dim">   esc to interrupt</span></pre>
-              </article>
-              <article class="pane">
-                <header><span class="id">2</span> codex <span class="st block" title="blocked">▲</span></header>
-                <pre><span class="dim">codex</span>  <span class="accent">~/src/tend</span>
-
-<span class="block">Do you want to proceed?</span>
-
-  Run <span class="str">make check</span> before the commit
-
-  <span class="dim">internal/ui/draw.go
-  cmd/tend/tui.go</span>
-
-<span class="prompt">❯</span> <span class="pick">1. Yes</span>
-  2. No
-
-<span class="dim">~/src/tend  feat/hero</span></pre>
-              </article>
-              <aside class="files" aria-label="Files panel">
-                <p class="files-h">FILES <span>⚙</span></p>
-                <p class="files-git">tend · main <span>⟳</span></p>
-                <p class="rule" aria-hidden="true"></p>
-                <pre> cmd/
-   tend/
- internal/
-   server/
-   ui/
- <span class="accent">site/</span>
-   index.html
-   site.css
- AGENTS.md
- <span class="work">README.md  M</span></pre>
-              </aside>
-            </div>
-          </div>
-        </div>
-        <p class="status"><span>work · tend · agents</span><span>1:claude ●</span><span>2:codex ▲</span></p>
+        <img src="../img/session.png" width="2948" height="1624" alt="ターミナル上の tend：左に space とエージェントの一覧、作業中の Claude Code、承認待ちの Claude Code、そしてファイルパネル">
       </div>
-
-      <p class="stage-cap">セッション。誰も見ていなくてもサーバーは動き続けます。</p>
+      <p class="stage-cap">実際のセッション：作業中のエージェント、コマンドの承認を待つエージェント、スリープ中のエージェント、そして横にプロジェクトのファイル。誰も見ていなくてもサーバーは動き続けます。</p>
     </section>
 
     <section class="usage">
@@ -288,6 +212,18 @@
           <dd>複数の会社の仕事をしていますか。会社ごとに space をまとめて選ぶと、サイドバーにはその会社のプロジェクトとエージェントだけが表示されます。ほかの会社で待っているエージェントも知らせます。</dd>
         </div>
         <div>
+          <dt>MCP と権限 <kbd>M</kbd> <kbd>P</kbd></dt>
+          <dd>すべてのエージェントの MCP サーバーを一つの表で — オン・オフ、テスト、別のエージェントへのコピー。そして各エージェントが確認なしでできること：ルールを許可・確認・拒否で切り替えたり、設定ファイルをエディタで開いたりできます。</dd>
+        </div>
+        <div>
+          <dt>スリープするエージェント</dt>
+          <dd>再起動後、エージェントはそのペインに移動したときにだけ、元の会話のまま起動します。アイドルのままのエージェントは自動的にメモリを解放するので、多数のエージェントを抱えていてもマシンが重くなりません。</dd>
+        </div>
+        <div>
+          <dt>スマートフォンから</dt>
+          <dd><code>tend web</code> は自宅のネットワークや VPN 上のスマートフォン向けページを提供します：各エージェントの状態、ライブ画面、メッセージ入力欄、そしてエージェントがあなたを必要としたときの通知。操作できるのはエージェントだけで、シェルは使えません。</dd>
+        </div>
+        <div>
           <dt>アップデート</dt>
           <dd>新しいリリースを検知して知らせます。リリースノートで <kbd>u</kbd> を押すとインストールし、ペインのプログラムを止めずにセッションを移行します。</dd>
         </div>
@@ -333,6 +269,26 @@
       </div>
 
         <p class="stage-cap">セッション一覧（prefix+S）。enter で元の場所の新しいタブで再開。<kbd>ctrl</kbd><kbd>o</kbd> で1か月前のものをマークし、<kbd>ctrl</kbd><kbd>d</kbd> で削除。ペインで開いているものは削除されません。</p>
+      </div>
+    </section>
+
+    <section id="phone" class="facts">
+      <h2>スマートフォンから</h2>
+      <p class="note">机を離れてもエージェントは作業を続け、あなたはそれを見守れます。<code>tend web</code> がスマートフォン向けのページを提供します。アプリのインストールは不要で、データはネットワークの外に出ません。</p>
+      <div class="phones">
+        <figure class="phone">
+          <img src="../img/phone-list.png" width="780" height="1280" loading="lazy" alt="会社ごとのすべてのエージェント：あなたを待っているもの、作業中のもの、スリープ中のもの。">
+          <figcaption>会社ごとのすべてのエージェント：あなたを待っているもの、作業中のもの、スリープ中のもの。</figcaption>
+        </figure>
+        <figure class="phone">
+          <img src="../img/phone-agent.png" width="780" height="1560" loading="lazy" alt="エージェントの画面をライブで。質問にはタップで答えるか、メッセージを送れます。">
+          <figcaption>エージェントの画面をライブで。質問にはタップで答えるか、メッセージを送れます。</figcaption>
+        </figure>
+        <div class="phone-how">
+          <pre class="cmd">tend web</pre>
+          <p>コンピューターで実行し、表示されたアドレスをスマートフォンで一度開いてペアリングします。または <code>tend web -set-password</code> でログイン名とパスワードを設定します。エージェントがあなたを必要としたとき、あるいは完了したときにスマートフォンが振動します。ホーム画面に追加すればアプリのように開けます。</p>
+          <p>操作できるのはエージェントだけで、できることは決まっています：メッセージ、エージェントが求めるキー、起動とスリープ。シェルは使えません。自宅のネットワークで、または VPN 経由でどこからでも。</p>
+        </div>
       </div>
     </section>
 

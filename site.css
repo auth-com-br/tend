@@ -475,3 +475,31 @@ footer p { width: min(68rem, 100%); margin: 0 auto; }
   html { scroll-behavior: auto; }
   .st.work, .spin { animation: none; }
 }
+
+/* Pictures of the real program (tools/shot), not drawn by hand. */
+.term.shot img { display: block; width: 100%; height: auto; }
+
+.phones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.75rem;
+  align-items: flex-start;
+  margin-top: 1.5rem;
+}
+.phone { width: 15rem; max-width: 44%; margin: 0; }
+.phone img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 6px solid #23262d;
+  border-radius: 26px;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
+}
+.phone figcaption { margin-top: 0.7rem; color: var(--muted); font-size: 0.9rem; }
+.phone-how { flex: 1 1 16rem; max-width: 26rem; }
+.phone-how p { color: var(--muted); }
+@media (max-width: 800px) {
+  .phone { max-width: 46%; }
+  .phones { gap: 1rem; }
+}
+.term.shot { background: #16181d; }
