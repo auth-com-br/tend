@@ -39,6 +39,14 @@ LANGS = {
         "windows_p2": "On Windows, run the Linux installer inside WSL, or clone and <code>make install</code> on a Unix machine. The <a href=\"https://github.com/auth-com-br/tend/blob/master/docs/WINDOWS.md\">WSL guide</a> walks through it.",
         "deck": "From the ticket and the production error to the pull request, with agents, without leaving the terminal. tend takes a GitHub issue or a GlitchTip error, opens a worktree and hands it to Claude Code, Codex or any agent you use. You follow them all — each pane marked working, blocked or idle — and close what was fixed, on the same screen.",
         "stage_label": "A tend session",
+        "hero_h": "From the ticket to the pull request, with agents.",
+        "hero_sub": "A terminal built for AI coding agents. tend takes a GitHub issue or a production error, opens a worktree and hands it to Claude Code, Codex or whichever agent you use — and shows you every one of them on one screen: working, waiting for you, or done.",
+        "btn_install": "Install",
+        "hero_os": "Linux and macOS · Windows through WSL · one binary, open source",
+        "mcp_t": "MCP servers <kbd>M</kbd>",
+        "mcp_d": "Every agent's MCP servers in one grid: switch one on or off in any agent, test it, copy it to another agent, add one from a single line.",
+        "perm_t": "Permissions <kbd>P</kbd>",
+        "perm_d": "What each agent may do without asking, for your machine and for the project: change a rule between allow, ask and deny, or open the file in your editor.",
         "nav_phone": "phone",
         "stage_alt": "tend in a terminal: the spaces and agents down the left, one Claude Code working, another waiting for approval, and the files panel",
         "stage_cap": "A real session: one agent working, one waiting for you to approve a command, a third asleep, and the project's files beside them. The server is still there when nobody is looking.",
@@ -135,6 +143,14 @@ LANGS = {
         "windows_p2": "No Windows, rode o instalador Linux no WSL, ou clone e <code>make install</code> numa máquina Unix. O <a href=\"https://github.com/auth-com-br/tend/blob/master/docs/WINDOWS.md\">guia do WSL</a> mostra o caminho.",
         "deck": "Do ticket e do erro de produção até o pull request, com agentes, sem sair do terminal. O tend pega uma issue do GitHub ou um erro do GlitchTip, abre um worktree e entrega ao Claude Code, ao Codex ou ao agente que você usa. Você acompanha todos — cada painel marcado como working, blocked ou idle — e fecha o que foi resolvido, na mesma tela.",
         "stage_label": "Uma sessão do tend",
+        "hero_h": "Do ticket ao pull request, com agentes.",
+        "hero_sub": "Um terminal feito para agentes de IA que programam. O tend pega uma issue do GitHub ou um erro de produção, abre um worktree e entrega ao Claude Code, ao Codex ou ao agente que você usa — e mostra todos numa tela só: trabalhando, esperando você, ou prontos.",
+        "btn_install": "Instalar",
+        "hero_os": "Linux e macOS · Windows pelo WSL · um binário, código aberto",
+        "mcp_t": "Servidores MCP <kbd>M</kbd>",
+        "mcp_d": "Os servidores MCP de todos os agentes numa grade só: ligue ou desligue um em qualquer agente, teste, copie para outro agente, adicione um com uma linha.",
+        "perm_t": "Permissões <kbd>P</kbd>",
+        "perm_d": "O que cada agente pode fazer sem perguntar, na sua máquina e no projeto: mude uma regra entre permitir, perguntar e negar, ou abra o arquivo no seu editor.",
         "nav_phone": "celular",
         "stage_alt": "tend num terminal: os spaces e os agentes à esquerda, um Claude Code trabalhando, outro esperando aprovação, e o painel de arquivos",
         "stage_cap": "Uma sessão de verdade: um agente trabalhando, um esperando você aprovar um comando, um terceiro adormecido, e os arquivos do projeto ao lado. O servidor continua quando ninguém está olhando.",
@@ -231,6 +247,14 @@ LANGS = {
         "windows_p2": "En Windows, ejecuta el instalador Linux en WSL, o clona y <code>make install</code> en una máquina Unix. La <a href=\"https://github.com/auth-com-br/tend/blob/master/docs/WINDOWS.md\">guía de WSL</a> lo explica paso a paso.",
         "deck": "Del ticket y el error de producción al pull request, con agentes, sin salir de la terminal. tend toma una issue de GitHub o un error de GlitchTip, abre un worktree y se lo entrega a Claude Code, Codex o el agente que uses. Los sigues a todos — cada panel marcado como working, blocked o idle — y cierras lo resuelto, en la misma pantalla.",
         "stage_label": "Una sesión de tend",
+        "hero_h": "Del ticket al pull request, con agentes.",
+        "hero_sub": "Una terminal hecha para agentes de IA que programan. tend toma un issue de GitHub o un error de producción, abre un worktree y se lo entrega a Claude Code, Codex o el agente que uses — y te muestra todos en una sola pantalla: trabajando, esperándote, o listos.",
+        "btn_install": "Instalar",
+        "hero_os": "Linux y macOS · Windows con WSL · un binario, código abierto",
+        "mcp_t": "Servidores MCP <kbd>M</kbd>",
+        "mcp_d": "Los servidores MCP de todos los agentes en una sola cuadrícula: activa o desactiva uno en cualquier agente, pruébalo, cópialo a otro agente, añade uno con una línea.",
+        "perm_t": "Permisos <kbd>P</kbd>",
+        "perm_d": "Lo que cada agente puede hacer sin preguntar, en tu máquina y en el proyecto: cambia una regla entre permitir, preguntar y denegar, o abre el archivo en tu editor.",
         "nav_phone": "móvil",
         "stage_alt": "tend en una terminal: los spaces y los agentes a la izquierda, un Claude Code trabajando, otro esperando aprobación, y el panel de archivos",
         "stage_cap": "Una sesión real: un agente trabajando, otro esperando que apruebes un comando, un tercero dormido, y los archivos del proyecto al lado. El servidor sigue ahí cuando nadie mira.",
@@ -327,6 +351,14 @@ LANGS = {
         "windows_p2": "Windows では WSL 上で Linux 用インストーラを使うか、Unix でクローンして <code>make install</code> してください。 手順は <a href=\"https://github.com/auth-com-br/tend/blob/master/docs/WINDOWS.md\">WSL ガイド</a> を参照してください。",
         "deck": "チケットと本番エラーからプルリクエストまで、エージェントと一緒に、ターミナルから離れずに。tend は GitHub の issue や GlitchTip のエラーを受け取り、worktree を作って Claude Code や Codex など使っているエージェントに渡します。各ペインは working・blocked・idle と示され、解決したものは同じ画面で閉じられます。",
         "stage_label": "tend のセッション",
+        "hero_h": "チケットからプルリクエストまで、エージェントと共に。",
+        "hero_sub": "AI コーディングエージェントのためのターミナル。tend は GitHub の issue や本番環境のエラーを受け取り、worktree を開いて Claude Code、Codex、あるいはお使いのエージェントに渡します。そしてすべてのエージェントを一つの画面に表示します：作業中、あなたを待っている、完了。",
+        "btn_install": "インストール",
+        "hero_os": "Linux と macOS · Windows は WSL で · 単一バイナリ、オープンソース",
+        "mcp_t": "MCP サーバー <kbd>M</kbd>",
+        "mcp_d": "すべてのエージェントの MCP サーバーを一つの表で：任意のエージェントでオン・オフ、テスト、別のエージェントへコピー、一行で追加。",
+        "perm_t": "権限 <kbd>P</kbd>",
+        "perm_d": "各エージェントが確認なしでできることを、マシン全体とプロジェクトごとに：ルールを許可・確認・拒否で切り替えたり、ファイルをエディタで開いたりできます。",
         "nav_phone": "スマホ",
         "stage_alt": "ターミナル上の tend：左に space とエージェントの一覧、作業中の Claude Code、承認待ちの Claude Code、そしてファイルパネル",
         "stage_cap": "実際のセッション：作業中のエージェント、コマンドの承認を待つエージェント、スリープ中のエージェント、そして横にプロジェクトのファイル。誰も見ていなくてもサーバーは動き続けます。",
@@ -423,6 +455,14 @@ LANGS = {
         "windows_p2": "在 Windows 上，请在 WSL 中运行 Linux 安装命令，或在 Unix 机器上克隆后执行 <code>make install</code>。 步骤见 <a href=\"https://github.com/auth-com-br/tend/blob/master/docs/WINDOWS.md\">WSL 指南</a>。",
         "deck": "从工单和生产错误到 pull request，交给智能体，不离开终端。tend 接收一个 GitHub issue 或 GlitchTip 错误，创建 worktree，交给 Claude Code、Codex 或你使用的任何智能体。每个窗格标为 working、blocked 或 idle，已解决的在同一屏幕上关闭。",
         "stage_label": "一个 tend 会话",
+        "hero_h": "从工单到 pull request，与智能体一起。",
+        "hero_sub": "为 AI 编程智能体打造的终端。tend 接过 GitHub issue 或线上错误，打开一个 worktree，交给 Claude Code、Codex 或你使用的任何智能体——并在一个屏幕上显示所有智能体：正在工作、等待你、或已完成。",
+        "btn_install": "安装",
+        "hero_os": "Linux 和 macOS · Windows 通过 WSL · 单一二进制，开源",
+        "mcp_t": "MCP 服务器 <kbd>M</kbd>",
+        "mcp_d": "所有智能体的 MCP 服务器集中在一张表格里：在任意智能体中开启或关闭、测试、复制到另一个智能体、用一行添加。",
+        "perm_t": "权限 <kbd>P</kbd>",
+        "perm_d": "每个智能体无需询问即可执行的操作，分全局和项目：在允许、询问、拒绝之间切换规则，或用你的编辑器打开文件。",
         "nav_phone": "手机",
         "stage_alt": "终端里的 tend：左侧是 space 和智能体列表，一个 Claude Code 正在工作，另一个等待批准，旁边是文件面板",
         "stage_cap": "一次真实的会话：一个智能体在工作，一个在等你批准命令，第三个在休眠，旁边是项目文件。没人看着的时候，服务器也还在。",
@@ -632,6 +672,36 @@ def page(code: str, t: dict) -> str:
             f"onclick=\"try{{localStorage.setItem('tend-lang','{key}')}}catch(e){{}}\">{label}</a>"
         )
 
+    def card(title: str, desc: str, shot: str = "") -> str:
+        """One tool: a picture of it when there is one, its name and what it does."""
+        pic = ""
+        if shot:
+            pic = (
+                f'<a class="card-shot" href="{img}{shot}.png">'
+                f'<img src="{img}{shot}.png" loading="lazy" alt=""></a>'
+            )
+        cls = "card" if shot else "card plain"
+        return f'        <article class="{cls}">{pic}<h3>{title}</h3><p>{desc}</p></article>'
+
+    cards = "\n".join(
+        [
+            '      <div class="cards">',
+            card(t["tool1_t"], t["tool1_d"], "card-files"),
+            card(t["tool2_t"], t["tool2_d"], "card-agents"),
+            card(t["tool10_t"], t["tool10_d"], "card-sleep"),
+            card(t["mcp_t"], t["mcp_d"], "card-mcp"),
+            card(t["perm_t"], t["perm_d"], "card-perm"),
+            card(t["tool8_t"], t["tool8_d"], "card-companies"),
+            card(t["tool4_t"], t["tool4_d"]),
+            card(t["tool3_t"], t["tool3_d"]),
+            card(t["tool7_t"], t["tool7_d"]),
+            card(t["tool5_t"], t["tool5_d"]),
+            card(t["tool11_t"], t["tool11_d"]),
+            card(t["tool6_t"], t["tool6_d"]),
+            "      </div>",
+        ]
+    )
+
     langs = " · ".join(
         [
             lang_link("pt", "pt"),
@@ -681,9 +751,32 @@ def page(code: str, t: dict) -> str:
   </header>
 
   <main id="top">
-    <section class="lead">
-      <h1>tend</h1>
-      <p class="deck">{t["deck"]}</p>
+    <section class="hero">
+      <p class="hero-mark">tend</p>
+      <h1>{t["hero_h"]}</h1>
+      <p class="deck">{t["hero_sub"]}</p>
+      <p class="hero-actions">
+        <a class="btn primary" href="#install">{t["btn_install"]}</a>
+        <a class="btn" href="https://github.com/auth-com-br/tend">{t["nav_source"]}</a>
+      </p>
+      <p class="hero-os">{t["hero_os"]}</p>
+    </section>
+
+    <section class="pillars">
+      <dl>
+        <div>
+          <dt>{t["fact1_t"]}</dt>
+          <dd>{t["fact1_d"]}</dd>
+        </div>
+        <div>
+          <dt>{t["fact2_t"]}</dt>
+          <dd>{t["fact2_d"]}</dd>
+        </div>
+        <div>
+          <dt>{t["fact3_t"]}</dt>
+          <dd>{t["fact3_d"]}</dd>
+        </div>
+      </dl>
     </section>
 
     <section id="install"
@@ -736,73 +829,10 @@ def page(code: str, t: dict) -> str:
       <p>{t["install_p3"]}</p>
     </section>
 
-    <section class="facts">
-      <h2>{t["facts_h"]}</h2>
-      <dl>
-        <div>
-          <dt>{t["fact1_t"]}</dt>
-          <dd>{t["fact1_d"]}</dd>
-        </div>
-        <div>
-          <dt>{t["fact2_t"]}</dt>
-          <dd>{t["fact2_d"]}</dd>
-        </div>
-        <div>
-          <dt>{t["fact3_t"]}</dt>
-          <dd>{t["fact3_d"]}</dd>
-        </div>
-      </dl>
-    </section>
-
-    <section id="tools" class="facts">
+    <section id="tools">
       <h2>{t["tools_h"]}</h2>
       <p class="note">{t["tools_note"]}</p>
-      <dl>
-        <div>
-          <dt>{t["tool1_t"]}</dt>
-          <dd>{t["tool1_d"]}</dd>
-        </div>
-        <div>
-          <dt>{t["tool2_t"]}</dt>
-          <dd>{t["tool2_d"]}</dd>
-        </div>
-        <div>
-          <dt>{t["tool3_t"]}</dt>
-          <dd>{t["tool3_d"]}</dd>
-        </div>
-        <div>
-          <dt>{t["tool4_t"]}</dt>
-          <dd>{t["tool4_d"]}</dd>
-        </div>
-        <div>
-          <dt>{t["tool5_t"]}</dt>
-          <dd>{t["tool5_d"]}</dd>
-        </div>
-        <div>
-          <dt>{t["tool7_t"]}</dt>
-          <dd>{t["tool7_d"]}</dd>
-        </div>
-        <div>
-          <dt>{t["tool8_t"]}</dt>
-          <dd>{t["tool8_d"]}</dd>
-        </div>
-        <div>
-          <dt>{t["tool9_t"]}</dt>
-          <dd>{t["tool9_d"]}</dd>
-        </div>
-        <div>
-          <dt>{t["tool10_t"]}</dt>
-          <dd>{t["tool10_d"]}</dd>
-        </div>
-        <div>
-          <dt>{t["tool11_t"]}</dt>
-          <dd>{t["tool11_d"]}</dd>
-        </div>
-        <div>
-          <dt>{t["tool6_t"]}</dt>
-          <dd>{t["tool6_d"]}</dd>
-        </div>
-      </dl>
+{cards}
       <div class="stage">
 {ISSUES_MOCK}
         <p class="stage-cap">{t["issues_cap"]}</p>

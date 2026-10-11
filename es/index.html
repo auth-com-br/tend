@@ -106,9 +106,32 @@
   </header>
 
   <main id="top">
-    <section class="lead">
-      <h1>tend</h1>
-      <p class="deck">Del ticket y el error de producción al pull request, con agentes, sin salir de la terminal. tend toma una issue de GitHub o un error de GlitchTip, abre un worktree y se lo entrega a Claude Code, Codex o el agente que uses. Los sigues a todos — cada panel marcado como working, blocked o idle — y cierras lo resuelto, en la misma pantalla.</p>
+    <section class="hero">
+      <p class="hero-mark">tend</p>
+      <h1>Del ticket al pull request, con agentes.</h1>
+      <p class="deck">Una terminal hecha para agentes de IA que programan. tend toma un issue de GitHub o un error de producción, abre un worktree y se lo entrega a Claude Code, Codex o el agente que uses — y te muestra todos en una sola pantalla: trabajando, esperándote, o listos.</p>
+      <p class="hero-actions">
+        <a class="btn primary" href="#install">Instalar</a>
+        <a class="btn" href="https://github.com/auth-com-br/tend">código</a>
+      </p>
+      <p class="hero-os">Linux y macOS · Windows con WSL · un binario, código abierto</p>
+    </section>
+
+    <section class="pillars">
+      <dl>
+        <div>
+          <dt>Los programas</dt>
+          <dd>Una sesión es un servidor en segundo plano. <kbd>ctrl</kbd><kbd>b</kbd> y luego <kbd>d</kbd> deja los agentes en marcha. Abrir tend otra vez vuelve a los mismos paneles.</dd>
+        </div>
+        <div>
+          <dt>El estado</dt>
+          <dd>Un panel está working, blocked o idle. La marca es lo que muestra la pantalla — un spinner, un permiso, un shell a la espera — no una conjetura por el nombre del proceso.</dd>
+        </div>
+        <div>
+          <dt>El diseño</dt>
+          <dd>Un space guarda pestañas. Una pestaña guarda paneles. Divide al lado o abajo, amplía un panel, recorre el historial, salta al agente que se detuvo.</dd>
+        </div>
+      </dl>
     </section>
 
     <section id="install"
@@ -161,73 +184,23 @@
       <p>Escrito en Go. Un binario. Sin cgo.</p>
     </section>
 
-    <section class="facts">
-      <h2>Qué queda al desconectarte</h2>
-      <dl>
-        <div>
-          <dt>Los programas</dt>
-          <dd>Una sesión es un servidor en segundo plano. <kbd>ctrl</kbd><kbd>b</kbd> y luego <kbd>d</kbd> deja los agentes en marcha. Abrir tend otra vez vuelve a los mismos paneles.</dd>
-        </div>
-        <div>
-          <dt>El estado</dt>
-          <dd>Un panel está working, blocked o idle. La marca es lo que muestra la pantalla — un spinner, un permiso, un shell a la espera — no una conjetura por el nombre del proceso.</dd>
-        </div>
-        <div>
-          <dt>El diseño</dt>
-          <dd>Un space guarda pestañas. Una pestaña guarda paneles. Divide al lado o abajo, amplía un panel, recorre el historial, salta al agente que se detuvo.</dd>
-        </div>
-      </dl>
-    </section>
-
-    <section id="tools" class="facts">
+    <section id="tools">
       <h2>Herramientas, sobre los spaces</h2>
       <p class="note">Botones arriba de la barra lateral, cada uno con una tecla tras el prefijo.</p>
-      <dl>
-        <div>
-          <dt>Archivos <kbd>f</kbd></dt>
-          <dd>Un panel junto a los tuyos: el árbol del proyecto, una búsqueda en él y los cambios de git — diff, stage, commit, push. Sigue al panel en el que trabajas.</dd>
-        </div>
-        <div>
-          <dt>Agentes <kbd>A</kbd></dt>
-          <dd>Los CLI de agentes que tend conoce — Claude Code, Codex, Gemini CLI, Cursor, OpenCode y más —, cuáles tiene esta máquina y el comando para instalar el resto, ejecutado en una pestaña cuando confirmas.</dd>
-        </div>
-        <div>
-          <dt>Sesiones <kbd>S</kbd></dt>
-          <dd>Todas las conversaciones de Claude Code en la máquina, por su título. Escribe para buscar, enter reanuda una en una pestaña nueva donde ocurrió, marca las viejas y bórralas.</dd>
-        </div>
-        <div>
-          <dt>GitHub · GitLab <kbd>I</kbd></dt>
-          <dd>Los issues y pull requests del proyecto, a través de <code>gh</code>. Comenta, cierra, etiqueta, fusiona. <kbd>w</kbd> en un issue crea un worktree para él y abre tu agente allí, con el issue como tarea. Los proyectos en GitLab — gitlab.com o el de tu empresa — funcionan igual, con sus merge requests.</dd>
-        </div>
-        <div>
-          <dt>Navegador y contexto <kbd>B</kbd> <kbd>C</kbd></dt>
-          <dd>Una ventana de Chromium, Chrome o Edge con la extensión de tend: elige elementos en una página, anota lo que quieres de cada uno y envíalos al agente, revisados antes en el panel de contexto.</dd>
-        </div>
-        <div>
-          <dt>Errores <kbd>E</kbd> <kbd>T</kbd></dt>
-          <dd>Lo que capturaron los servidores GlitchTip de tus sistemas, tantos como uses. Abre un error para leer su traza; <kbd>f</kbd> se lo entrega a tu agente, <kbd>w</kbd> lo arregla en un worktree, <kbd>ctrl</kbd><kbd>x</kbd> lo resuelve. Cada proyecto puede abrir en su propio servidor. Los tickets de Linear, Jira y ClickUp tienen su propio panel, <kbd>T</kbd>, con la misma forma de entregarlos al agente.</dd>
-        </div>
-        <div>
-          <dt>Empresas <kbd>O</kbd></dt>
-          <dd>¿Trabajas para varias empresas? Agrupa los spaces de cada una y elige una: la barra lateral muestra sus proyectos y agentes, y un agente esperando en otra sigue avisándose.</dd>
-        </div>
-        <div>
-          <dt>MCP y permisos <kbd>M</kbd> <kbd>P</kbd></dt>
-          <dd>Los servidores MCP de todos los agentes en una sola cuadrícula — actívalos, desactívalos, pruébalos, copia uno a otro agente. Y lo que cada agente puede hacer sin preguntar: cambia una regla entre permitir, preguntar y denegar, o abre su archivo en tu editor.</dd>
-        </div>
-        <div>
-          <dt>Agentes dormidos</dt>
-          <dd>Tras un reinicio, un agente solo arranca cuando vas a su panel, en la conversación en la que estaba. Uno inactivo devuelve su memoria por sí solo, y veinte agentes en varios proyectos no pesan en la máquina.</dd>
-        </div>
-        <div>
-          <dt>En tu teléfono</dt>
-          <dd><code>tend web</code> sirve una página para tu teléfono, en la red de casa o en tu VPN: cada agente con lo que está haciendo, su pantalla en vivo, un campo para enviarle un mensaje y un aviso cuando alguno te necesita. Solo agentes — nunca un shell.</dd>
-        </div>
-        <div>
-          <dt>Actualizaciones</dt>
-          <dd>tend detecta una nueva versión y lo dice. <kbd>u</kbd> en sus notas la instala y pasa la sesión a ella, sin detener los programas de los paneles.</dd>
-        </div>
-      </dl>
+      <div class="cards">
+        <article class="card"><a class="card-shot" href="../img/card-files.png"><img src="../img/card-files.png" loading="lazy" alt=""></a><h3>Archivos <kbd>f</kbd></h3><p>Un panel junto a los tuyos: el árbol del proyecto, una búsqueda en él y los cambios de git — diff, stage, commit, push. Sigue al panel en el que trabajas.</p></article>
+        <article class="card"><a class="card-shot" href="../img/card-agents.png"><img src="../img/card-agents.png" loading="lazy" alt=""></a><h3>Agentes <kbd>A</kbd></h3><p>Los CLI de agentes que tend conoce — Claude Code, Codex, Gemini CLI, Cursor, OpenCode y más —, cuáles tiene esta máquina y el comando para instalar el resto, ejecutado en una pestaña cuando confirmas.</p></article>
+        <article class="card"><a class="card-shot" href="../img/card-sleep.png"><img src="../img/card-sleep.png" loading="lazy" alt=""></a><h3>Agentes dormidos</h3><p>Tras un reinicio, un agente solo arranca cuando vas a su panel, en la conversación en la que estaba. Uno inactivo devuelve su memoria por sí solo, y veinte agentes en varios proyectos no pesan en la máquina.</p></article>
+        <article class="card"><a class="card-shot" href="../img/card-mcp.png"><img src="../img/card-mcp.png" loading="lazy" alt=""></a><h3>Servidores MCP <kbd>M</kbd></h3><p>Los servidores MCP de todos los agentes en una sola cuadrícula: activa o desactiva uno en cualquier agente, pruébalo, cópialo a otro agente, añade uno con una línea.</p></article>
+        <article class="card"><a class="card-shot" href="../img/card-perm.png"><img src="../img/card-perm.png" loading="lazy" alt=""></a><h3>Permisos <kbd>P</kbd></h3><p>Lo que cada agente puede hacer sin preguntar, en tu máquina y en el proyecto: cambia una regla entre permitir, preguntar y denegar, o abre el archivo en tu editor.</p></article>
+        <article class="card"><a class="card-shot" href="../img/card-companies.png"><img src="../img/card-companies.png" loading="lazy" alt=""></a><h3>Empresas <kbd>O</kbd></h3><p>¿Trabajas para varias empresas? Agrupa los spaces de cada una y elige una: la barra lateral muestra sus proyectos y agentes, y un agente esperando en otra sigue avisándose.</p></article>
+        <article class="card plain"><h3>GitHub · GitLab <kbd>I</kbd></h3><p>Los issues y pull requests del proyecto, a través de <code>gh</code>. Comenta, cierra, etiqueta, fusiona. <kbd>w</kbd> en un issue crea un worktree para él y abre tu agente allí, con el issue como tarea. Los proyectos en GitLab — gitlab.com o el de tu empresa — funcionan igual, con sus merge requests.</p></article>
+        <article class="card plain"><h3>Sesiones <kbd>S</kbd></h3><p>Todas las conversaciones de Claude Code en la máquina, por su título. Escribe para buscar, enter reanuda una en una pestaña nueva donde ocurrió, marca las viejas y bórralas.</p></article>
+        <article class="card plain"><h3>Errores <kbd>E</kbd> <kbd>T</kbd></h3><p>Lo que capturaron los servidores GlitchTip de tus sistemas, tantos como uses. Abre un error para leer su traza; <kbd>f</kbd> se lo entrega a tu agente, <kbd>w</kbd> lo arregla en un worktree, <kbd>ctrl</kbd><kbd>x</kbd> lo resuelve. Cada proyecto puede abrir en su propio servidor. Los tickets de Linear, Jira y ClickUp tienen su propio panel, <kbd>T</kbd>, con la misma forma de entregarlos al agente.</p></article>
+        <article class="card plain"><h3>Navegador y contexto <kbd>B</kbd> <kbd>C</kbd></h3><p>Una ventana de Chromium, Chrome o Edge con la extensión de tend: elige elementos en una página, anota lo que quieres de cada uno y envíalos al agente, revisados antes en el panel de contexto.</p></article>
+        <article class="card plain"><h3>En tu teléfono</h3><p><code>tend web</code> sirve una página para tu teléfono, en la red de casa o en tu VPN: cada agente con lo que está haciendo, su pantalla en vivo, un campo para enviarle un mensaje y un aviso cuando alguno te necesita. Solo agentes — nunca un shell.</p></article>
+        <article class="card plain"><h3>Actualizaciones</h3><p>tend detecta una nueva versión y lo dice. <kbd>u</kbd> en sus notas la instala y pasa la sesión a ella, sin detener los programas de los paneles.</p></article>
+      </div>
       <div class="stage">
       <div class="term">
         <div class="term-chrome" aria-hidden="true">

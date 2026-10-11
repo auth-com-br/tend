@@ -503,3 +503,143 @@ footer p { width: min(68rem, 100%); margin: 0 auto; }
   .phones { gap: 1rem; }
 }
 .term.shot { background: #16181d; }
+
+/* The page's shape: a headline, three reasons, the program itself as big as
+   the page allows, then every tool with a picture of it. */
+.hero {
+  position: relative;
+  margin: -3rem 0 0;
+  padding: 5.5rem 1rem 3.5rem;
+  text-align: center;
+  border-left: 1px solid var(--line);
+  border-right: 1px solid var(--line);
+  background:
+    radial-gradient(ellipse 60% 70% at 50% 0%, rgba(122, 162, 247, 0.13), transparent 70%),
+    linear-gradient(rgba(122, 162, 247, 0.07) 1px, transparent 1px) 0 0 / 100% 2.75rem,
+    linear-gradient(90deg, rgba(122, 162, 247, 0.07) 1px, transparent 1px) 0 0 / 2.75rem 100%;
+}
+.hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 70% 80% at 50% 35%, transparent 10%, var(--bg) 95%);
+  pointer-events: none;
+}
+.hero > * { position: relative; z-index: 1; }
+.hero-mark {
+  margin: 0 0 1.25rem;
+  font-family: var(--mono);
+  font-size: 0.95rem;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--blue);
+}
+.hero h1 {
+  max-width: 18ch;
+  margin: 0 auto;
+  font-family: var(--sans);
+  font-style: italic;
+  font-weight: 400;
+  font-size: clamp(2.4rem, 6vw, 4.4rem);
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+.hero .deck {
+  max-width: 40rem;
+  margin: 1.5rem auto 0;
+  text-wrap: pretty;
+}
+.hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.6rem;
+  margin: 2rem 0 0;
+}
+.btn {
+  display: inline-block;
+  padding: 0.6rem 1.25rem;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--frame);
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 0.9rem;
+  text-decoration: none;
+}
+.btn:hover { border-color: var(--muted); }
+.btn.primary { background: var(--blue); border-color: var(--blue); color: #10131a; font-weight: 600; }
+.btn.primary:hover { filter: brightness(1.1); }
+.hero-os {
+  margin: 1.1rem 0 0;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.8rem;
+}
+
+.pillars { border: 1px solid var(--line); }
+.pillars dl { display: grid; grid-template-columns: repeat(3, 1fr); margin: 0; }
+.pillars dl > div { padding: 1.5rem 1.6rem 1.7rem; border-left: 1px solid var(--line); }
+.pillars dl > div:first-child { border-left: 0; }
+.pillars dt { font-family: var(--mono); font-size: 0.95rem; }
+.pillars dd { margin: 0.4rem 0 0; color: var(--muted); font-size: 1rem; }
+
+#install {
+  margin-top: 0;
+  padding: 1.75rem 1.6rem 1.5rem;
+  border: 1px solid var(--line);
+  border-top: 0;
+}
+#install h2 { margin-top: 0; }
+
+#session.stage { margin-top: 0; padding: 2.5rem 0 0; }
+#session .term.shot { border-radius: 10px; box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(122, 162, 247, 0.12); }
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  margin-top: 1.75rem;
+  border-top: 1px solid var(--line);
+  border-left: 1px solid var(--line);
+}
+.card {
+  margin: 0;
+  padding: 1.5rem 1.5rem 1.75rem;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+.card-shot {
+  display: block;
+  margin-bottom: 1.1rem;
+  padding: 6px;
+  border: 1px dashed var(--line);
+  background: var(--frame);
+}
+.card-shot img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 3 / 2;
+  object-fit: cover;
+  object-position: center;
+  background: #16181d;
+  transition: transform 0.25s ease;
+}
+.card-shot { overflow: hidden; }
+.card-shot:hover img { transform: scale(1.03); }
+.card h3 { margin: 0; font-family: var(--mono); font-size: 0.95rem; font-weight: 500; }
+.card p { margin: 0.4rem 0 0; color: var(--muted); font-size: 1rem; }
+
+@media (max-width: 900px) {
+  .cards { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 800px) {
+  .hero { padding: 3.5rem 0.75rem 2.5rem; }
+  .pillars dl { grid-template-columns: 1fr; }
+  .pillars dl > div { border-left: 0; border-top: 1px solid var(--line); }
+  .pillars dl > div:first-child { border-top: 0; }
+  #install { padding: 1.25rem 1rem; }
+}
+@media (max-width: 560px) {
+  .cards { grid-template-columns: 1fr; }
+}

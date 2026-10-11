@@ -106,9 +106,32 @@
   </header>
 
   <main id="top">
-    <section class="lead">
-      <h1>tend</h1>
-      <p class="deck">チケットと本番エラーからプルリクエストまで、エージェントと一緒に、ターミナルから離れずに。tend は GitHub の issue や GlitchTip のエラーを受け取り、worktree を作って Claude Code や Codex など使っているエージェントに渡します。各ペインは working・blocked・idle と示され、解決したものは同じ画面で閉じられます。</p>
+    <section class="hero">
+      <p class="hero-mark">tend</p>
+      <h1>チケットからプルリクエストまで、エージェントと共に。</h1>
+      <p class="deck">AI コーディングエージェントのためのターミナル。tend は GitHub の issue や本番環境のエラーを受け取り、worktree を開いて Claude Code、Codex、あるいはお使いのエージェントに渡します。そしてすべてのエージェントを一つの画面に表示します：作業中、あなたを待っている、完了。</p>
+      <p class="hero-actions">
+        <a class="btn primary" href="#install">インストール</a>
+        <a class="btn" href="https://github.com/auth-com-br/tend">ソース</a>
+      </p>
+      <p class="hero-os">Linux と macOS · Windows は WSL で · 単一バイナリ、オープンソース</p>
+    </section>
+
+    <section class="pillars">
+      <dl>
+        <div>
+          <dt>プログラム</dt>
+          <dd>セッションはバックグラウンドのサーバーです。<kbd>ctrl</kbd><kbd>b</kbd> のあと <kbd>d</kbd> でエージェントは動き続けます。tend を開き直すと同じペインに戻ります。</dd>
+        </div>
+        <div>
+          <dt>状態</dt>
+          <dd>ペインは working・blocked・idle のいずれかです。印は画面が示しているもの — スピナー、許可プロンプト、待機中のシェル — であり、プロセス名からの推測ではありません。</dd>
+        </div>
+        <div>
+          <dt>レイアウト</dt>
+          <dd>space はタブを持ち、タブはペインを持ちます。横や下に分割し、ズームし、履歴をスクロールし、止まったエージェントへジャンプします。</dd>
+        </div>
+      </dl>
     </section>
 
     <section id="install"
@@ -161,73 +184,23 @@
       <p>Go 製。単一バイナリ。cgo なし。</p>
     </section>
 
-    <section class="facts">
-      <h2>デタッチしても残るもの</h2>
-      <dl>
-        <div>
-          <dt>プログラム</dt>
-          <dd>セッションはバックグラウンドのサーバーです。<kbd>ctrl</kbd><kbd>b</kbd> のあと <kbd>d</kbd> でエージェントは動き続けます。tend を開き直すと同じペインに戻ります。</dd>
-        </div>
-        <div>
-          <dt>状態</dt>
-          <dd>ペインは working・blocked・idle のいずれかです。印は画面が示しているもの — スピナー、許可プロンプト、待機中のシェル — であり、プロセス名からの推測ではありません。</dd>
-        </div>
-        <div>
-          <dt>レイアウト</dt>
-          <dd>space はタブを持ち、タブはペインを持ちます。横や下に分割し、ズームし、履歴をスクロールし、止まったエージェントへジャンプします。</dd>
-        </div>
-      </dl>
-    </section>
-
-    <section id="tools" class="facts">
+    <section id="tools">
       <h2>スペースの上にあるツール</h2>
       <p class="note">サイドバー上部のボタン。それぞれプレフィックスの後のキーでも開けます。</p>
-      <dl>
-        <div>
-          <dt>ファイル <kbd>f</kbd></dt>
-          <dd>ペインの横のパネル：プロジェクトのツリー、その中の検索、git の変更 — diff、stage、commit、push。作業中のペインに追従します。</dd>
-        </div>
-        <div>
-          <dt>エージェント <kbd>A</kbd></dt>
-          <dd>tend が知っているエージェント CLI — Claude Code、Codex、Gemini CLI、Cursor、OpenCode など — のうち、このマシンにあるものと、残りのインストールコマンド。確認するとタブで実行します。</dd>
-        </div>
-        <div>
-          <dt>セッション <kbd>S</kbd></dt>
-          <dd>マシン上の Claude Code の会話をタイトルで一覧。入力して検索、enter で元のディレクトリの新しいタブで再開、古いものはマークして削除。</dd>
-        </div>
-        <div>
-          <dt>GitHub · GitLab <kbd>I</kbd></dt>
-          <dd>プロジェクトの issue と pull request を <code>gh</code> 経由で。コメント、クローズ、ラベル、マージ。issue で <kbd>w</kbd> を押すと worktree を作り、そこでエージェントに issue を完了させます。 GitLab（gitlab.com や社内の GitLab）のプロジェクトも、マージリクエストを含めて同じように使えます。</dd>
-        </div>
-        <div>
-          <dt>ブラウザとコンテキスト <kbd>B</kbd> <kbd>C</kbd></dt>
-          <dd>tend の拡張機能入りの Chromium、Chrome、Edge：ページの要素を選び、それぞれにメモを付け、コンテキストパネルで確認してからエージェントへ送ります。</dd>
-        </div>
-        <div>
-          <dt>エラー <kbd>E</kbd> <kbd>T</kbd></dt>
-          <dd>システムの GlitchTip サーバーが捕捉したエラー（複数サーバー対応）。エラーを開いてスタックを読み、<kbd>f</kbd> でエージェントに渡し、<kbd>w</kbd> で worktree で修正、<kbd>ctrl</kbd><kbd>x</kbd> で解決。プロジェクトごとに開くサーバーを決められます。 Linear・Jira・ClickUp のチケットは専用パネル <kbd>T</kbd> で、同じようにエージェントに渡せます。</dd>
-        </div>
-        <div>
-          <dt>会社 <kbd>O</kbd></dt>
-          <dd>複数の会社の仕事をしていますか。会社ごとに space をまとめて選ぶと、サイドバーにはその会社のプロジェクトとエージェントだけが表示されます。ほかの会社で待っているエージェントも知らせます。</dd>
-        </div>
-        <div>
-          <dt>MCP と権限 <kbd>M</kbd> <kbd>P</kbd></dt>
-          <dd>すべてのエージェントの MCP サーバーを一つの表で — オン・オフ、テスト、別のエージェントへのコピー。そして各エージェントが確認なしでできること：ルールを許可・確認・拒否で切り替えたり、設定ファイルをエディタで開いたりできます。</dd>
-        </div>
-        <div>
-          <dt>スリープするエージェント</dt>
-          <dd>再起動後、エージェントはそのペインに移動したときにだけ、元の会話のまま起動します。アイドルのままのエージェントは自動的にメモリを解放するので、多数のエージェントを抱えていてもマシンが重くなりません。</dd>
-        </div>
-        <div>
-          <dt>スマートフォンから</dt>
-          <dd><code>tend web</code> は自宅のネットワークや VPN 上のスマートフォン向けページを提供します：各エージェントの状態、ライブ画面、メッセージ入力欄、そしてエージェントがあなたを必要としたときの通知。操作できるのはエージェントだけで、シェルは使えません。</dd>
-        </div>
-        <div>
-          <dt>アップデート</dt>
-          <dd>新しいリリースを検知して知らせます。リリースノートで <kbd>u</kbd> を押すとインストールし、ペインのプログラムを止めずにセッションを移行します。</dd>
-        </div>
-      </dl>
+      <div class="cards">
+        <article class="card"><a class="card-shot" href="../img/card-files.png"><img src="../img/card-files.png" loading="lazy" alt=""></a><h3>ファイル <kbd>f</kbd></h3><p>ペインの横のパネル：プロジェクトのツリー、その中の検索、git の変更 — diff、stage、commit、push。作業中のペインに追従します。</p></article>
+        <article class="card"><a class="card-shot" href="../img/card-agents.png"><img src="../img/card-agents.png" loading="lazy" alt=""></a><h3>エージェント <kbd>A</kbd></h3><p>tend が知っているエージェント CLI — Claude Code、Codex、Gemini CLI、Cursor、OpenCode など — のうち、このマシンにあるものと、残りのインストールコマンド。確認するとタブで実行します。</p></article>
+        <article class="card"><a class="card-shot" href="../img/card-sleep.png"><img src="../img/card-sleep.png" loading="lazy" alt=""></a><h3>スリープするエージェント</h3><p>再起動後、エージェントはそのペインに移動したときにだけ、元の会話のまま起動します。アイドルのままのエージェントは自動的にメモリを解放するので、多数のエージェントを抱えていてもマシンが重くなりません。</p></article>
+        <article class="card"><a class="card-shot" href="../img/card-mcp.png"><img src="../img/card-mcp.png" loading="lazy" alt=""></a><h3>MCP サーバー <kbd>M</kbd></h3><p>すべてのエージェントの MCP サーバーを一つの表で：任意のエージェントでオン・オフ、テスト、別のエージェントへコピー、一行で追加。</p></article>
+        <article class="card"><a class="card-shot" href="../img/card-perm.png"><img src="../img/card-perm.png" loading="lazy" alt=""></a><h3>権限 <kbd>P</kbd></h3><p>各エージェントが確認なしでできることを、マシン全体とプロジェクトごとに：ルールを許可・確認・拒否で切り替えたり、ファイルをエディタで開いたりできます。</p></article>
+        <article class="card"><a class="card-shot" href="../img/card-companies.png"><img src="../img/card-companies.png" loading="lazy" alt=""></a><h3>会社 <kbd>O</kbd></h3><p>複数の会社の仕事をしていますか。会社ごとに space をまとめて選ぶと、サイドバーにはその会社のプロジェクトとエージェントだけが表示されます。ほかの会社で待っているエージェントも知らせます。</p></article>
+        <article class="card plain"><h3>GitHub · GitLab <kbd>I</kbd></h3><p>プロジェクトの issue と pull request を <code>gh</code> 経由で。コメント、クローズ、ラベル、マージ。issue で <kbd>w</kbd> を押すと worktree を作り、そこでエージェントに issue を完了させます。 GitLab（gitlab.com や社内の GitLab）のプロジェクトも、マージリクエストを含めて同じように使えます。</p></article>
+        <article class="card plain"><h3>セッション <kbd>S</kbd></h3><p>マシン上の Claude Code の会話をタイトルで一覧。入力して検索、enter で元のディレクトリの新しいタブで再開、古いものはマークして削除。</p></article>
+        <article class="card plain"><h3>エラー <kbd>E</kbd> <kbd>T</kbd></h3><p>システムの GlitchTip サーバーが捕捉したエラー（複数サーバー対応）。エラーを開いてスタックを読み、<kbd>f</kbd> でエージェントに渡し、<kbd>w</kbd> で worktree で修正、<kbd>ctrl</kbd><kbd>x</kbd> で解決。プロジェクトごとに開くサーバーを決められます。 Linear・Jira・ClickUp のチケットは専用パネル <kbd>T</kbd> で、同じようにエージェントに渡せます。</p></article>
+        <article class="card plain"><h3>ブラウザとコンテキスト <kbd>B</kbd> <kbd>C</kbd></h3><p>tend の拡張機能入りの Chromium、Chrome、Edge：ページの要素を選び、それぞれにメモを付け、コンテキストパネルで確認してからエージェントへ送ります。</p></article>
+        <article class="card plain"><h3>スマートフォンから</h3><p><code>tend web</code> は自宅のネットワークや VPN 上のスマートフォン向けページを提供します：各エージェントの状態、ライブ画面、メッセージ入力欄、そしてエージェントがあなたを必要としたときの通知。操作できるのはエージェントだけで、シェルは使えません。</p></article>
+        <article class="card plain"><h3>アップデート</h3><p>新しいリリースを検知して知らせます。リリースノートで <kbd>u</kbd> を押すとインストールし、ペインのプログラムを止めずにセッションを移行します。</p></article>
+      </div>
       <div class="stage">
       <div class="term">
         <div class="term-chrome" aria-hidden="true">

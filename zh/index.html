@@ -106,9 +106,32 @@
   </header>
 
   <main id="top">
-    <section class="lead">
-      <h1>tend</h1>
-      <p class="deck">从工单和生产错误到 pull request，交给智能体，不离开终端。tend 接收一个 GitHub issue 或 GlitchTip 错误，创建 worktree，交给 Claude Code、Codex 或你使用的任何智能体。每个窗格标为 working、blocked 或 idle，已解决的在同一屏幕上关闭。</p>
+    <section class="hero">
+      <p class="hero-mark">tend</p>
+      <h1>从工单到 pull request，与智能体一起。</h1>
+      <p class="deck">为 AI 编程智能体打造的终端。tend 接过 GitHub issue 或线上错误，打开一个 worktree，交给 Claude Code、Codex 或你使用的任何智能体——并在一个屏幕上显示所有智能体：正在工作、等待你、或已完成。</p>
+      <p class="hero-actions">
+        <a class="btn primary" href="#install">安装</a>
+        <a class="btn" href="https://github.com/auth-com-br/tend">源码</a>
+      </p>
+      <p class="hero-os">Linux 和 macOS · Windows 通过 WSL · 单一二进制，开源</p>
+    </section>
+
+    <section class="pillars">
+      <dl>
+        <div>
+          <dt>程序</dt>
+          <dd>会话是后台服务器。<kbd>ctrl</kbd><kbd>b</kbd> 再按 <kbd>d</kbd> 后智能体继续运行。再次打开 tend 会回到同样的窗格。</dd>
+        </div>
+        <div>
+          <dt>状态</dt>
+          <dd>窗格是 working、blocked 或 idle。标记来自屏幕上的内容 — 转圈、权限提示、等待中的 shell — 不是根据进程名猜测。</dd>
+        </div>
+        <div>
+          <dt>布局</dt>
+          <dd>space 容纳标签。标签容纳窗格。左右或上下分割，放大一个窗格，滚动历史，跳到停下来的智能体。</dd>
+        </div>
+      </dl>
     </section>
 
     <section id="install"
@@ -161,73 +184,23 @@
       <p>用 Go 写成。单一二进制。无 cgo。</p>
     </section>
 
-    <section class="facts">
-      <h2>断开后仍会留下的</h2>
-      <dl>
-        <div>
-          <dt>程序</dt>
-          <dd>会话是后台服务器。<kbd>ctrl</kbd><kbd>b</kbd> 再按 <kbd>d</kbd> 后智能体继续运行。再次打开 tend 会回到同样的窗格。</dd>
-        </div>
-        <div>
-          <dt>状态</dt>
-          <dd>窗格是 working、blocked 或 idle。标记来自屏幕上的内容 — 转圈、权限提示、等待中的 shell — 不是根据进程名猜测。</dd>
-        </div>
-        <div>
-          <dt>布局</dt>
-          <dd>space 容纳标签。标签容纳窗格。左右或上下分割，放大一个窗格，滚动历史，跳到停下来的智能体。</dd>
-        </div>
-      </dl>
-    </section>
-
-    <section id="tools" class="facts">
+    <section id="tools">
       <h2>空间上方的工具</h2>
       <p class="note">侧边栏顶部的按钮，每个都可在前缀后用一个键打开。</p>
-      <dl>
-        <div>
-          <dt>文件 <kbd>f</kbd></dt>
-          <dd>窗格旁的面板：项目的文件树、在其中搜索，以及 git 改动 — diff、暂存、提交、推送。它跟随你正在工作的窗格。</dd>
-        </div>
-        <div>
-          <dt>代理 <kbd>A</kbd></dt>
-          <dd>tend 认识的代理 CLI — Claude Code、Codex、Gemini CLI、Cursor、OpenCode 等 — 这台机器装了哪些，以及其余的安装命令，确认后在标签页中运行。</dd>
-        </div>
-        <div>
-          <dt>会话 <kbd>S</kbd></dt>
-          <dd>本机所有 Claude Code 对话，按标题列出。输入即可搜索，回车在原目录的新标签页中恢复，标记旧会话并删除。</dd>
-        </div>
-        <div>
-          <dt>GitHub · GitLab <kbd>I</kbd></dt>
-          <dd>通过 <code>gh</code> 查看项目的 issue 和 pull request。评论、关闭、打标签、合并。在 issue 上按 <kbd>w</kbd> 会为它创建 worktree，并在其中启动你的代理去完成它。 GitLab（gitlab.com 或公司自建的）上的项目同样可用，包括合并请求。</dd>
-        </div>
-        <div>
-          <dt>浏览器与上下文 <kbd>B</kbd> <kbd>C</kbd></dt>
-          <dd>带 tend 扩展的 Chromium、Chrome 或 Edge 窗口：在页面上选取元素，为每个写下要求，先在上下文面板中查看，再发送给代理。</dd>
-        </div>
-        <div>
-          <dt>错误 <kbd>E</kbd> <kbd>T</kbd></dt>
-          <dd>你的系统的 GlitchTip 服务器捕获的错误，支持多个服务器。打开错误查看堆栈；<kbd>f</kbd> 交给智能体，<kbd>w</kbd> 在 worktree 中修复，<kbd>ctrl</kbd><kbd>x</kbd> 标记解决。每个项目可以打开自己的服务器。 Linear、Jira 和 ClickUp 的工单有自己的面板 <kbd>T</kbd>，同样可以交给智能体。</dd>
-        </div>
-        <div>
-          <dt>公司 <kbd>O</kbd></dt>
-          <dd>同时为多家公司工作？把每家公司的 space 放在一起并选择一家：侧边栏只显示该公司的项目和智能体，其他公司里等待的智能体仍会提示。</dd>
-        </div>
-        <div>
-          <dt>MCP 与权限 <kbd>M</kbd> <kbd>P</kbd></dt>
-          <dd>所有智能体的 MCP 服务器集中在一张表格里——开启、关闭、测试，或复制到另一个智能体。还有每个智能体无需询问即可执行的操作：在允许、询问、拒绝之间切换规则，或用你的编辑器打开它的配置文件。</dd>
-        </div>
-        <div>
-          <dt>休眠的智能体</dt>
-          <dd>重启之后，只有当你切换到某个智能体的窗格时它才会启动，并回到原来的对话。空闲的智能体会自动释放内存，因此多个项目里的二十个智能体也不会拖慢机器。</dd>
-        </div>
-        <div>
-          <dt>在手机上</dt>
-          <dd><code>tend web</code> 为你的手机提供一个页面，可在家庭网络或 VPN 中访问：每个智能体及其状态、实时屏幕、发送消息的输入框，以及智能体需要你时的提醒。只能操作智能体，绝不是 shell。</dd>
-        </div>
-        <div>
-          <dt>更新</dt>
-          <dd>tend 会发现新版本并提示。在更新说明中按 <kbd>u</kbd> 即可安装，并在不停止窗格中程序的情况下把会话迁移过去。</dd>
-        </div>
-      </dl>
+      <div class="cards">
+        <article class="card"><a class="card-shot" href="../img/card-files.png"><img src="../img/card-files.png" loading="lazy" alt=""></a><h3>文件 <kbd>f</kbd></h3><p>窗格旁的面板：项目的文件树、在其中搜索，以及 git 改动 — diff、暂存、提交、推送。它跟随你正在工作的窗格。</p></article>
+        <article class="card"><a class="card-shot" href="../img/card-agents.png"><img src="../img/card-agents.png" loading="lazy" alt=""></a><h3>代理 <kbd>A</kbd></h3><p>tend 认识的代理 CLI — Claude Code、Codex、Gemini CLI、Cursor、OpenCode 等 — 这台机器装了哪些，以及其余的安装命令，确认后在标签页中运行。</p></article>
+        <article class="card"><a class="card-shot" href="../img/card-sleep.png"><img src="../img/card-sleep.png" loading="lazy" alt=""></a><h3>休眠的智能体</h3><p>重启之后，只有当你切换到某个智能体的窗格时它才会启动，并回到原来的对话。空闲的智能体会自动释放内存，因此多个项目里的二十个智能体也不会拖慢机器。</p></article>
+        <article class="card"><a class="card-shot" href="../img/card-mcp.png"><img src="../img/card-mcp.png" loading="lazy" alt=""></a><h3>MCP 服务器 <kbd>M</kbd></h3><p>所有智能体的 MCP 服务器集中在一张表格里：在任意智能体中开启或关闭、测试、复制到另一个智能体、用一行添加。</p></article>
+        <article class="card"><a class="card-shot" href="../img/card-perm.png"><img src="../img/card-perm.png" loading="lazy" alt=""></a><h3>权限 <kbd>P</kbd></h3><p>每个智能体无需询问即可执行的操作，分全局和项目：在允许、询问、拒绝之间切换规则，或用你的编辑器打开文件。</p></article>
+        <article class="card"><a class="card-shot" href="../img/card-companies.png"><img src="../img/card-companies.png" loading="lazy" alt=""></a><h3>公司 <kbd>O</kbd></h3><p>同时为多家公司工作？把每家公司的 space 放在一起并选择一家：侧边栏只显示该公司的项目和智能体，其他公司里等待的智能体仍会提示。</p></article>
+        <article class="card plain"><h3>GitHub · GitLab <kbd>I</kbd></h3><p>通过 <code>gh</code> 查看项目的 issue 和 pull request。评论、关闭、打标签、合并。在 issue 上按 <kbd>w</kbd> 会为它创建 worktree，并在其中启动你的代理去完成它。 GitLab（gitlab.com 或公司自建的）上的项目同样可用，包括合并请求。</p></article>
+        <article class="card plain"><h3>会话 <kbd>S</kbd></h3><p>本机所有 Claude Code 对话，按标题列出。输入即可搜索，回车在原目录的新标签页中恢复，标记旧会话并删除。</p></article>
+        <article class="card plain"><h3>错误 <kbd>E</kbd> <kbd>T</kbd></h3><p>你的系统的 GlitchTip 服务器捕获的错误，支持多个服务器。打开错误查看堆栈；<kbd>f</kbd> 交给智能体，<kbd>w</kbd> 在 worktree 中修复，<kbd>ctrl</kbd><kbd>x</kbd> 标记解决。每个项目可以打开自己的服务器。 Linear、Jira 和 ClickUp 的工单有自己的面板 <kbd>T</kbd>，同样可以交给智能体。</p></article>
+        <article class="card plain"><h3>浏览器与上下文 <kbd>B</kbd> <kbd>C</kbd></h3><p>带 tend 扩展的 Chromium、Chrome 或 Edge 窗口：在页面上选取元素，为每个写下要求，先在上下文面板中查看，再发送给代理。</p></article>
+        <article class="card plain"><h3>在手机上</h3><p><code>tend web</code> 为你的手机提供一个页面，可在家庭网络或 VPN 中访问：每个智能体及其状态、实时屏幕、发送消息的输入框，以及智能体需要你时的提醒。只能操作智能体，绝不是 shell。</p></article>
+        <article class="card plain"><h3>更新</h3><p>tend 会发现新版本并提示。在更新说明中按 <kbd>u</kbd> 即可安装，并在不停止窗格中程序的情况下把会话迁移过去。</p></article>
+      </div>
       <div class="stage">
       <div class="term">
         <div class="term-chrome" aria-hidden="true">

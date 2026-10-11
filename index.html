@@ -106,9 +106,32 @@
   </header>
 
   <main id="top">
-    <section class="lead">
-      <h1>tend</h1>
-      <p class="deck">From the ticket and the production error to the pull request, with agents, without leaving the terminal. tend takes a GitHub issue or a GlitchTip error, opens a worktree and hands it to Claude Code, Codex or any agent you use. You follow them all — each pane marked working, blocked or idle — and close what was fixed, on the same screen.</p>
+    <section class="hero">
+      <p class="hero-mark">tend</p>
+      <h1>From the ticket to the pull request, with agents.</h1>
+      <p class="deck">A terminal built for AI coding agents. tend takes a GitHub issue or a production error, opens a worktree and hands it to Claude Code, Codex or whichever agent you use — and shows you every one of them on one screen: working, waiting for you, or done.</p>
+      <p class="hero-actions">
+        <a class="btn primary" href="#install">Install</a>
+        <a class="btn" href="https://github.com/auth-com-br/tend">source</a>
+      </p>
+      <p class="hero-os">Linux and macOS · Windows through WSL · one binary, open source</p>
+    </section>
+
+    <section class="pillars">
+      <dl>
+        <div>
+          <dt>The programs</dt>
+          <dd>A session is a background server. <kbd>ctrl</kbd><kbd>b</kbd> then <kbd>d</kbd> leaves the agents running. Opening tend again attaches to the same panes.</dd>
+        </div>
+        <div>
+          <dt>The state</dt>
+          <dd>A pane is working, blocked, or idle. The mark is what the screen is showing — a spinner, a permission prompt, a shell waiting — not a guess about the process name.</dd>
+        </div>
+        <div>
+          <dt>The layout</dt>
+          <dd>A space holds tabs. A tab holds panes. Split beside or below, zoom one pane, scroll its history, jump to the agent that stopped.</dd>
+        </div>
+      </dl>
     </section>
 
     <section id="install"
@@ -161,73 +184,23 @@
       <p>Written in Go. One binary. No cgo.</p>
     </section>
 
-    <section class="facts">
-      <h2>What stays when you detach</h2>
-      <dl>
-        <div>
-          <dt>The programs</dt>
-          <dd>A session is a background server. <kbd>ctrl</kbd><kbd>b</kbd> then <kbd>d</kbd> leaves the agents running. Opening tend again attaches to the same panes.</dd>
-        </div>
-        <div>
-          <dt>The state</dt>
-          <dd>A pane is working, blocked, or idle. The mark is what the screen is showing — a spinner, a permission prompt, a shell waiting — not a guess about the process name.</dd>
-        </div>
-        <div>
-          <dt>The layout</dt>
-          <dd>A space holds tabs. A tab holds panes. Split beside or below, zoom one pane, scroll its history, jump to the agent that stopped.</dd>
-        </div>
-      </dl>
-    </section>
-
-    <section id="tools" class="facts">
+    <section id="tools">
       <h2>Tools, over the spaces</h2>
       <p class="note">Buttons at the top of the sidebar, each with a key after the prefix.</p>
-      <dl>
-        <div>
-          <dt>Files <kbd>f</kbd></dt>
-          <dd>A panel beside your panes: the project's tree, a search through it, and its git changes — diff, stage, commit, push. It follows the pane you are working in.</dd>
-        </div>
-        <div>
-          <dt>Agents <kbd>A</kbd></dt>
-          <dd>The agent CLIs tend knows — Claude Code, Codex, Gemini CLI, Cursor, OpenCode and more — which this machine has, and the install command for the rest, run in a tab once you say yes.</dd>
-        </div>
-        <div>
-          <dt>Sessions <kbd>S</kbd></dt>
-          <dd>Every Claude Code conversation on the machine, by its title. Type to search, enter to resume one in a new tab where it was held, mark old ones and delete them.</dd>
-        </div>
-        <div>
-          <dt>GitHub · GitLab <kbd>I</kbd></dt>
-          <dd>The project's issues and pull requests, through <code>gh</code>. Comment, close, label, merge. <kbd>w</kbd> on an issue makes a worktree for it and starts your agent there, told to complete it. Projects on GitLab — gitlab.com or your company's — work the same, with their merge requests.</dd>
-        </div>
-        <div>
-          <dt>Browser and context <kbd>B</kbd> <kbd>C</kbd></dt>
-          <dd>A Chromium, Chrome or Edge window with tend's extension: pick elements on a page, note what you want of each, and send them to the agent, looked over first in the context panel.</dd>
-        </div>
-        <div>
-          <dt>Errors <kbd>E</kbd> <kbd>T</kbd></dt>
-          <dd>What your systems' GlitchTip servers caught, as many servers as you report to. Open an error to read its stack; <kbd>f</kbd> hands it to your agent, <kbd>w</kbd> fixes it in a worktree, <kbd>ctrl</kbd><kbd>x</kbd> resolves it. Each project can open on its own server. Tickets from Linear, Jira and ClickUp are in a panel of their own, <kbd>T</kbd>, with the same way to hand one to your agent.</dd>
-        </div>
-        <div>
-          <dt>Companies <kbd>O</kbd></dt>
-          <dd>Working for several companies? Keep each one's spaces together and choose one: the sidebar shows that company's projects and agents, and an agent waiting in another is still flagged.</dd>
-        </div>
-        <div>
-          <dt>MCP and permissions <kbd>M</kbd> <kbd>P</kbd></dt>
-          <dd>Every agent's MCP servers in one grid — switch them on and off, test them, copy one to another agent. And what each agent may do without asking: change a rule between allow, ask and deny, or open its file in your editor.</dd>
-        </div>
-        <div>
-          <dt>Sleeping agents</dt>
-          <dd>After a restart an agent starts only when you go to its pane, in the conversation it was in. One left idle gives its memory back by itself, so twenty agents across projects do not weigh on the machine.</dd>
-        </div>
-        <div>
-          <dt>Your phone</dt>
-          <dd><code>tend web</code> serves a page for your phone, on your home network or your VPN: every agent with what it is doing, its screen live, a box to message it, and a buzz when one needs you. Agents only — never a shell.</dd>
-        </div>
-        <div>
-          <dt>Updates</dt>
-          <dd>tend notices a new release and says so. <kbd>u</kbd> in its notes installs it and moves the running session onto it, without stopping the programs in its panes.</dd>
-        </div>
-      </dl>
+      <div class="cards">
+        <article class="card"><a class="card-shot" href="img/card-files.png"><img src="img/card-files.png" loading="lazy" alt=""></a><h3>Files <kbd>f</kbd></h3><p>A panel beside your panes: the project's tree, a search through it, and its git changes — diff, stage, commit, push. It follows the pane you are working in.</p></article>
+        <article class="card"><a class="card-shot" href="img/card-agents.png"><img src="img/card-agents.png" loading="lazy" alt=""></a><h3>Agents <kbd>A</kbd></h3><p>The agent CLIs tend knows — Claude Code, Codex, Gemini CLI, Cursor, OpenCode and more — which this machine has, and the install command for the rest, run in a tab once you say yes.</p></article>
+        <article class="card"><a class="card-shot" href="img/card-sleep.png"><img src="img/card-sleep.png" loading="lazy" alt=""></a><h3>Sleeping agents</h3><p>After a restart an agent starts only when you go to its pane, in the conversation it was in. One left idle gives its memory back by itself, so twenty agents across projects do not weigh on the machine.</p></article>
+        <article class="card"><a class="card-shot" href="img/card-mcp.png"><img src="img/card-mcp.png" loading="lazy" alt=""></a><h3>MCP servers <kbd>M</kbd></h3><p>Every agent's MCP servers in one grid: switch one on or off in any agent, test it, copy it to another agent, add one from a single line.</p></article>
+        <article class="card"><a class="card-shot" href="img/card-perm.png"><img src="img/card-perm.png" loading="lazy" alt=""></a><h3>Permissions <kbd>P</kbd></h3><p>What each agent may do without asking, for your machine and for the project: change a rule between allow, ask and deny, or open the file in your editor.</p></article>
+        <article class="card"><a class="card-shot" href="img/card-companies.png"><img src="img/card-companies.png" loading="lazy" alt=""></a><h3>Companies <kbd>O</kbd></h3><p>Working for several companies? Keep each one's spaces together and choose one: the sidebar shows that company's projects and agents, and an agent waiting in another is still flagged.</p></article>
+        <article class="card plain"><h3>GitHub · GitLab <kbd>I</kbd></h3><p>The project's issues and pull requests, through <code>gh</code>. Comment, close, label, merge. <kbd>w</kbd> on an issue makes a worktree for it and starts your agent there, told to complete it. Projects on GitLab — gitlab.com or your company's — work the same, with their merge requests.</p></article>
+        <article class="card plain"><h3>Sessions <kbd>S</kbd></h3><p>Every Claude Code conversation on the machine, by its title. Type to search, enter to resume one in a new tab where it was held, mark old ones and delete them.</p></article>
+        <article class="card plain"><h3>Errors <kbd>E</kbd> <kbd>T</kbd></h3><p>What your systems' GlitchTip servers caught, as many servers as you report to. Open an error to read its stack; <kbd>f</kbd> hands it to your agent, <kbd>w</kbd> fixes it in a worktree, <kbd>ctrl</kbd><kbd>x</kbd> resolves it. Each project can open on its own server. Tickets from Linear, Jira and ClickUp are in a panel of their own, <kbd>T</kbd>, with the same way to hand one to your agent.</p></article>
+        <article class="card plain"><h3>Browser and context <kbd>B</kbd> <kbd>C</kbd></h3><p>A Chromium, Chrome or Edge window with tend's extension: pick elements on a page, note what you want of each, and send them to the agent, looked over first in the context panel.</p></article>
+        <article class="card plain"><h3>Your phone</h3><p><code>tend web</code> serves a page for your phone, on your home network or your VPN: every agent with what it is doing, its screen live, a box to message it, and a buzz when one needs you. Agents only — never a shell.</p></article>
+        <article class="card plain"><h3>Updates</h3><p>tend notices a new release and says so. <kbd>u</kbd> in its notes installs it and moves the running session onto it, without stopping the programs in its panes.</p></article>
+      </div>
       <div class="stage">
       <div class="term">
         <div class="term-chrome" aria-hidden="true">
