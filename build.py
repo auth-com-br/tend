@@ -662,6 +662,7 @@ def page(code: str, t: dict) -> str:
     css = "site.css" if t["dir"] == "." else "../site.css"
     js = "site.js" if t["dir"] == "." else "../site.js"
     img = "img/" if t["dir"] == "." else "../img/"
+    icon = "icon.svg" if t["dir"] == "." else "../icon.svg"
     h = t["href"]
 
     def lang_link(key: str, label: str) -> str:
@@ -721,6 +722,7 @@ def page(code: str, t: dict) -> str:
   <meta name="description" content="{t["description"]}">
   <meta property="og:title" content="{t["title"]}">
   <meta property="og:description" content="{t["description"]}">
+  <link rel="icon" href="{icon}" type="image/svg+xml">
   <meta property="og:image" content="https://tend.auth.com.br/img/session.png">
   <meta name="twitter:card" content="summary_large_image">
   <link rel="alternate" hreflang="en" href="https://tend.auth.com.br/">
