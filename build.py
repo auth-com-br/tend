@@ -819,7 +819,11 @@ def page(code: str, t: dict) -> str:
           <span class="term-dots"><i></i><i></i><i></i></span>
           <span class="term-title">tend — work</span>
         </div>
-        <img src="{img}session.png" width="2948" height="1624" alt="{t["stage_alt"]}">
+        <video autoplay muted loop playsinline controls preload="metadata" poster="{img}demo-poster.png" width="1280" height="724" aria-label="{t["stage_alt"]}">
+          <source src="{img}demo.webm" type="video/webm">
+          <source src="{img}demo.mp4" type="video/mp4">
+          <img src="{img}session.png" width="2948" height="1624" alt="{t["stage_alt"]}">
+        </video>
       </div>
       <p class="stage-cap">{t["stage_cap"]}</p>
     </section>

@@ -477,7 +477,7 @@ footer p { width: min(68rem, 100%); margin: 0 auto; }
 }
 
 /* Pictures of the real program (tools/shot), not drawn by hand. */
-.term.shot img { display: block; width: 100%; height: auto; }
+.term.shot img, .term.shot video { display: block; width: 100%; height: auto; }
 
 .phones {
   display: flex;
