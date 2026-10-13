@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"os/exec"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -30,6 +31,9 @@ func TestCopyOverSSHDoesNotUseALocalTool(t *testing.T) {
 // TestCopyNeedsADisplay: a tool that is installed but has no display to talk
 // to would fail at the moment it is needed, so it is not chosen.
 func TestCopyNeedsADisplay(t *testing.T) {
+	if runtime.GOOS == "darwin" {
+		t.Skip("pbcopy talks to the pasteboard, not to a display")
+	}
 	t.Setenv("SSH_CONNECTION", "")
 	t.Setenv("SSH_TTY", "")
 	t.Setenv("WAYLAND_DISPLAY", "")

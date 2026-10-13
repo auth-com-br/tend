@@ -116,8 +116,9 @@ func TestServerComesBackToTheSameSession(t *testing.T) {
 		t.Fatal(err)
 	}
 	waitFor(t, "the new shell to answer", func() bool {
+		// Joined, since a long temporary directory (macOS's) wraps the line.
 		text, _ := second.ScreenText(left)
-		return strings.Contains(text, "NOW-IN:"+deep)
+		return strings.Contains(strings.ReplaceAll(text, "\n", ""), "NOW-IN:"+deep)
 	})
 }
 

@@ -9,6 +9,16 @@ GO ?= $(shell command -v go 2>/dev/null || echo $(HOME)/.local/go/bin/go)
 # check passed for weeks without running.
 GOFMT ?= $(shell command -v gofmt 2>/dev/null || echo $(dir $(GO))gofmt)
 
+# On macOS the tests get a temporary directory of their own, short and with no
+# symlink in it. The default, /var/folders/../T/, broke over a hundred tests
+# there: a unix socket's path is capped at 104 bytes and the servers' sockets
+# under it did not fit ("bind: invalid argument"), and /var is a link to
+# /private/var, so a directory a process reports was never the one the test
+# made. Linux's /tmp has neither problem and is left alone.
+ifeq ($(shell uname -s),Darwin)
+export TMPDIR := $(shell mkdir -p /private/tmp/t && echo /private/tmp/t)
+endif
+
 
 # Packages the fast loop covers. It is everything with tests: narrowing it
 # further once cost the CLI its coverage, which is where the last real bug was.
