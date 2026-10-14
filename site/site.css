@@ -578,6 +578,64 @@ footer p { width: min(68rem, 100%); margin: 0 auto; }
   font-size: 0.8rem;
 }
 
+/* A quiet row of actual customer marks follows the product demonstration.
+   Per-brand sizing balances silhouettes rather than forcing equal heights
+   onto a stacked wordmark and a long horizontal one. */
+.clients {
+  margin-top: 3.5rem;
+  padding: 1.5rem 0 1.25rem;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  text-align: center;
+}
+.clients h2 {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.clients-description {
+  margin: 0.5rem 0 0;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+.client-logos {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  align-items: center;
+  gap: 1rem;
+  margin: 1.25rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+.client-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 3.75rem;
+  padding: 0.5rem;
+  border-radius: 4px;
+  opacity: 0.6;
+}
+.client-logo:hover, .client-logo:focus-visible { opacity: 1; }
+.client-logo img {
+  display: block;
+  width: 100%;
+  max-width: 10rem;
+  height: auto;
+}
+.client-logo--rvx img {
+  max-width: 12rem;
+  filter: grayscale(1);
+}
+.client-logo--uniao img { max-width: 8.5rem; }
+.client-logo--maestre { mix-blend-mode: screen; }
+.client-logo--maestre img {
+  filter: grayscale(1) contrast(5);
+}
+.client-logo--jsouza img { max-width: 9.5rem; }
+.client-logo--retro img { max-width: 11rem; }
+.client-logo--tvconnect img { filter: grayscale(1) brightness(0) invert(1); }
+
 .pillars { border: 1px solid var(--line); }
 .pillars dl { display: grid; grid-template-columns: repeat(3, 1fr); margin: 0; }
 .pillars dl > div { padding: 1.5rem 1.6rem 1.7rem; border-left: 1px solid var(--line); }
@@ -635,11 +693,14 @@ footer p { width: min(68rem, 100%); margin: 0 auto; }
 }
 @media (max-width: 800px) {
   .hero { padding: 3.5rem 0.75rem 2.5rem; }
+  .clients { padding: 1.5rem 0; }
+  .client-logos { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.75rem; }
   .pillars dl { grid-template-columns: 1fr; }
   .pillars dl > div { border-left: 0; border-top: 1px solid var(--line); }
   .pillars dl > div:first-child { border-top: 0; }
   #install { padding: 1.25rem 1rem; }
 }
 @media (max-width: 560px) {
+  .client-logos { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .cards { grid-template-columns: 1fr; }
 }

@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="18 17 225 66">
+<defs><mask id="badge" maskUnits="userSpaceOnUse" x="18" y="17" width="66" height="66">  <!-- Engrenagem -->
+  <g transform="translate(20, 20) scale(0.6)">
+    <circle cx="50" cy="50" r="50" fill="#fff"/>
+    <path d="M50 10c-22.091 0-40 17.909-40 40s17.909 40 40 40 40-17.909 40-40-17.909-40-40-40zm0 8c17.673 0 32 14.327 32 32s-14.327 32-32 32-32-14.327-32-32 14.327-32 32-32z" fill="#000"/>
+    <path d="M50 0l8 16h-16l8-16z" fill="#000"/>
+    <path d="M100 50l-16-8v16l16-8z" fill="#000"/>
+    <path d="M50 100l-8-16h16l-8 16z" fill="#000"/>
+    <path d="M0 50l16 8v-16l-16 8z" fill="#000"/>
+  </g>
+  
+</mask></defs>
+<rect x="18" y="17" width="66" height="66" fill="#fff" mask="url(#badge)"/>
+  <!-- Texto -->
+  <g transform="translate(100, 0)">
+    <text x="0" y="45" font-family="Arial, sans-serif" font-size="36" font-weight="bold" fill="#fff">União</text>
+    <text x="0" y="80" font-family="Arial, sans-serif" font-size="36" font-weight="bold" fill="#fff">Maker</text>
+  </g>
+</svg>
