@@ -50,6 +50,19 @@ nav a { color: var(--muted); text-decoration: none; }
 nav a:hover { color: var(--ink); }
 nav a[aria-current="page"] { color: var(--ink); }
 
+.icon { flex: none; vertical-align: -0.15em; }
+nav > a { display: inline-flex; align-items: center; gap: 0.4rem; }
+nav > a > .icon { width: 0.9rem; height: 0.9rem; opacity: 0.65; }
+.nav-star-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding-left: 0.5rem;
+  border-left: 1px solid var(--line);
+  font-variant-numeric: tabular-nums;
+}
+.nav-star-count .icon { width: 0.8rem; height: 0.8rem; color: var(--work); }
+
 .langs {
   margin-left: auto;
   color: var(--line);
@@ -558,7 +571,11 @@ footer p { width: min(68rem, 100%); margin: 0 auto; }
   margin: 2rem 0 0;
 }
 .btn {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 2.75rem;
   padding: 0.6rem 1.25rem;
   border: 1px solid var(--line);
   border-radius: 4px;
@@ -571,6 +588,23 @@ footer p { width: min(68rem, 100%); margin: 0 auto; }
 .btn:hover { border-color: var(--muted); }
 .btn.primary { background: var(--blue); border-color: var(--blue); color: #10131a; font-weight: 600; }
 .btn.primary:hover { filter: brightness(1.1); }
+.github-star > .icon { color: var(--work); }
+.star-count {
+  padding-left: 0.65rem;
+  margin-left: 0.15rem;
+  border-left: 1px solid var(--line);
+  font-variant-numeric: tabular-nums;
+}
+/* Explicit display rules must not turn an unavailable count into an empty
+   badge. The invitation works even when GitHub or JavaScript is unavailable. */
+[data-star-count][hidden] { display: none; }
+.star-note {
+  max-width: 34rem;
+  margin: 0.9rem auto 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+  text-wrap: pretty;
+}
 .hero-os {
   margin: 1.1rem 0 0;
   color: var(--muted);

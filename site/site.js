@@ -3,6 +3,56 @@
 
   bindCopy();
   bindInstall();
+  loadGitHubStars();
+
+  function loadGitHubStars() {
+    var badges = document.querySelectorAll("[data-star-count]");
+    if (!badges.length || !window.fetch) return;
+    var key = "tend-github-stars-v1";
+    var ttl = 60 * 60 * 1000;
+
+    function valid(count) {
+      return typeof count === "number" && isFinite(count) && count >= 0 && Math.floor(count) === count;
+    }
+
+    function show(count) {
+      var label = String(count);
+      try { label = count.toLocaleString(document.documentElement.lang); } catch (e) {}
+      for (var i = 0; i < badges.length; i++) {
+        badges[i].querySelector("[data-star-value]").textContent = label;
+        badges[i].setAttribute("aria-label", badges[i].getAttribute("data-stars-label") + ": " + label);
+        badges[i].hidden = false;
+      }
+    }
+
+    // One public request per browser per hour keeps language switches from
+    // spending GitHub's unauthenticated quota. Never invent a fallback count.
+    try {
+      var saved = JSON.parse(localStorage.getItem(key));
+      var age = saved && Date.now() - saved.at;
+      if (saved && valid(saved.count) && typeof saved.at === "number" && age >= 0 && age < ttl) {
+        show(saved.count);
+        return;
+      }
+    } catch (e) {}
+
+    window.fetch("https://api.github.com/repos/auth-com-br/tend", {
+      headers: { "Accept": "application/vnd.github+json" },
+      credentials: "omit",
+      referrerPolicy: "no-referrer"
+    }).then(function (response) {
+      if (!response.ok) throw new Error("GitHub count unavailable");
+      return response.json();
+    }).then(function (repo) {
+      if (!repo || !valid(repo.stargazers_count)) return;
+      show(repo.stargazers_count);
+      try {
+        localStorage.setItem(key, JSON.stringify({count: repo.stargazers_count, at: Date.now()}));
+      } catch (e) {}
+    }).catch(function () {
+      // The link and invitation remain usable when offline or rate-limited.
+    });
+  }
 
   function bindCopy() {
     var buttons = document.querySelectorAll(".copy[data-copy]");
