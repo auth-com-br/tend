@@ -685,6 +685,14 @@ STAR_COPY = {
     "zh": ("在 GitHub 上点亮星标", "tend 是开源项目。你的星标能帮助更多人发现它。", "GitHub 星标数"),
 }
 
+STAR_UNITS = {
+    "en": ("star", "stars"),
+    "pt": ("estrela", "estrelas"),
+    "es": ("estrella", "estrellas"),
+    "ja": ("スター", "スター"),
+    "zh": ("星标", "星标"),
+}
+
 
 def menu_icon(name: str) -> str:
     """Small decorative outlines leave the translated menu labels in charge."""
@@ -694,7 +702,7 @@ def menu_icon(name: str) -> str:
         "tools": '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
         "phone": '<rect x="6" y="2" width="12" height="20" rx="2"/><path d="M10 18h4"/>',
         "keys": '<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M6 9h.01M10 9h.01M14 9h.01M18 9h.01M6 13h.01M10 13h.01M14 13h.01M18 13h.01M8 16h8"/>',
-        "code": '<path d="m8 7-5 5 5 5m8-10 5 5-5 5m-3-14-2 18"/>',
+        "github": '<path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 6v-3.9a3.4 3.4 0 0 0-.9-2.6c3-.3 6.2-1.5 6.2-7A5.4 5.4 0 0 0 18.8 5a5 5 0 0 0-.1-3.5s-1.2-.4-3.7 1.3a12.8 12.8 0 0 0-6 0C6.5 1.1 5.3 1.5 5.3 1.5A5 5 0 0 0 5.2 5a5.4 5.4 0 0 0-1.5 3.7c0 5.4 3.2 6.6 6.2 7A3.4 3.4 0 0 0 9 18.3V22"/>',
         "star": '<path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9Z"/>',
     }
     return (
@@ -716,6 +724,16 @@ def page(code: str, t: dict) -> str:
     icon = "icon.svg" if t["dir"] == "." else "../icon.svg"
     h = t["href"]
     star_action, star_note, star_label = STAR_COPY[code]
+    star_singular, star_plural = STAR_UNITS[code]
+
+    def star_count(css_class: str, with_icon: bool = False) -> str:
+        mark = menu_icon("star") if with_icon else ""
+        return (
+            f'<span class="{css_class}" data-star-count data-stars-label="{star_label}" '
+            f'data-star-singular="{star_singular}" data-star-plural="{star_plural}" hidden>'
+            f'{mark}<span data-star-value></span> <span data-star-unit>{star_plural}</span></span>'
+        )
+
     clients_heading, clients_description = CLIENT_COPY[code]
     client_logos = "\n".join(
         f'        <li><a class="client-logo client-logo--{key}" href="{url}" '
@@ -807,7 +825,7 @@ def page(code: str, t: dict) -> str:
       <a href="#tools">{menu_icon("tools")}{t["nav_tools"]}</a>
       <a href="#phone">{menu_icon("phone")}{t["nav_phone"]}</a>
       <a href="#keys">{menu_icon("keys")}{t["nav_keys"]}</a>
-      <a href="https://github.com/auth-com-br/tend">{menu_icon("code")}{t["nav_source"]}<span class="nav-star-count" data-star-count data-stars-label="{star_label}" hidden>{menu_icon("star")}<span data-star-value></span></span></a>
+      <a href="https://github.com/auth-com-br/tend">{menu_icon("github")}GitHub{star_count("nav-star-count", with_icon=True)}</a>
       <span class="langs">{langs}</span>
     </nav>
   </header>
@@ -819,7 +837,7 @@ def page(code: str, t: dict) -> str:
       <p class="deck">{t["hero_sub"]}</p>
       <p class="hero-actions">
         <a class="btn primary" href="#install">{menu_icon("download")}{t["btn_install"]}</a>
-        <a class="btn github-star" href="https://github.com/auth-com-br/tend" target="_blank" rel="noopener noreferrer">{menu_icon("star")}{star_action}<span class="star-count" data-star-count data-stars-label="{star_label}" hidden><span data-star-value></span></span></a>
+        <a class="btn github-star" href="https://github.com/auth-com-br/tend" target="_blank" rel="noopener noreferrer">{menu_icon("github")}{star_action}{star_count("star-count")}</a>
       </p>
       <p class="star-note">{star_note}</p>
       <p class="hero-os">{t["hero_os"]}</p>

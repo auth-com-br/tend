@@ -20,6 +20,7 @@
       try { label = count.toLocaleString(document.documentElement.lang); } catch (e) {}
       for (var i = 0; i < badges.length; i++) {
         badges[i].querySelector("[data-star-value]").textContent = label;
+        badges[i].querySelector("[data-star-unit]").textContent = badges[i].getAttribute(count === 1 ? "data-star-singular" : "data-star-plural");
         badges[i].setAttribute("aria-label", badges[i].getAttribute("data-stars-label") + ": " + label);
         badges[i].hidden = false;
       }
