@@ -60,6 +60,7 @@ nav > a > .icon { width: 0.9rem; height: 0.9rem; opacity: 0.65; }
   padding-left: 0.5rem;
   border-left: 1px solid var(--line);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 .nav-star-count .icon { width: 0.8rem; height: 0.8rem; color: var(--work); }
 
@@ -594,6 +595,7 @@ footer p { width: min(68rem, 100%); margin: 0 auto; }
   margin-left: 0.15rem;
   border-left: 1px solid var(--line);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 /* Explicit display rules must not turn an unavailable count into an empty
    badge. The invitation works even when GitHub or JavaScript is unavailable. */
