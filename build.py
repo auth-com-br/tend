@@ -657,6 +657,25 @@ LANG_JS = """
 BIN_LINUX = "https://github.com/auth-com-br/tend/releases/latest/download/tend-linux-amd64"
 RELEASES = "https://github.com/auth-com-br/tend/releases/latest"
 
+# Keep the customer list shared across locales so a new company cannot appear
+# in one language and disappear when the visitor switches to another.
+CLIENTS = (
+    ("rvx", "RVX Telecom", "https://rvxtelecom.com/", "rvx-telecom.png", 2080, 521),
+    ("uniao", "União Maker", "https://uniaomaker.com.br/", "uniao-maker.svg", 225, 66),
+    ("maestre", "Maestre", "https://maestre.com.br/", "maestre.png", 176, 45),
+    ("jsouza", "JSouza Net", "https://jsouzanet.com.br/", "jsouza-net.svg", 250, 34),
+    ("retro", "Retro Studio", "https://retrostudio.dev/", "retro-studio.svg", 9588, 720),
+    ("tvconnect", "TV Connect USA", "https://tvconnectusa.com/", "tv-connect-usa.webp", 320, 33),
+)
+
+CLIENT_COPY = {
+    "en": ("Who uses tend", "Companies and projects using tend to develop their systems."),
+    "pt": ("Quem já usa o tend", "Empresas e projetos que usam o tend no desenvolvimento de seus sistemas."),
+    "es": ("Quién usa tend", "Empresas y proyectos que usan tend para desarrollar sus sistemas."),
+    "ja": ("tendを使っている企業・プロジェクト", "システム開発にtendを活用している企業とプロジェクト。"),
+    "zh": ("谁在使用 tend", "使用 tend 开发系统的企业和项目。"),
+}
+
 
 def page(code: str, t: dict) -> str:
     css = "site.css" if t["dir"] == "." else "../site.css"
@@ -664,6 +683,14 @@ def page(code: str, t: dict) -> str:
     img = "img/" if t["dir"] == "." else "../img/"
     icon = "icon.svg" if t["dir"] == "." else "../icon.svg"
     h = t["href"]
+    clients_heading, clients_description = CLIENT_COPY[code]
+    client_logos = "\n".join(
+        f'        <li><a class="client-logo client-logo--{key}" href="{url}" '
+        f'target="_blank" rel="noopener noreferrer">'
+        f'<img src="{img}clients/{asset}" alt="{name}" '
+        f'width="{width}" height="{height}" loading="lazy" decoding="async"></a></li>'
+        for key, name, url, asset, width, height in CLIENTS
+    )
 
     def lang_link(key: str, label: str) -> str:
         current = ' aria-current="page"' if key == code else ""
@@ -867,6 +894,14 @@ def page(code: str, t: dict) -> str:
           <p>{t["phone_safe"]}</p>
         </div>
       </div>
+    </section>
+
+    <section id="clients" class="clients" aria-labelledby="clients-heading">
+      <h2 id="clients-heading">{clients_heading}</h2>
+      <p class="clients-description">{clients_description}</p>
+      <ul class="client-logos">
+{client_logos}
+      </ul>
     </section>
 
     <section id="keys">
