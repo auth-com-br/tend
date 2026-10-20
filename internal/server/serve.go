@@ -107,6 +107,9 @@ var Methods = []string{
 	proto.MethodMCPAdd,
 	proto.MethodMCPRemove,
 	proto.MethodPermList,
+	proto.MethodWebStatus,
+	proto.MethodWebStart,
+	proto.MethodWebStop,
 	proto.MethodPermAdd,
 	proto.MethodPermRemove,
 	proto.MethodPermSetDecision,
@@ -394,7 +397,9 @@ func slowRequest(payload []byte) bool {
 	}
 	// The permissions manager's too: a Codex rule written is handed to
 	// `codex execpolicy check`, a process of its own.
-	return strings.HasPrefix(req.Method, "mcp.") || strings.HasPrefix(req.Method, "perm.")
+	// And the phone view's: turning it on starts a process and waits to see
+	// it listen.
+	return strings.HasPrefix(req.Method, "mcp.") || strings.HasPrefix(req.Method, "perm.") || strings.HasPrefix(req.Method, "web.")
 }
 
 func (c *clientConn) handleRequest(payload []byte) error {
@@ -555,6 +560,13 @@ func (c *clientConn) dispatch(req proto.Request) (any, error) {
 			return nil, err
 		}
 		return c.srv.MCPRemove(p), nil
+
+	case proto.MethodWebStatus:
+		return c.srv.WebStatus(), nil
+	case proto.MethodWebStart:
+		return c.srv.WebStart(), nil
+	case proto.MethodWebStop:
+		return c.srv.WebStop(), nil
 
 	case proto.MethodPermList:
 		var p proto.PermListParams

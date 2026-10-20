@@ -80,6 +80,9 @@ const (
 	// MenuAbout opens the about panel (about.go), tend's own: which tend
 	// is running, the server's, who makes it and where it lives.
 	MenuAbout = "menu-about"
+	// MenuPhone opens the phone view panel (phoneview.go): tend web turned
+	// on and off from the menu.
+	MenuPhone = "menu-phone"
 	// MenuMCP opens the MCP manager, and MenuTools the list of every tool
 	// tend has, each said in words with its key: tend's own, so that one
 	// menu leads to everything for somebody who knows none of the keys.
@@ -188,6 +191,7 @@ func GlobalMenu(stale, ready, notes bool, x, y int) Menu {
 		{Label: "MCP servers", Action: MenuMCP},
 		{Label: "agent permissions", Action: MenuPermissions},
 		{Label: "sleep an agent...", Action: MenuSleepPick},
+		{Label: "phone view...", Action: MenuPhone},
 		{Label: "settings", Action: MenuSettings},
 		{Label: "keybinds", Action: MenuKeybinds},
 		{Label: "reload config", Action: MenuReload},

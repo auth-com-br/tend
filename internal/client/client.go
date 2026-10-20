@@ -412,6 +412,17 @@ func (c *Client) PermList(pane uint64, dir string) (proto.PermListResult, error)
 	return out, c.Call(proto.MethodPermList, proto.PermListParams{Pane: pane, Dir: dir}, &out)
 }
 
+// WebStatus, WebStart and WebStop are the phone view (tend web) as the
+// session's server keeps it.
+func (c *Client) WebStatus() (proto.WebStatus, error) { return c.web(proto.MethodWebStatus) }
+func (c *Client) WebStart() (proto.WebStatus, error)  { return c.web(proto.MethodWebStart) }
+func (c *Client) WebStop() (proto.WebStatus, error)   { return c.web(proto.MethodWebStop) }
+
+func (c *Client) web(method string) (proto.WebStatus, error) {
+	var out proto.WebStatus
+	return out, c.Call(method, nil, &out)
+}
+
 // PermWrite is one of the permissions manager's writes: method is
 // perm.add, perm.remove, perm.set_decision, perm.move or perm.set_mode.
 func (c *Client) PermWrite(method string, p proto.PermWriteParams) error {

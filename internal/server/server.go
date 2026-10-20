@@ -261,6 +261,12 @@ type Config struct {
 	Activity *activity.Log
 	// SessionName names this session in that record.
 	SessionName string
+	// WebCommand starts the phone view for this session (tend web -s
+	// name), and WebStateDir is where it and its state files are: on, the
+	// status it writes, its log. Without a command the phone view cannot
+	// be turned on from a client.
+	WebCommand  []string
+	WebStateDir string
 	// ActivityInterval is how often the record is brought up to date. Zero
 	// picks a default.
 	ActivityInterval time.Duration
@@ -366,6 +372,9 @@ type Server struct {
 	permOnce sync.Once
 	perm     *perm.Manager
 	permErr  error
+	// webMu orders turning the phone view on and off (web.go), which
+	// start and stop a process and wait for it; never held with mu.
+	webMu sync.Mutex
 
 	mu       sync.Mutex
 	session  *session.Session
@@ -517,6 +526,8 @@ func (s *Server) startLoops() {
 	// with SleepAfter zero it looks at nothing.
 	s.wg.Add(1)
 	go s.sleepLoop()
+	// The phone view comes back with the server that had it on.
+	go s.webRestore()
 }
 
 // Close stops every pane and ends every subscription.

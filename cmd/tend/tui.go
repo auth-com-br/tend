@@ -287,7 +287,9 @@ type tui struct {
 	// sessions is the sessions list while it is up, and sessionList what
 	// the server last said, which its search filters.
 	// about is the about panel while it is up (tui_version.go).
-	about       *ui.AboutView
+	about *ui.AboutView
+	// phone is the phone view panel (tui_phone.go) while it is up.
+	phone       *ui.PhoneView
 	sessions    *ui.SessionsView
 	sessionList []proto.AgentSessionInfo
 	// companies is the companies panel while it is up; company the one the
@@ -1156,6 +1158,7 @@ func (t *tui) buildFrame() ui.Frame {
 
 		ReleaseNotes: t.notes,
 		About:        t.about,
+		Phone:        t.phone,
 		AgentManager: t.agentMgr,
 		MCPManager:   t.mcpMgr,
 		PermManager:  t.permMgr,
@@ -1365,6 +1368,9 @@ func (t *tui) handleInput(data []byte) error {
 	}
 	if t.aboutUp() {
 		return t.aboutInput(data)
+	}
+	if t.phoneUp() {
+		return t.phoneInput(data)
 	}
 	if t.agentManagerUp() {
 		return t.agentManagerInput(data)

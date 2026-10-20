@@ -148,6 +148,13 @@ const (
 	// MethodPermOpen opens one of the agents' files in one.
 	MethodPermEditors = "perm.editors"
 	MethodPermOpen    = "perm.open"
+	// MethodWebStatus, MethodWebStart and MethodWebStop are the phone view
+	// (tend web) as the session's server keeps it: whether it runs and at
+	// which addresses, and turning it on and off. On is remembered, and a
+	// server started later starts it again.
+	MethodWebStatus = "web.status"
+	MethodWebStart  = "web.start"
+	MethodWebStop   = "web.stop"
 	// MethodDirList lists the folders in a folder on the server's machine,
 	// for picking one with the mouse rather than typing its path: the
 	// folders that matter are where the panes run, which over ssh is not
@@ -304,6 +311,9 @@ var KnownMethods = []string{
 	MethodPermSetMode,
 	MethodPermEditors,
 	MethodPermOpen,
+	MethodWebStatus,
+	MethodWebStart,
+	MethodWebStop,
 }
 
 // ErrUnknownMethod is what a server answers when it has never heard of a
@@ -748,6 +758,18 @@ type PermAgent struct {
 	Warnings  []string   `json:"warnings,omitempty"`
 	Effect    string     `json:"effect,omitempty"`
 	Error     string     `json:"error,omitempty"`
+}
+
+// WebStatus is the phone view's state: On is what was asked for and
+// Running what is; URLs are where a phone reaches it, the token on each;
+// User the login a phone may sign in with instead, when one is set. Error
+// says why turning it on failed: the port taken, say.
+type WebStatus struct {
+	On      bool     `json:"on"`
+	Running bool     `json:"running"`
+	URLs    []string `json:"urls,omitempty"`
+	User    string   `json:"user,omitempty"`
+	Error   string   `json:"error,omitempty"`
 }
 
 // PermListResult is perm.list's answer: the project the pane is in (its

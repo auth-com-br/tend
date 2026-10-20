@@ -251,6 +251,14 @@ func runServe(args []string) error {
 	if srvCfg.SessionName == "" {
 		srvCfg.SessionName = transport.DefaultSessionName
 	}
+	// The phone view, which a client turns on from the menu: this same
+	// tend, run as tend web for this session.
+	if exe, err := os.Executable(); err == nil {
+		if dir, err := transport.StateDir(); err == nil {
+			srvCfg.WebCommand = []string{exe, "web", "-s", srvCfg.SessionName}
+			srvCfg.WebStateDir = dir
+		}
+	}
 	if cfg.RecordActivity() {
 		if dir, err := transport.StateDir(); err == nil {
 			srvCfg.Activity = activity.NewLog(activity.Path(dir))

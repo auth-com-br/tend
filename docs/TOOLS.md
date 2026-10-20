@@ -258,6 +258,11 @@ tend web -set-password    # a login and password, instead of that address
 tend web -new-token       # unpair every phone paired before
 ```
 
+Or from inside tend: **menu → phone view...** turns it on and off, and shows
+the addresses to open on the phone — a click copies one. tend's server starts
+it and keeps it: turned on, it comes back when the server restarts, after a
+reboot or an update, until it is turned off again.
+
 It reaches agents only, with a fixed list of actions — never a shell. It is
 plain HTTP: use it on a network you trust, or through a VPN. `[web] listen`
 sets the address and port (`0.0.0.0:7777`).

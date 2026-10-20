@@ -8,7 +8,6 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -79,8 +78,15 @@ func runWeb(args []string) error {
 	if err != nil {
 		return err
 	}
+	urls := web.URLs(ln.Addr().(*net.TCPAddr), token)
+	// Said where the session's server reads it: the menu's phone view
+	// shows these addresses and stops this process by its pid.
+	statusPath := web.StatusPath(stateDir, session)
+	if err := web.WriteStatus(statusPath, web.Status{Pid: os.Getpid(), Listen: ln.Addr().String(), URLs: urls}); err != nil {
+		fmt.Fprintf(os.Stderr, "%s could not write %s: %v\n", tag(), statusPath, err)
+	}
 	fmt.Fprintf(os.Stderr, "%s session %q on the web — open one of these on the phone (it pairs it):\n", tag(), session)
-	for _, u := range webURLs(ln.Addr().(*net.TCPAddr), token) {
+	for _, u := range urls {
 		fmt.Fprintln(os.Stderr, "  "+u)
 	}
 	if creds, err := web.LoadCredentials(loginPath); err == nil {
@@ -131,46 +137,6 @@ func setWebPassword(path string) error {
 	}
 	fmt.Fprintf(os.Stderr, "%s login %q set: open the page on the phone and sign in. A running tend web takes it at once.\n", tag(), user)
 	return nil
-}
-
-// webURLs are the addresses a phone can reach the page at, the token on
-// each: every address of this machine but the loopback, when listening on
-// all of them.
-func webURLs(addr *net.TCPAddr, token string) []string {
-	port := strconv.Itoa(addr.Port)
-	var hosts []string
-	if addr.IP.IsUnspecified() {
-		ifaces, _ := net.Interfaces()
-		for _, ifc := range ifaces {
-			if ifc.Flags&net.FlagUp == 0 || ifc.Flags&net.FlagLoopback != 0 || virtualInterface(ifc.Name) {
-				continue
-			}
-			addrs, _ := ifc.Addrs()
-			for _, a := range addrs {
-				if ipn, ok := a.(*net.IPNet); ok && ipn.IP.To4() != nil {
-					hosts = append(hosts, ipn.IP.String())
-				}
-			}
-		}
-	} else {
-		hosts = []string{addr.IP.String()}
-	}
-	var out []string
-	for _, h := range hosts {
-		out = append(out, "http://"+net.JoinHostPort(h, port)+"/?t="+token)
-	}
-	return out
-}
-
-// virtualInterface is a network only this machine sits on — Docker's
-// bridges, a virtual machine's — whose address a phone never reaches.
-func virtualInterface(name string) bool {
-	for _, p := range []string{"docker", "br-", "virbr", "veth", "vmnet", "vboxnet", "cni", "flannel", "podman", "incusbr", "lxdbr"} {
-		if strings.HasPrefix(name, p) {
-			return true
-		}
-	}
-	return false
 }
 
 // webSession is the session as the page sees it: a client connection made

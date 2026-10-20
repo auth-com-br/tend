@@ -449,6 +449,9 @@ func (t *tui) runMenu(m ui.Menu, item ui.MenuItem) error {
 	case ui.MenuAbout:
 		t.openAbout()
 		return nil
+	case ui.MenuPhone:
+		t.openPhone()
+		return nil
 	case ui.MenuMCP:
 		return t.openMCPManager()
 	case ui.MenuTools:

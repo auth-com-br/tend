@@ -423,6 +423,8 @@ type Frame struct {
 	ReleaseNotes *ReleaseNotesView
 	// About is the about panel, when it is up (about.go).
 	About *AboutView
+	// Phone is the phone view panel (phoneview.go), when it is up.
+	Phone *PhoneView
 	// AgentManager is the agent manager, when it is up (agentmanager.go).
 	AgentManager *AgentManagerView
 	// MCPManager is the MCP manager, when it is up.
@@ -641,6 +643,9 @@ func Draw(dst *vt.Grid, f Frame, theme Theme) {
 	}
 	if f.About != nil {
 		drawAbout(dst, f.About, theme)
+	}
+	if f.Phone != nil {
+		drawPhone(dst, f.Phone, theme)
 	}
 	if f.AgentManager != nil {
 		drawAgentManager(dst, f.AgentManager, theme)
