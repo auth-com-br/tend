@@ -5,8 +5,13 @@ release's notes on GitHub and what "what's new" shows inside tend.
 
 ## Unreleased
 
+## v0.17.0 — 2026-10-20
+
 #### New
 - **Turn the phone view on from the menu.** **menu → phone view...** starts `tend web` for you and shows the addresses to open on your phone (a click copies one); press it again to turn it off. No terminal kept open, no PM2: tend's server keeps it, and once on it comes back by itself when the server restarts — after a reboot or an update — until you turn it off.
+
+#### Fixed
+- **Agents on macOS.** On a Mac every pane looked like its shell: an agent typed at a prompt never reached the sidebar, the files panel did not follow the pane beside it, and a restored pane started where it was first opened. tend now reads the program in each pane and its folder the way macOS allows, and sleeping agents work there too. Contributed by @CosmoBonf.
 
 #### Removed
 - **`tend gui-bridge` and the desktop app experiment.** The Neutralino window on a session was a proof of concept that is not being taken further; the command that served it is gone with it. Nothing else used it.
