@@ -71,6 +71,7 @@ drag a border, scroll, right-click for a menu.
 | `N` `(` `)` | spaces: new, previous, next |
 | `,` `.` | rename this tab, this space |
 | `a` | show every agent, grouped |
+| `u` | go to the next agent waiting for you |
 | `w` | walk the sidebar from the keyboard |
 | `g` | find any space, tab or pane, and jump |
 | `m` | the menu |

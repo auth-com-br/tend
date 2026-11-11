@@ -86,10 +86,13 @@ func (t *tui) menuFor(x, y int) (ui.Menu, bool) {
 	companies := len(t.snap.Companies)
 	agentAt := t.paneAgentsLocked()
 	asleep := map[uint64]bool{}
+	marked := map[uint64]bool{}
 	for _, p := range t.snap.Panes {
 		asleep[p.ID] = p.Dormant
+		marked[p.ID] = p.Marked
 	}
 	canSleep := t.serverKnows(proto.MethodPaneSleep)
+	canMark := t.serverKnows(proto.MethodPaneMarkUnread)
 	var sel *ui.Selection
 	if t.sel != nil {
 		s := *t.sel
@@ -114,6 +117,9 @@ func (t *tui) menuFor(x, y int) (ui.Menu, bool) {
 			return ui.GroupMenu(row.Group, row.Folded, tildeHome(t.groupDirLocked(row.Group)), companies > 0, x, y), true
 		case ui.SidebarAgent:
 			m := ui.AgentMenu(row.Pane, row.Tab, row.Workspace, x, y)
+			if canMark {
+				m = ui.WithMarkUnread(m, marked[row.Pane])
+			}
 			if canSleep {
 				m = ui.WithSleep(m, asleep[row.Pane])
 			}
@@ -133,6 +139,9 @@ func (t *tui) menuFor(x, y int) (ui.Menu, bool) {
 		// it selected; that copy stands for its selection.
 		selected := (sel != nil && sel.Pane == pane && !sel.Empty()) || programCopy[pane]
 		m := ui.PaneMenu(pane, x, y, panes > 1, agentAt[pane] != "", selected)
+		if agentAt[pane] != "" && canMark {
+			m = ui.WithMarkUnread(m, marked[pane])
+		}
 		if agentAt[pane] != "" && canSleep {
 			m = ui.WithSleep(m, asleep[pane])
 		}
@@ -463,6 +472,18 @@ func (t *tui) runMenu(m ui.Menu, item ui.MenuItem) error {
 		return t.mcpMenuAction(item.Arg)
 	case ui.MenuSleep:
 		go t.sleepAgent(m.Pane)
+		return nil
+	case ui.MenuMarkUnread, ui.MenuMarkRead:
+		unread := item.Action == ui.MenuMarkUnread
+		go func() {
+			if err := t.client.MarkUnread(m.Pane, unread); err != nil {
+				t.setMessage("could not mark it: "+err.Error(), true)
+				return
+			}
+			if unread {
+				t.setMessage("marked unread — it stays in the list until you go to its tab", false)
+			}
+		}()
 		return nil
 	case ui.MenuSleepPick:
 		if !t.serverKnows(proto.MethodPaneSleep) {

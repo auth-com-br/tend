@@ -1598,14 +1598,17 @@ func (t *tui) command(action ui.Action) error {
 		t.mu.Lock()
 		agent := t.paneAgentsLocked()[focus] != ""
 		selected := (t.sel != nil && t.sel.Pane == focus && !t.sel.Empty()) || t.programCopy[focus] != ""
-		asleep := false
+		asleep, marked := false, false
 		for _, p := range t.snap.Panes {
 			if p.ID == focus {
-				asleep = p.Dormant
+				asleep, marked = p.Dormant, p.Marked
 			}
 		}
 		t.mu.Unlock()
 		m := ui.PaneMenu(focus, at.X+2, at.Y+1, len(rects) > 1, agent, selected)
+		if agent && t.serverKnows(proto.MethodPaneMarkUnread) {
+			m = ui.WithMarkUnread(m, marked)
+		}
 		if agent && t.serverKnows(proto.MethodPaneSleep) {
 			m = ui.WithSleep(m, asleep)
 		}
@@ -1832,6 +1835,17 @@ func (t *tui) command(action ui.Action) error {
 
 	case ui.CommandCustom:
 		return t.runCustomCommand(action.Arg)
+
+	case ui.CommandNextPending:
+		machine, next, ok := t.pendingStep(focus)
+		if !ok {
+			t.setMessage("no agent is waiting for you", false)
+			return nil
+		}
+		if machine != "" {
+			return t.switchMachine(machine, 0, next)
+		}
+		return t.jumpToPane(next)
 
 	case ui.CommandOpenNotification:
 		t.mu.Lock()

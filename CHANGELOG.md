@@ -6,6 +6,7 @@ release's notes on GitHub and what "what's new" shows inside tend.
 ## Unreleased
 
 #### New
+- **What waits for you, in order.** `ctrl+b u` goes to the next agent waiting for you — a blocked one first, then those that finished while you looked elsewhere, the one waiting longest first — and pressing it again goes to the next. Right-click an agent and **mark unread** to come back to it later: the mark stays while you look around, even on the agent on screen, and goes when you come to its tab. And when an agent stops to ask you something, its notification now says what it asks ("Bash command: npm test — Do you want to proceed?") and where, not only that it needs attention.
 - **A company remembers where you were in it.** Going back to a company used to put you on its first space every time. Now it takes you to the space you were last in there — also after tend is closed and opened again. A space since closed, or taken out of the company, is not gone back to.
 
 ## v0.17.0 — 2026-10-20

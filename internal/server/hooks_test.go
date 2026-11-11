@@ -7,6 +7,7 @@ import (
 
 	"github.com/auth-com-br/tend/internal/agent"
 	"github.com/auth-com-br/tend/internal/detect"
+	"github.com/auth-com-br/tend/internal/proto"
 	"github.com/auth-com-br/tend/internal/session"
 )
 
@@ -173,5 +174,59 @@ func TestAnAgentThatFinishesWhileTheWindowIsAwayIsDone(t *testing.T) {
 	s.WindowFocus(true)
 	if done() {
 		t.Error("the window coming back should see it")
+	}
+}
+
+// TestAnAgentMarkedUnreadSticksWhileItsTabIsOnScreen: marking unread the agent
+// on screen is done (pane.mark_unread); moving focus within its tab and the
+// window coming back leave the mark, and the snapshot shows the idle agent as
+// done; going to another tab and back clears it. If it regresses, marking the
+// agent in view undoes itself at the next keystroke, which is exactly the
+// case herdr's users described.
+func TestAnAgentMarkedUnreadSticksWhileItsTabIsOnScreen(t *testing.T) {
+	s := newServer(t)
+	ws, _ := s.NewWorkspace("main")
+	_, agentPane, err := s.NewTab(ws, "agent", shell("sleep 30"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	beside, err := s.SplitPane(agentPane, session.Columns, shell("sleep 30"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, other, err := s.NewTab(ws, "other", shell("sleep 30"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.ReportAgent(agentPane, agent.Report{Source: "h", Agent: "claude", State: detect.StateIdle, Seq: u64(1)}); err != nil {
+		t.Fatal(err)
+	}
+	s.FocusPane(agentPane, 0)
+	info := func() proto.PaneInfo {
+		for _, p := range s.snapshot().Panes {
+			if p.ID == uint64(agentPane) {
+				return p
+			}
+		}
+		return proto.PaneInfo{}
+	}
+
+	if err := s.MarkUnread(agentPane, true); err != nil {
+		t.Fatal(err)
+	}
+	if p := info(); !p.Marked || !p.Done {
+		t.Fatalf("marked unread and idle: marked=%v done=%v, want both", p.Marked, p.Done)
+	}
+	s.FocusPane(beside, agentPane)
+	s.FocusPane(agentPane, beside)
+	s.WindowFocus(false)
+	s.WindowFocus(true)
+	if !info().Marked {
+		t.Fatal("focus moving within its tab, or the window coming back, should leave the mark")
+	}
+	s.FocusPane(other, agentPane)
+	s.FocusPane(agentPane, other)
+	if info().Marked {
+		t.Error("arriving at its tab from another should clear the mark")
 	}
 }

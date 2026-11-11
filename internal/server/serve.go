@@ -59,6 +59,7 @@ var Methods = []string{
 	proto.MethodPaneSleep,
 	proto.MethodPaneWake,
 	proto.MethodPaneRename,
+	proto.MethodPaneMarkUnread,
 	proto.MethodPaneEditScrollback,
 	proto.MethodPaneGraphics,
 	proto.MethodPaneSwap,
@@ -878,6 +879,13 @@ func (c *clientConn) dispatch(req proto.Request) (any, error) {
 		pane, err := c.srv.RunCommand(session.PaneID(p.Pane), p.Type, p.Command, p.Width, p.Height)
 		return proto.CommandRunResult{Pane: uint64(pane)}, err
 
+	case proto.MethodPaneMarkUnread:
+		var p proto.PaneMarkUnreadParams
+		if err := decodeParams(req.Params, &p); err != nil {
+			return nil, err
+		}
+		return nil, c.srv.MarkUnread(session.PaneID(p.Pane), p.Unread)
+
 	case proto.MethodPaneRename:
 		var p proto.PaneRenameParams
 		if err := decodeParams(req.Params, &p); err != nil {
@@ -1117,8 +1125,9 @@ func (s *Server) snapshot() proto.SessionSnapshot {
 						Named:    p.Named,
 						Agent:    p.Agent,
 						State:    p.State.String(),
-						Done:     p.Unseen && p.State == detect.StateIdle,
+						Done:     (p.Unseen || p.Marked) && p.State == detect.StateIdle,
 						StateSeq: p.StateSeq,
+						Marked:   p.Marked,
 						Command:  p.Command,
 						Dir:      p.Dir,
 					})

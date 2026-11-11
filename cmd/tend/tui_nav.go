@@ -344,6 +344,77 @@ func (t *tui) agentStep(focus uint64, step int) (string, uint64) {
 	return next.machine, next.pane
 }
 
+// pendingAgent is an agent as the queue of what waits for the user sees it.
+type pendingAgent struct {
+	machine string
+	pane    uint64
+	// rank is 0 for blocked, 1 for finished unseen or marked unread; an
+	// agent that waits for nothing is not in the queue.
+	rank int
+	seq  uint64
+}
+
+// pendingRank places an agent in the queue: blocked first, then finished
+// unseen or marked unread by hand (whatever it is doing now), and -1 for one
+// that waits for nothing.
+func pendingRank(p proto.PaneInfo) int {
+	switch {
+	case !p.Running || p.Dormant:
+		return -1
+	case p.State == "blocked":
+		return 0
+	case p.Done || p.Marked:
+		return 1
+	}
+	return -1
+}
+
+// nextPending picks, from the agents waiting for the user, the one to go to
+// next: the blocked before the rest, the one that has waited longest first
+// within each, never the pane already in view.
+func nextPending(agents []pendingAgent, focusMachine string, focus uint64) (pendingAgent, bool) {
+	var queue []pendingAgent
+	for _, a := range agents {
+		if a.rank >= 0 && !(a.machine == focusMachine && a.pane == focus) {
+			queue = append(queue, a)
+		}
+	}
+	if len(queue) == 0 {
+		return pendingAgent{}, false
+	}
+	sort.SliceStable(queue, func(i, j int) bool {
+		if queue[i].rank != queue[j].rank {
+			return queue[i].rank < queue[j].rank
+		}
+		return queue[i].seq < queue[j].seq
+	})
+	return queue[0], true
+}
+
+// pendingStep is CommandNextPending's target, over every machine the list
+// shows.
+func (t *tui) pendingStep(focus uint64) (string, uint64, bool) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	var agents []pendingAgent
+	for _, row := range t.agentRowsLocked() {
+		if row.Kind != ui.SidebarAgent || row.Stale {
+			continue
+		}
+		snap := t.snapOfLocked(row.Machine)
+		if snap == nil {
+			continue
+		}
+		for _, p := range snap.Panes {
+			if p.ID == row.Pane {
+				agents = append(agents, pendingAgent{machine: row.Machine, pane: row.Pane, rank: pendingRank(p), seq: p.StateSeq})
+			}
+		}
+	}
+	next, ok := nextPending(agents, "", focus)
+	return next.machine, next.pane, ok
+}
+
 // jumpToPane shows whichever workspace and tab hold a pane, and focuses it.
 //
 // This is what the agent list is for: the point of seeing every agent at once

@@ -170,6 +170,10 @@ const (
 	MethodPaneWake  = "pane.wake"
 	// MethodPaneRename gives a pane a name that its program cannot overwrite.
 	MethodPaneRename = "pane.rename"
+	// MethodPaneMarkUnread marks a pane's agent unread by hand, or takes the
+	// mark off: a reminder to come back to it that looking around does not
+	// clear, only arriving at its tab (PaneInfo.Marked).
+	MethodPaneMarkUnread = "pane.mark_unread"
 	// MethodPaneEditScrollback opens a pane's history in an editor, in a pane
 	// of its own.
 	MethodPaneEditScrollback = "pane.edit_scrollback"
@@ -255,6 +259,7 @@ var KnownMethods = []string{
 	MethodPaneSleep,
 	MethodPaneWake,
 	MethodPaneRename,
+	MethodPaneMarkUnread,
 	MethodPaneEditScrollback,
 	MethodPanePaste,
 	MethodPaneGraphics,
@@ -407,6 +412,9 @@ const (
 	// FeatureGroups: the snapshot lists the groups of spaces
 	// (SessionSnapshot.Groups), the empty ones too.
 	FeatureGroups = "groups"
+	// FeatureMarkUnread: panes say whether their agent was marked unread by
+	// hand (PaneInfo.Marked), and pane.mark_unread sets it.
+	FeatureMarkUnread = "mark-unread"
 )
 
 // KnownFeatures is every feature this build knows of, for the same reason
@@ -416,7 +424,7 @@ var KnownFeatures = []string{
 	FeatureLifecycle, FeatureWindowTitle, FeatureTabBarStatus, FeatureDone, FeatureWindowFocus,
 	FeatureFocusRequest, FeatureAgentView, FeatureServerShell, FeaturePopup, FeatureUpdate,
 	FeatureDockUnless, FeatureContext, FeatureContextArrived, FeatureFollowCwd, FeatureGitHubFolders,
-	FeatureGroups, FeatureWheelKeys, FeatureDormant,
+	FeatureGroups, FeatureWheelKeys, FeatureDormant, FeatureMarkUnread,
 }
 
 // --- session ---------------------------------------------------------------
@@ -433,6 +441,9 @@ type PaneInfo struct {
 	// last changed.
 	Done     bool   `json:"done,omitempty"`
 	StateSeq uint64 `json:"state_seq,omitempty"`
+	// Marked is an agent marked unread by hand, whatever it is doing; while
+	// it is idle it is Done as well, so a list that knows only Done shows it.
+	Marked bool `json:"marked,omitempty"`
 
 	Running bool `json:"running"`
 	Pid     int  `json:"pid,omitempty"`
@@ -1376,6 +1387,12 @@ type PaneResizeParams struct {
 	Pane uint64 `json:"pane"`
 	Cols int    `json:"cols"`
 	Rows int    `json:"rows"`
+}
+
+// PaneMarkUnreadParams marks a pane's agent unread, or takes the mark off.
+type PaneMarkUnreadParams struct {
+	Pane   uint64 `json:"pane"`
+	Unread bool   `json:"unread"`
 }
 
 // PaneRenameParams names a pane.

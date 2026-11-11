@@ -84,6 +84,11 @@ const (
 	// about, herdr's open_notification_target. Unbound by default, as in
 	// herdr; keys.bind gives it a key.
 	CommandOpenNotification
+	// CommandNextPending goes to the next agent waiting for the user: the
+	// blocked first, then the finished unseen and those marked unread, the
+	// longest waiting first in each — a queue to work through, where
+	// CommandNextAgent walks the list in its order.
+	CommandNextPending
 	// CommandFiles opens the file explorer docked on the left of the tab, goes
 	// to it when it is open, and closes it when it is where the focus is.
 	CommandFiles
@@ -217,6 +222,8 @@ func (c Command) String() string {
 		return "next-agent"
 	case CommandOpenNotification:
 		return "open-notification"
+	case CommandNextPending:
+		return "next-pending"
 	case CommandLiteralPrefix:
 		return "literal-prefix"
 	case CommandFiles:
@@ -265,6 +272,7 @@ var Keys = []struct {
 	{"⇧tab", CommandFocusPrev, "focus previous"},
 	{";", CommandLastPane, "last pane"},
 	{"< >", CommandNextAgent, "previous / next agent"},
+	{"u", CommandNextPending, "next agent waiting for you"},
 	{"x", CommandClosePane, "close pane"},
 	{"z", CommandZoom, "zoom pane"},
 	{"[", CommandScroll, "copy mode"},
@@ -360,6 +368,7 @@ func DefaultBindings() map[string]Command {
 		";":         CommandLastPane,
 		"<":         CommandPrevAgent,
 		">":         CommandNextAgent,
+		"u":         CommandNextPending,
 		"x":         CommandClosePane,
 		"z":         CommandZoom,
 		"[":         CommandScroll,

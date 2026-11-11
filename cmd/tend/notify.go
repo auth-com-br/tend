@@ -97,7 +97,23 @@ func (t *tui) announceFrom(e *endpoint, ev proto.Event) {
 	t.mu.Unlock()
 	switch kind {
 	case announceBlocked:
-		t.raiseOn(machine, ui.ToastAttention, agent+" needs attention", where, ev.Pane, t.soundFor(agent, notify.SoundRequest))
+		if e != nil {
+			t.raiseOn(machine, ui.ToastAttention, agent+" needs attention", where, ev.Pane, t.soundFor(agent, notify.SoundRequest))
+			return
+		}
+		// Say what it asks, read from its screen — on a goroutine of its own,
+		// since that is a call to the server and this is the goroutine its
+		// events arrive on. Where it is moves to the title; without a
+		// question to quote, the notice is as it always was.
+		go func() {
+			title, body := agent+" needs attention", where
+			if screen, err := t.client.PaneScreen(ev.Pane); err == nil {
+				if asks := ui.AgentAsks(screen.Text); asks != "" {
+					title, body = agent+" needs attention · "+where, asks
+				}
+			}
+			t.raiseOn(machine, ui.ToastAttention, title, body, ev.Pane, t.soundFor(agent, notify.SoundRequest))
+		}()
 	case announceFinished:
 		t.raiseOn(machine, ui.ToastFinished, agent+" finished", where, ev.Pane, t.soundFor(agent, notify.SoundDone))
 	}

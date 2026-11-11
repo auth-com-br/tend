@@ -46,8 +46,17 @@ func (s *Server) FocusPane(gained, lost session.PaneID) {
 	wsChanged := workspace != 0 && workspace != s.focusedWorkspace
 	paneChanged := gained != s.focusedPane
 	s.focusedPane, s.focusedTab, s.focusedWorkspace = gained, tab, workspace
-	// Looking at a tab is seeing what finished in it (herdr's switch_tab).
-	seen := tab != 0 && s.session.MarkTabSeen(tab)
+	// Looking at a tab is seeing what finished in it (herdr's switch_tab);
+	// arriving at it from another is seeing what was marked unread by hand
+	// too — focus moving within the tab is not, or marking the agent on
+	// screen would undo itself at the next keystroke.
+	var seen bool
+	switch {
+	case tab != 0 && tabChanged:
+		seen = s.session.MarkTabArrived(tab)
+	case tab != 0:
+		seen = s.session.MarkTabSeen(tab)
+	}
 	s.mu.Unlock()
 
 	if seen {

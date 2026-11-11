@@ -83,6 +83,22 @@ seen it and said yes.
 To start one in a group's folder, right-click the group and choose **new
 agent here...**.
 
+### What waits for you
+
+An agent that finishes while you are looking elsewhere is marked ✓ — finished
+and unseen — until you go to its tab.
+
+- `ctrl+b u` goes to the **next agent waiting for you**: a blocked one first,
+  then the finished and unseen, the one waiting longest first. Press it again
+  for the next.
+- Glanced at one and want to come back to it later? Right-click its pane or
+  its line in the list and choose **mark unread**. The mark stays while you
+  look around — even on the agent on screen — and goes when you come to its
+  tab from another (or with **mark read**).
+- When an agent stops to ask you something, its notification says what it
+  asks — "Bash command: npm test — Do you want to proceed?" — and where, so
+  you know which one can wait.
+
 ## Sleeping agents
 
 After a restart, agents come back **asleep**: each pane is there, with the

@@ -67,6 +67,13 @@ type Pane struct {
 	// thing a list of idle agents cannot otherwise tell apart. It clears when
 	// the tab is looked at or the agent starts again.
 	Unseen bool
+	// Marked is an agent the user marked unread by hand, to come back to it:
+	// shown as Unseen is, but it sticks — the agent working again, the window
+	// getting focus back, or focus moving within its tab does not clear it,
+	// which is what made a glance at an agent lose it from the list. Arriving
+	// at its tab from another does (MarkTabArrived), as herdr's users asked
+	// for it (herdr discussion #864).
+	Marked bool
 	// StateSeq orders the panes by when their state last changed, for a list
 	// that puts the most recent first.
 	StateSeq uint64
@@ -576,8 +583,38 @@ func (s *Session) SetPaneStateWatched(id PaneID, agent string, state detect.Stat
 	return nil
 }
 
+// SetMarked marks a pane's agent unread by hand, or takes the mark off.
+func (s *Session) SetMarked(id PaneID, marked bool) error {
+	p, ok := s.Pane(id)
+	if !ok {
+		return fmt.Errorf("%w: %d", ErrNoSuchPane, id)
+	}
+	p.Marked = marked
+	return nil
+}
+
+// MarkTabArrived is looking at a tab one has just come to from another: what
+// finished in it is seen, and what was marked unread by hand is too.
+func (s *Session) MarkTabArrived(id TabID) bool {
+	changed := s.MarkTabSeen(id)
+	for _, w := range s.workspaces {
+		for _, t := range w.tabs {
+			if t.ID != id {
+				continue
+			}
+			for _, p := range t.panes {
+				if p.Marked {
+					p.Marked = false
+					changed = true
+				}
+			}
+		}
+	}
+	return changed
+}
+
 // MarkTabSeen marks every agent in a tab seen, as looking at the tab does,
-// and reports whether any was not.
+// and reports whether any was not. A mark made by hand stays (Marked).
 func (s *Session) MarkTabSeen(id TabID) bool {
 	changed := false
 	for _, w := range s.workspaces {

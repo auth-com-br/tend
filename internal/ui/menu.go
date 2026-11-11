@@ -101,6 +101,11 @@ const (
 	// conversation kept — and MenuWake brings it back.
 	MenuSleep = "menu-sleep"
 	MenuWake  = "menu-wake"
+	// MenuMarkUnread marks the pane's agent unread by hand, a reminder to
+	// come back to it that looking around does not clear; MenuMarkRead takes
+	// the mark off.
+	MenuMarkUnread = "menu-mark-unread"
+	MenuMarkRead   = "menu-mark-read"
 	// MenuSleepPick lists the agents that are awake, to put one to sleep
 	// (MenuSleepOne, Arg its pane) or every idle one (MenuSleepIdle).
 	MenuSleepPick = "menu-sleep-pick"
@@ -380,6 +385,25 @@ func WithSleep(m Menu, asleep bool) Menu {
 	item := MenuItem{Label: "sleep (free its memory)", Action: MenuSleep}
 	if asleep {
 		item = MenuItem{Label: "wake the agent", Action: MenuWake}
+	}
+	at := len(m.Items)
+	for i, it := range m.Items {
+		if it.Action == MenuClose {
+			at = i
+		}
+	}
+	items := append([]MenuItem(nil), m.Items[:at]...)
+	items = append(items, item)
+	m.Items = append(items, m.Items[at:]...)
+	return m
+}
+
+// WithMarkUnread adds to a pane's or an agent's menu marking its agent unread
+// — or, when it is marked, read. Like WithSleep, it goes before "close pane".
+func WithMarkUnread(m Menu, marked bool) Menu {
+	item := MenuItem{Label: "mark unread", Action: MenuMarkUnread}
+	if marked {
+		item = MenuItem{Label: "mark read", Action: MenuMarkRead}
 	}
 	at := len(m.Items)
 	for i, it := range m.Items {

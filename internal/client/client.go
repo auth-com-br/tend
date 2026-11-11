@@ -627,6 +627,11 @@ func (c *Client) RunCommand(pane uint64, kind, command string, size ...string) (
 }
 
 // RenamePane gives a pane a name of its own.
+// MarkUnread marks a pane's agent unread by hand, or takes the mark off.
+func (c *Client) MarkUnread(pane uint64, unread bool) error {
+	return c.Call(proto.MethodPaneMarkUnread, proto.PaneMarkUnreadParams{Pane: pane, Unread: unread}, nil)
+}
+
 func (c *Client) RenamePane(pane uint64, name string) error {
 	return c.Call(proto.MethodPaneRename, proto.PaneRenameParams{Pane: pane, Name: name}, nil)
 }
