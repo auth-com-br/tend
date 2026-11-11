@@ -298,6 +298,10 @@ type tui struct {
 	companies     *ui.CompaniesView
 	company       uint64
 	companyLoaded bool
+	// companySpace is the space last shown in each company (zero for every
+	// space), so going back to a company lands where it was left rather
+	// than on its first space; kept on disk beside the company chosen.
+	companySpace map[uint64]uint64
 	// issues is the GitHub issues panel while it is up; issueState what
 	// the client keeps for it between frames (tui_issues.go).
 	issues     *ui.IssuesView

@@ -5,6 +5,9 @@ release's notes on GitHub and what "what's new" shows inside tend.
 
 ## Unreleased
 
+#### New
+- **A company remembers where you were in it.** Going back to a company used to put you on its first space every time. Now it takes you to the space you were last in there — also after tend is closed and opened again. A space since closed, or taken out of the company, is not gone back to.
+
 ## v0.17.0 — 2026-10-20
 
 #### New

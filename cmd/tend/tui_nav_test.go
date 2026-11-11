@@ -132,3 +132,64 @@ func TestACompanyChosenStillSaysWhoIsWaiting(t *testing.T) {
 		t.Errorf("with every space shown nothing is elsewhere, got %d", n)
 	}
 }
+
+// TestGoingBackToACompanyLandsOnTheSpaceLeftInIt: leaving a company notes
+// the space shown in it, and choosing it again goes back there rather than
+// to its first space — also after tend is opened again, since the notes are
+// kept on disk. A space since deleted, or taken out of the company, is not
+// gone back to. If it regresses, every return to a company puts the cursor
+// on its first space and the user has to find their place again.
+func TestGoingBackToACompanyLandsOnTheSpaceLeftInIt(t *testing.T) {
+	t.Setenv("TEND_RUNTIME_DIR", t.TempDir())
+	newTUI := func() *tui {
+		tu := &tui{config: config.Defaults(), session: "work"}
+		tu.snap = proto.SessionSnapshot{
+			Workspaces: []proto.WorkspaceInfo{{ID: 1, Name: "acme-api"}, {ID: 2, Name: "globex-site"}, {ID: 3, Name: "acme-web"}},
+			Companies:  []proto.CompanyInfo{{ID: 7, Name: "Acme", Workspaces: []uint64{1, 3}}, {ID: 9, Name: "Globex", Workspaces: []uint64{2}}},
+		}
+		tu.syncCompaniesLocked()
+		return tu
+	}
+	// choose is chooseCompany without the server round trip it ends with.
+	choose := func(tu *tui, id uint64) {
+		tu.rememberCompanySpaceLocked()
+		tu.company = id
+		if ws := tu.landingSpaceLocked(); ws != 0 {
+			tu.workspace = ws
+		}
+	}
+
+	tu := newTUI()
+	choose(tu, 7)
+	if tu.workspace != 1 {
+		t.Fatalf("first time in Acme: space %d, want its first, 1", tu.workspace)
+	}
+	tu.workspace = 3 // the user goes to acme-web
+	choose(tu, 9)
+	if tu.workspace != 2 {
+		t.Fatalf("in Globex: space %d, want 2", tu.workspace)
+	}
+	choose(tu, 7)
+	if tu.workspace != 3 {
+		t.Errorf("back in Acme: space %d, want 3, where it was left", tu.workspace)
+	}
+
+	// Kept on disk: a client opened later goes back to it too.
+	tu.workspace = 3
+	choose(tu, 9)
+	again := newTUI()
+	again.company, again.workspace = 9, 2
+	choose(again, 7)
+	if again.workspace != 3 {
+		t.Errorf("after reopening, back in Acme: space %d, want 3", again.workspace)
+	}
+
+	// Taken out of the company: its first space, as before.
+	again.workspace = 2
+	again.company = 9
+	again.snap.Companies[0].Workspaces = []uint64{1}
+	choose(again, 7)
+	if again.workspace != 1 {
+		t.Errorf("the space left was taken out of Acme: space %d, want 1", again.workspace)
+	}
+}

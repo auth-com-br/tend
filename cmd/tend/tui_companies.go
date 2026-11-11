@@ -61,6 +61,91 @@ func saveCompany(session string, id uint64) {
 	_ = os.WriteFile(path, []byte(strconv.FormatUint(id, 10)+"\n"), 0o600)
 }
 
+// companySpacesFile is where this client keeps the space last shown in
+// each company of a session: one "company space" pair a line.
+func companySpacesFile(session string) string {
+	dir, err := transport.StateDir()
+	if err != nil || session == "" {
+		return ""
+	}
+	return filepath.Join(dir, "company-spaces-"+session)
+}
+
+func loadCompanySpaces(session string) map[uint64]uint64 {
+	out := make(map[uint64]uint64)
+	path := companySpacesFile(session)
+	if path == "" {
+		return out
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return out
+	}
+	for _, line := range strings.Split(string(data), "\n") {
+		f := strings.Fields(line)
+		if len(f) != 2 {
+			continue
+		}
+		c, err1 := strconv.ParseUint(f[0], 10, 64)
+		w, err2 := strconv.ParseUint(f[1], 10, 64)
+		if err1 == nil && err2 == nil && w != 0 {
+			out[c] = w
+		}
+	}
+	return out
+}
+
+// saveCompanySpaces writes the spaces down; as with the company chosen, a
+// failure is not worth telling the user about.
+func saveCompanySpaces(session string, spaces map[uint64]uint64) {
+	path := companySpacesFile(session)
+	if path == "" {
+		return
+	}
+	ids := make([]uint64, 0, len(spaces))
+	for c := range spaces {
+		ids = append(ids, c)
+	}
+	slices.Sort(ids)
+	var b strings.Builder
+	for _, c := range ids {
+		b.WriteString(strconv.FormatUint(c, 10) + " " + strconv.FormatUint(spaces[c], 10) + "\n")
+	}
+	_ = os.MkdirAll(filepath.Dir(path), 0o700)
+	_ = os.WriteFile(path, []byte(b.String()), 0o600)
+}
+
+// rememberCompanySpaceLocked notes the space being shown as the one to come
+// back to in the company chosen, before the company changes.
+func (t *tui) rememberCompanySpaceLocked() {
+	if t.workspace == 0 || !t.shownLocked(t.workspace) {
+		return
+	}
+	if t.companySpace == nil {
+		t.companySpace = make(map[uint64]uint64)
+	}
+	if t.companySpace[t.company] == t.workspace {
+		return
+	}
+	t.companySpace[t.company] = t.workspace
+	saveCompanySpaces(t.session, t.companySpace)
+}
+
+// rememberedSpaceLocked is the space last shown in the company chosen, when
+// it still exists and is still in the company; zero otherwise.
+func (t *tui) rememberedSpaceLocked() uint64 {
+	ws := t.companySpace[t.company]
+	if ws == 0 || !t.shownLocked(ws) {
+		return 0
+	}
+	for _, w := range t.snap.Workspaces {
+		if w.ID == ws {
+			return ws
+		}
+	}
+	return 0
+}
+
 // companyLocked is the company chosen, when it still exists.
 func (t *tui) companyLocked() (proto.CompanyInfo, bool) {
 	if t.company == 0 {
@@ -88,6 +173,7 @@ func (t *tui) shownLocked(ws uint64) bool {
 func (t *tui) syncCompaniesLocked() {
 	if !t.companyLoaded {
 		t.company, t.companyLoaded = loadCompany(t.session), true
+		t.companySpace = loadCompanySpaces(t.session)
 	}
 	if _, ok := t.companyLocked(); !ok && t.company != 0 && len(t.snap.Workspaces) > 0 {
 		// Only once there is a session to judge by: an empty snapshot
@@ -113,29 +199,44 @@ func (t *tui) revealCompanyLocked(ws uint64) {
 			break
 		}
 	}
+	t.rememberCompanySpaceLocked()
 	t.company = next
 	saveCompany(t.session, next)
 }
 
+// landingSpaceLocked is where choosing the company chosen goes, zero to
+// stay: the space last shown in it, so going back to a company lands where it
+// was left; else, when the space being shown is not in it, its first space in
+// the session's order, which is the order the list shows.
+func (t *tui) landingSpaceLocked() uint64 {
+	if ws := t.rememberedSpaceLocked(); ws != 0 {
+		if ws == t.workspace {
+			return 0
+		}
+		return ws
+	}
+	if t.shownLocked(t.workspace) {
+		return 0
+	}
+	c, _ := t.companyLocked()
+	for _, w := range t.snap.Workspaces {
+		if slices.Contains(c.Workspaces, w.ID) {
+			return w.ID
+		}
+	}
+	return 0
+}
+
 // chooseCompany shows a company's spaces, or every space for zero, and goes
-// to one of them when the space being shown is not.
+// to the space last shown in it, or to one of them when the space being shown
+// is not.
 func (t *tui) chooseCompany(id uint64) error {
 	t.mu.Lock()
+	t.rememberCompanySpaceLocked()
 	t.company = id
 	saveCompany(t.session, id)
 	t.spacesScroll, t.agentsScroll = 0, 0
-	move := uint64(0)
-	if !t.shownLocked(t.workspace) {
-		c, _ := t.companyLocked()
-		// The company's first space in the session's order, which is the
-		// order the list shows.
-		for _, w := range t.snap.Workspaces {
-			if slices.Contains(c.Workspaces, w.ID) {
-				move = w.ID
-				break
-			}
-		}
-	}
+	move := t.landingSpaceLocked()
 	if move != 0 {
 		t.rememberFocusLocked()
 		t.workspace, t.tab, t.focus, t.zoom = move, 0, 0, false

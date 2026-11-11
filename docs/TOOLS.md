@@ -231,7 +231,8 @@ companies: make one for each company you work for, tick which spaces it
 holds, and choose it — the sidebar then lists that company's spaces and their
 agents only, and a space you make goes into it. "all spaces" brings the rest
 back; a `!` beside the mark says an agent in a hidden space is waiting.
-Choosing one changes only what you see: every space keeps running.
+Choosing one changes only what you see: every space keeps running. Going back
+to a company takes you to the space you were last in there, not to its first.
 
 Spaces can be kept in named groups (**new group...** on a space's menu). A
 group stays until you delete it, can have a folder its new spaces start in,
