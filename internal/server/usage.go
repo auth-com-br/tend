@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/auth-com-br/tend/internal/proto"
+	"github.com/auth-com-br/tend/internal/session"
 	"github.com/auth-com-br/tend/internal/usage"
 )
 
@@ -49,10 +50,24 @@ func (s *Server) followSpending(r *recorder, a seenAgent, run *openRun) {
 	}
 	u := spendingOf(live, s.cfg.Prices)
 	notices := run.warnings(u)
+	if l := u.Limit; l != nil && l.Reached && l.Resets > 0 && l.Resets != run.handled {
+		run.resets = l.Resets
+	}
 
 	a.rt.mu.Lock()
+	u.ResumeArmed = a.rt.resumeArmed
 	changed := !reflect.DeepEqual(a.rt.spending, u)
 	a.rt.spending = u
+	resume := false
+	if run.resets > 0 && time.Now().Unix() >= run.resets {
+		run.handled, run.resets = run.resets, 0
+		resume, a.rt.resumeArmed = a.rt.resumeArmed, false
+		notices = append(notices, s.limitReset(a.id, resume))
+		if resume {
+			u.ResumeArmed = false
+			changed = true
+		}
+	}
 	a.rt.mu.Unlock()
 	if changed {
 		s.publish(Event{Kind: EventPaneState, Pane: a.id})
@@ -64,6 +79,43 @@ func (s *Server) followSpending(r *recorder, a seenAgent, run *openRun) {
 	for _, n := range notices {
 		s.publish(Event{Kind: EventNotify, Pane: a.id, Title: a.agent + " " + n, Body: where})
 	}
+}
+
+// resumePrompt is what an agent is told when the limit that stopped it
+// resets: the words Claude Code sends itself when it continues on its own
+// after a reset (read in its binary, 2.1.322), which Codex, the agent that
+// does not, is given here.
+const resumePrompt = "Usage limit reset. Continue the task you were working on when the limit was reached; do not repeat work that is already complete."
+
+// limitReset tells the agent to continue, when that was asked for, and says
+// how the notice ends. The caller holds the pane's lock, so the prompt goes
+// on a goroutine of its own: Submit waits before its Enter.
+func (s *Server) limitReset(id session.PaneID, resume bool) string {
+	if !resume {
+		return "usage limit has reset · it waits for you"
+	}
+	go func() { _ = s.Submit(id, resumePrompt) }()
+	return "usage limit has reset · told it to continue"
+}
+
+// ResumeAfterLimit arms, or disarms, telling a pane's agent to continue when
+// the usage limit that stopped it resets. Kept by the running server only:
+// a restart forgets it, as it forgets the agent.
+func (s *Server) ResumeAfterLimit(id session.PaneID, on bool) error {
+	rt, err := s.runtime(id)
+	if err != nil {
+		return err
+	}
+	rt.mu.Lock()
+	rt.resumeArmed = on
+	if rt.spending != nil {
+		u := *rt.spending
+		u.ResumeArmed = on
+		rt.spending = &u
+	}
+	rt.mu.Unlock()
+	s.publish(Event{Kind: EventPaneState, Pane: id})
+	return nil
 }
 
 // clearSpending forgets what a pane's agent spent, once it is gone.

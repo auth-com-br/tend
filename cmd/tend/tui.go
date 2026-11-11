@@ -1599,15 +1599,19 @@ func (t *tui) command(action ui.Action) error {
 		agent := t.paneAgentsLocked()[focus] != ""
 		selected := (t.sel != nil && t.sel.Pane == focus && !t.sel.Empty()) || t.programCopy[focus] != ""
 		asleep, marked := false, false
+		var limited *proto.PaneUsage
 		for _, p := range t.snap.Panes {
 			if p.ID == focus {
-				asleep, marked = p.Dormant, p.Marked
+				asleep, marked, limited = p.Dormant, p.Marked, limitedUsage(p)
 			}
 		}
 		t.mu.Unlock()
 		m := ui.PaneMenu(focus, at.X+2, at.Y+1, len(rects) > 1, agent, selected)
 		if agent && t.serverKnows(proto.MethodPaneMarkUnread) {
 			m = ui.WithMarkUnread(m, marked)
+		}
+		if agent && limited != nil && t.serverKnows(proto.MethodPaneResumeAfterLimit) {
+			m = ui.WithResumeAfterLimit(m, limited.ResumeArmed)
 		}
 		if agent && t.serverKnows(proto.MethodPaneSleep) {
 			m = ui.WithSleep(m, asleep)

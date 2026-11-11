@@ -51,8 +51,10 @@ type paneRuntime struct {
 	// spending is what the agent's conversation has spent, kept up to
 	// date by the activity recorder (usage.go); nil with no agent.
 	spending *proto.PaneUsage
-	dirty    bool
-	title    string
+	// resumeArmed: tell the agent to continue when its usage limit resets.
+	resumeArmed bool
+	dirty       bool
+	title       string
 	// foreground is the program last seen in charge of the terminal, so the
 	// costly part — resolving and swapping the detector — happens only when
 	// it actually changes.

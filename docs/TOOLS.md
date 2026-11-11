@@ -130,6 +130,22 @@ nowhere tend can read):
 rows = [["state_icon", "workspace", "tab"], ["agent", "context", "cost"]]
 ```
 
+A Codex agent stopped by its usage limit is told of when the limit resets.
+Right-click it and choose **continue when the limit resets**, and tend also
+tells it to carry on then — in the words Claude Code uses on itself, which
+continues on its own after a reset and needs nothing from tend. The arming
+lasts until the reset, or until the server restarts.
+
+What the agents spent, by company, for the day or the week:
+
+```bash
+tend activity -by company -since today
+tend activity -by company -since week     # since Monday
+```
+
+A space in two companies counts in both; runs recorded before this release
+are under "(no company)".
+
 ## Sleeping agents
 
 After a restart, agents come back **asleep**: each pane is there, with the
@@ -358,7 +374,7 @@ server needed:
 ```bash
 tend activity                          # every run, newest first
 tend activity -project . -since 7d     # this project, this week
-tend activity -by project              # totals per project (or -by agent)
+tend activity -by project              # totals per project (or -by agent, -by company)
 tend activity -prs                     # and the pull request each branch became
 tend activity -format csv -o runs.csv  # or -format json
 tend activity -violations              # agents that broke a policy

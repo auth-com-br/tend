@@ -26,8 +26,8 @@ func runActivity(args []string) error {
 	fs := flag.NewFlagSet("activity", flag.ExitOnError)
 	project := fs.String("project", "", "only this project: a directory in it (\".\" for the one you are in)")
 	agentName := fs.String("agent", "", "only this agent (claude, codex, …)")
-	since := fs.String("since", "", "only what ran since then: 7d, 12h, or a date as 2006-01-02")
-	by := fs.String("by", "run", "one line per run, or a total per project or agent: run, project, agent")
+	since := fs.String("since", "", "only what ran since then: today, week (since Monday), 7d, 12h, or a date as 2006-01-02")
+	by := fs.String("by", "run", "one line per run, or a total per project, agent or company: run, project, agent, company")
 	format := fs.String("format", "table", "table, csv or json")
 	violations := fs.Bool("violations", false, "list the agents that ran against a policy, and the ones tend refused to start")
 	prs := fs.Bool("prs", false, "look up the pull request each branch became (gh, or GitLab's API)")
@@ -53,9 +53,9 @@ func runActivity(args []string) error {
 		return fmt.Errorf("-format is table, csv or json, not %q", *format)
 	}
 	switch *by {
-	case "run", "project", "agent":
+	case "run", "project", "agent", "company":
 	default:
-		return fmt.Errorf("-by is run, project or agent, not %q", *by)
+		return fmt.Errorf("-by is run, project, agent or company, not %q", *by)
 	}
 
 	now := time.Now()
@@ -118,11 +118,15 @@ func runActivity(args []string) error {
 	}
 
 	if *by != "run" {
-		key := activity.ByProject
-		if *by == "agent" {
-			key = activity.ByAgent
+		var totals []activity.Total
+		switch *by {
+		case "agent":
+			totals = activity.Summarize(runs, activity.ByAgent, now)
+		case "company":
+			totals = activity.SummarizeEach(runs, activity.ByCompany, now)
+		default:
+			totals = activity.Summarize(runs, activity.ByProject, now)
 		}
-		totals := activity.Summarize(runs, key, now)
 		switch *format {
 		case "csv":
 			return activity.WriteTotalsCSV(w, *by, totals)
@@ -199,6 +203,14 @@ func sortViolations(vs []activity.Violation) {
 
 // parseSince reads -since: a number of days or hours back, or a date.
 func parseSince(s string, now time.Time) (time.Time, error) {
+	midnight := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	switch s {
+	case "today":
+		return midnight, nil
+	case "week":
+		// Since Monday: the week a person means by "this week".
+		return midnight.AddDate(0, 0, -((int(now.Weekday()) + 6) % 7)), nil
+	}
 	if n, ok := strings.CutSuffix(s, "d"); ok {
 		if days, err := strconv.Atoi(n); err == nil && days >= 0 {
 			return now.AddDate(0, 0, -days), nil
@@ -210,7 +222,7 @@ func parseSince(s string, now time.Time) (time.Time, error) {
 	if t, err := time.ParseInLocation("2006-01-02", s, time.Local); err == nil {
 		return t, nil
 	}
-	return time.Time{}, fmt.Errorf("-since is 7d, 12h or a date as 2006-01-02, not %q", s)
+	return time.Time{}, fmt.Errorf("-since is today, week, 7d, 12h or a date as 2006-01-02, not %q", s)
 }
 
 // lookUpPRs asks the forge what each run's branch became. One question per

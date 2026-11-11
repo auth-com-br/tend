@@ -79,6 +79,9 @@ type openRun struct {
 	// thresholds already told of (usage.go).
 	follow *usage.Follower
 	warned map[string]bool
+	// resets is when the usage limit that stopped the agent starts over,
+	// and handled the last reset already told of (usage.go).
+	resets, handled int64
 }
 
 // seenAgent is one pane with an agent, as a round found it.
@@ -89,6 +92,8 @@ type seenAgent struct {
 	tab   string
 	dir   string
 	rt    *paneRuntime
+	// companies are the companies the pane's space is in.
+	companies []string
 }
 
 // newRecorder reads what the record already says about this session.
@@ -153,6 +158,12 @@ func (s *Server) activityLoop() {
 // after it, in the order the server's locks go.
 func (s *Server) agentsLocked() []seenAgent {
 	var out []seenAgent
+	companies := map[session.WorkspaceID][]string{}
+	for _, c := range s.session.Companies() {
+		for _, w := range c.Workspaces {
+			companies[w] = append(companies[w], c.Name)
+		}
+	}
 	for _, w := range s.session.Workspaces() {
 		for _, t := range w.Tabs() {
 			for _, id := range t.Panes() {
@@ -168,7 +179,7 @@ func (s *Server) agentsLocked() []seenAgent {
 					// going, and count against the limit, forever.
 					continue
 				}
-				out = append(out, seenAgent{id: id, agent: p.Agent, space: w.Name, tab: t.Name, dir: p.Dir, rt: rt})
+				out = append(out, seenAgent{id: id, agent: p.Agent, space: w.Name, tab: t.Name, dir: p.Dir, rt: rt, companies: companies[w.ID]})
 			}
 		}
 	}
@@ -281,7 +292,7 @@ func (s *Server) beginRun(r *recorder, a seenAgent, others int, now time.Time) *
 	r.open[a.id] = run
 	_ = r.log.Append(activity.Record{
 		Kind: activity.KindStart, Time: now, Run: run.id, Session: r.session, Pane: uint64(a.id),
-		Agent: a.agent, Place: place, Space: a.space, Tab: a.tab,
+		Agent: a.agent, Place: place, Space: a.space, Tab: a.tab, Companies: a.companies,
 	})
 
 	// An agent tend did not start — somebody typed its name into a shell —

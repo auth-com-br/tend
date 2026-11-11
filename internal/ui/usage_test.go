@@ -73,3 +73,34 @@ func TestTheDefaultAgentRowSaysHowFullTheContextIs(t *testing.T) {
 		t.Errorf("unknown:\n%s", line)
 	}
 }
+
+// TestAStoppedAgentsMenuOffersToContinueItWhenTheLimitResets: the item goes
+// before "close pane", and says the other way round once armed. If it
+// regresses, the only way to resume an agent stopped by its limit is to be
+// there when it resets.
+func TestAStoppedAgentsMenuOffersToContinueItWhenTheLimitResets(t *testing.T) {
+	m := WithResumeAfterLimit(PaneMenu(3, 0, 0, true, true, false), false)
+	at := -1
+	for i, it := range m.Items {
+		if it.Action == MenuResumeAfterLimit {
+			at = i
+			if it.Label != "continue when the limit resets" {
+				t.Errorf("label %q", it.Label)
+			}
+		}
+		if it.Action == MenuClose && (at < 0 || i < at) {
+			t.Error("the item should come before close pane")
+		}
+	}
+	if at < 0 {
+		t.Fatalf("no item: %+v", m.Items)
+	}
+	armed := WithResumeAfterLimit(PaneMenu(3, 0, 0, true, true, false), true)
+	found := false
+	for _, it := range armed.Items {
+		found = found || it.Action == MenuNoResume && it.Label == "don't continue when it resets"
+	}
+	if !found {
+		t.Errorf("armed: %+v", armed.Items)
+	}
+}

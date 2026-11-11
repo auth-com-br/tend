@@ -97,10 +97,12 @@ type Record struct {
 	Pane    uint64 `json:"pane,omitempty"`
 	Agent   string `json:"agent,omitempty"`
 
-	// Start (and a refusal): where, and under what name in the session.
+	// Start (and a refusal): where, and under what name in the session —
+	// the companies its space is in among them.
 	Place
-	Space string `json:"space,omitempty"`
-	Tab   string `json:"tab,omitempty"`
+	Space     string   `json:"space,omitempty"`
+	Tab       string   `json:"tab,omitempty"`
+	Companies []string `json:"companies,omitempty"`
 
 	// Conversation.
 	Conversation string      `json:"conversation,omitempty"`
@@ -240,6 +242,8 @@ type Run struct {
 	Place
 	Space string `json:"space,omitempty"`
 	Tab   string `json:"tab,omitempty"`
+	// Companies are the companies the run's space was in when it began.
+	Companies []string `json:"companies,omitempty"`
 	// For is what the run was working on, as far as its branch says: an
 	// issue, an error, a ticket.
 	For string `json:"for,omitempty"`
@@ -294,7 +298,7 @@ func Fold(recs []Record) (runs []*Run, refused []Violation) {
 			}
 			r := &Run{
 				ID: rec.Run, Session: rec.Session, Pane: rec.Pane, Agent: rec.Agent,
-				Place: rec.Place, Space: rec.Space, Tab: rec.Tab,
+				Place: rec.Place, Space: rec.Space, Tab: rec.Tab, Companies: rec.Companies,
 				For:     WorkFor(rec.Branch),
 				Started: rec.Time, Running: true,
 			}
@@ -459,26 +463,18 @@ type Seconds float64
 // Summarize totals runs by what key says each belongs to, the most expensive
 // first.
 func Summarize(runs []*Run, key func(*Run) string, now time.Time) []Total {
+	return SummarizeEach(runs, func(r *Run) []string { return []string{key(r)} }, now)
+}
+
+// SummarizeEach is Summarize for runs that belong to several at once — a
+// space in two companies — each counted in all of them.
+func SummarizeEach(runs []*Run, keys func(*Run) []string, now time.Time) []Total {
 	by := map[string]*Total{}
 	var order []string
 	for _, r := range runs {
-		k := key(r)
-		t := by[k]
-		if t == nil {
-			t = &Total{Key: k, Usage: usage.Usage{}, CostComplete: true}
-			by[k] = t
-			order = append(order, k)
+		for _, k := range keys(r) {
+			addTo(by, &order, k, r, now)
 		}
-		t.Runs++
-		if r.Running {
-			t.Running++
-		}
-		t.Duration += Seconds(r.Duration(now).Seconds())
-		t.Files += len(r.Files)
-		t.Usage = t.Usage.Add(r.Usage)
-		t.Cost += r.Cost
-		t.CostComplete = t.CostComplete && r.CostComplete
-		t.Violations += len(r.Violations)
 	}
 	out := make([]Total, 0, len(order))
 	for _, k := range order {
@@ -488,6 +484,35 @@ func Summarize(runs []*Run, key func(*Run) string, now time.Time) []Total {
 	}
 	sort.SliceStable(out, func(i, j int) bool { return out[i].Cost > out[j].Cost })
 	return out
+}
+
+func addTo(by map[string]*Total, order *[]string, k string, r *Run, now time.Time) {
+	t := by[k]
+	if t == nil {
+		t = &Total{Key: k, Usage: usage.Usage{}, CostComplete: true}
+		by[k] = t
+		*order = append(*order, k)
+	}
+	t.Runs++
+	if r.Running {
+		t.Running++
+	}
+	t.Duration += Seconds(r.Duration(now).Seconds())
+	t.Files += len(r.Files)
+	t.Usage = t.Usage.Add(r.Usage)
+	t.Cost += r.Cost
+	t.CostComplete = t.CostComplete && r.CostComplete
+	t.Violations += len(r.Violations)
+}
+
+// ByCompany are the keys that group runs by company: every company the
+// run's space was in, or "(no company)" — runs recorded before companies
+// were written down among them.
+func ByCompany(r *Run) []string {
+	if len(r.Companies) == 0 {
+		return []string{"(no company)"}
+	}
+	return r.Companies
 }
 
 // ByProject is the key that groups runs by project.

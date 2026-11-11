@@ -627,6 +627,12 @@ func (c *Client) RunCommand(pane uint64, kind, command string, size ...string) (
 }
 
 // RenamePane gives a pane a name of its own.
+// ResumeAfterLimit has the server tell a pane's agent to continue when its
+// usage limit resets, or not.
+func (c *Client) ResumeAfterLimit(pane uint64, on bool) error {
+	return c.Call(proto.MethodPaneResumeAfterLimit, proto.PaneResumeAfterLimitParams{Pane: pane, On: on}, nil)
+}
+
 // MarkUnread marks a pane's agent unread by hand, or takes the mark off.
 func (c *Client) MarkUnread(pane uint64, unread bool) error {
 	return c.Call(proto.MethodPaneMarkUnread, proto.PaneMarkUnreadParams{Pane: pane, Unread: unread}, nil)

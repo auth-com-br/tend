@@ -174,6 +174,9 @@ const (
 	// mark off: a reminder to come back to it that looking around does not
 	// clear, only arriving at its tab (PaneInfo.Marked).
 	MethodPaneMarkUnread = "pane.mark_unread"
+	// MethodPaneResumeAfterLimit asks the server to tell a pane's agent to
+	// continue when the usage limit that stopped it resets, or not to.
+	MethodPaneResumeAfterLimit = "pane.resume_after_limit"
 	// MethodPaneEditScrollback opens a pane's history in an editor, in a pane
 	// of its own.
 	MethodPaneEditScrollback = "pane.edit_scrollback"
@@ -260,6 +263,7 @@ var KnownMethods = []string{
 	MethodPaneWake,
 	MethodPaneRename,
 	MethodPaneMarkUnread,
+	MethodPaneResumeAfterLimit,
 	MethodPaneEditScrollback,
 	MethodPanePaste,
 	MethodPaneGraphics,
@@ -510,6 +514,9 @@ type PaneUsage struct {
 	CostKnown bool    `json:"cost_known,omitempty"`
 	// Limit is the provider's usage limit, where the agent records it.
 	Limit *UsageLimit `json:"limit,omitempty"`
+	// ResumeArmed: the agent will be told to continue when its limit
+	// resets (pane.resume_after_limit).
+	ResumeArmed bool `json:"resume_armed,omitempty"`
 }
 
 // ContextPercent is how full the context window is, or -1 when unknown.
@@ -533,6 +540,13 @@ func ContextPercent(context, window, reserve int64) int {
 	used := min(max(context-reserve, 0), eff)
 	left := ((eff-used)*100 + eff/2) / eff
 	return int(100 - left)
+}
+
+// PaneResumeAfterLimitParams arms or disarms the continue sent to a pane's
+// agent when its usage limit resets.
+type PaneResumeAfterLimitParams struct {
+	Pane uint64 `json:"pane"`
+	On   bool   `json:"on"`
 }
 
 // UsageLimit is how much of a provider's usage limit is gone.

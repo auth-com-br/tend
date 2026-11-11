@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/auth-com-br/tend/internal/activity"
 	"github.com/auth-com-br/tend/internal/agent"
@@ -124,5 +125,100 @@ func TestAWarningIsArmedAgainOnceTheGaugeFalls(t *testing.T) {
 	limit(3, false) // started over
 	if got := limit(95, false); len(got) != 1 {
 		t.Errorf("after the reset: %q", got)
+	}
+}
+
+// TestARunRecordsTheCompaniesItsSpaceIsIn: an agent's start is written down
+// with every company its space is in, which `tend activity -by company`
+// totals by. If it regresses, the day's cost per company is all "(no
+// company)".
+func TestARunRecordsTheCompaniesItsSpaceIsIn(t *testing.T) {
+	log := filepath.Join(t.TempDir(), "activity.jsonl")
+	s := activityServer(t, log, policy.Policy{}, nil)
+	ws, _ := s.NewWorkspace("api")
+	for _, name := range []string{"acme", "globex"} {
+		if _, err := s.Company(proto.MethodCompanyCreate, proto.CompanyParams{Name: name, Workspace: uint64(ws)}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	_, pane, err := s.NewTab(ws, "work", PaneSpec{Command: []string{"/bin/sh", "-c", "sleep 30"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.ReportAgent(pane, agent.Report{Source: "test", Agent: "claude", State: detect.StateWorking, Seq: u64(1)}); err != nil {
+		t.Fatal(err)
+	}
+	recs := records(t, log, "the start", func(r activity.Record) bool { return r.Kind == activity.KindStart })
+	if got := kinds(recs, activity.KindStart)[0].Companies; len(got) != 2 || got[0] != "acme" || got[1] != "globex" {
+		t.Errorf("companies = %q", got)
+	}
+}
+
+// codexStopped is a Codex token count with its limit reached, resetting at
+// resets.
+func codexStopped(resets time.Time) string {
+	return `{"type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":10,"output_tokens":1},"last_token_usage":{"total_tokens":11},"model_context_window":475000},"rate_limits":{"primary":{"used_percent":100,"window_minutes":300,"resets_at":` +
+		itoa(uint64(resets.Unix())) + `},"rate_limit_reached_type":"rate_limit_reached"}}}` + "\n"
+}
+
+// TestAnAgentStoppedByItsLimitIsToldToContinueWhenItResets: a Codex agent
+// its rollout says hit its usage limit is told of when the limit resets;
+// armed from its menu, it is also sent the words Claude Code continues
+// itself with, once, and the arming is used up; not armed, it is only told
+// of. If it regresses, an agent stopped overnight waits for someone to
+// notice in the morning.
+func TestAnAgentStoppedByItsLimitIsToldToContinueWhenItResets(t *testing.T) {
+	log := filepath.Join(t.TempDir(), "activity.jsonl")
+	rollout := filepath.Join(t.TempDir(), "rollout.jsonl")
+	if err := os.WriteFile(rollout, []byte(codexStopped(time.Now().Add(1500*time.Millisecond))), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	s := activityServer(t, log, policy.Policy{}, func(label string, c activity.Conversation) string {
+		if label == "codex" {
+			return rollout
+		}
+		return ""
+	})
+	sub := s.Subscribe(1024)
+	defer sub.Close()
+	ws, _ := s.NewWorkspace("api")
+	_, pane, err := s.NewTab(ws, "work", PaneSpec{Command: []string{"/bin/sh", "-c", "stty -echo; cat"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.ReportAgent(pane, agent.Report{Source: "test", Agent: "codex", State: detect.StateIdle, Seq: u64(1)}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.ReportAgentSession(pane, "test", "codex", agent.SessionRef{ID: "x1"}, u64(2)); err != nil {
+		t.Fatal(err)
+	}
+	id := uint64(pane)
+	waitFor(t, "the limit", func() bool { u := paneUsage(s, id); return u != nil && u.Limit != nil && u.Limit.Reached })
+	if err := s.ResumeAfterLimit(pane, true); err != nil {
+		t.Fatal(err)
+	}
+	if !paneUsage(s, id).ResumeArmed {
+		t.Error("the snapshot should say it is armed")
+	}
+	ev := waitForEvent(t, sub, func(ev Event) bool { return ev.Kind == EventNotify && strings.Contains(ev.Title, "has reset") })
+	if ev.Title != "codex usage limit has reset · told it to continue" {
+		t.Errorf("notice = %q", ev.Title)
+	}
+	waitFor(t, "the prompt in the pane", func() bool {
+		text, _ := s.ScreenText(pane)
+		return strings.Contains(text, "Usage limit reset. Continue the task")
+	})
+	waitFor(t, "disarmed", func() bool { return !paneUsage(s, id).ResumeArmed })
+
+	// The next stop, not armed: told of only.
+	f, _ := os.OpenFile(rollout, os.O_APPEND|os.O_WRONLY, 0)
+	_, _ = f.WriteString(codexStopped(time.Now().Add(time.Second)))
+	f.Close()
+	ev = waitForEvent(t, sub, func(ev Event) bool { return ev.Kind == EventNotify && strings.Contains(ev.Title, "has reset") })
+	if ev.Title != "codex usage limit has reset · it waits for you" {
+		t.Errorf("unarmed notice = %q", ev.Title)
+	}
+	if text, _ := s.ScreenText(pane); strings.Count(text, "Usage limit reset") != 1 {
+		t.Errorf("sent again unarmed:\n%s", text)
 	}
 }

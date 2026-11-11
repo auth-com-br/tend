@@ -139,6 +139,29 @@ func TestASummaryTotalsByProject(t *testing.T) {
 	}
 }
 
+// TestASummaryTotalsByCompanyCountingASpaceInTwo: a run counts in every
+// company its space was in, and one recorded with none — before companies
+// were written down — under "(no company)"; the companies are read back
+// from the start record. If it regresses, `tend activity -by company` puts
+// a shared space's cost in one company only, or loses older runs.
+func TestASummaryTotalsByCompanyCountingASpaceInTwo(t *testing.T) {
+	runs, _ := Fold([]Record{
+		{Kind: KindStart, Time: t0, Run: "r1", Agent: "claude", Companies: []string{"acme", "globex"}},
+		{Kind: KindStart, Time: t0, Run: "r2", Agent: "claude", Companies: []string{"acme"}},
+		{Kind: KindStart, Time: t0, Run: "r3", Agent: "codex"},
+	})
+	for i, r := range runs {
+		r.Cost, r.CostComplete = float64(i+1), true
+	}
+	got := map[string]Total{}
+	for _, tot := range SummarizeEach(runs, ByCompany, t0) {
+		got[tot.Key] = tot
+	}
+	if got["acme"].Runs != 2 || got["acme"].Cost != 3 || got["globex"].Runs != 1 || got["globex"].Cost != 1 || got["(no company)"].Runs != 1 {
+		t.Errorf("totals = %+v", got)
+	}
+}
+
 // TestTheCSVHasARowPerRunWithItsFiles: the CSV is what goes into a
 // spreadsheet, so its columns are fixed and a run's files stay in one cell.
 func TestTheCSVHasARowPerRunWithItsFiles(t *testing.T) {

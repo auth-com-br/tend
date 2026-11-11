@@ -87,12 +87,15 @@ func (t *tui) menuFor(x, y int) (ui.Menu, bool) {
 	agentAt := t.paneAgentsLocked()
 	asleep := map[uint64]bool{}
 	marked := map[uint64]bool{}
+	limited := map[uint64]*proto.PaneUsage{}
 	for _, p := range t.snap.Panes {
 		asleep[p.ID] = p.Dormant
 		marked[p.ID] = p.Marked
+		limited[p.ID] = limitedUsage(p)
 	}
 	canSleep := t.serverKnows(proto.MethodPaneSleep)
 	canMark := t.serverKnows(proto.MethodPaneMarkUnread)
+	canResume := t.serverKnows(proto.MethodPaneResumeAfterLimit)
 	var sel *ui.Selection
 	if t.sel != nil {
 		s := *t.sel
@@ -120,6 +123,9 @@ func (t *tui) menuFor(x, y int) (ui.Menu, bool) {
 			if canMark {
 				m = ui.WithMarkUnread(m, marked[row.Pane])
 			}
+			if u := limited[row.Pane]; u != nil && canResume {
+				m = ui.WithResumeAfterLimit(m, u.ResumeArmed)
+			}
 			if canSleep {
 				m = ui.WithSleep(m, asleep[row.Pane])
 			}
@@ -141,6 +147,9 @@ func (t *tui) menuFor(x, y int) (ui.Menu, bool) {
 		m := ui.PaneMenu(pane, x, y, panes > 1, agentAt[pane] != "", selected)
 		if agentAt[pane] != "" && canMark {
 			m = ui.WithMarkUnread(m, marked[pane])
+		}
+		if u := limited[pane]; agentAt[pane] != "" && u != nil && canResume {
+			m = ui.WithResumeAfterLimit(m, u.ResumeArmed)
 		}
 		if agentAt[pane] != "" && canSleep {
 			m = ui.WithSleep(m, asleep[pane])
@@ -473,6 +482,18 @@ func (t *tui) runMenu(m ui.Menu, item ui.MenuItem) error {
 	case ui.MenuSleep:
 		go t.sleepAgent(m.Pane)
 		return nil
+	case ui.MenuResumeAfterLimit, ui.MenuNoResume:
+		on := item.Action == ui.MenuResumeAfterLimit
+		go func() {
+			if err := t.client.ResumeAfterLimit(m.Pane, on); err != nil {
+				t.setMessage("could not arm it: "+err.Error(), true)
+				return
+			}
+			if on {
+				t.setMessage("it will be told to continue when its limit resets", false)
+			}
+		}()
+		return nil
 	case ui.MenuMarkUnread, ui.MenuMarkRead:
 		unread := item.Action == ui.MenuMarkUnread
 		go func() {
@@ -675,4 +696,13 @@ func (t *tui) closeFor(m ui.Menu) error {
 	// is indistinguishable from the close having failed. An empty session is
 	// a real state, and the "new" button is sitting in the list.
 	return t.refresh()
+}
+
+// limitedUsage is a pane's usage while a limit has its agent stopped, for
+// the menu's "continue when the limit resets"; nil otherwise.
+func limitedUsage(p proto.PaneInfo) *proto.PaneUsage {
+	if p.Usage == nil || p.Usage.Limit == nil || !p.Usage.Limit.Reached || p.Usage.Limit.Resets == 0 {
+		return nil
+	}
+	return p.Usage
 }

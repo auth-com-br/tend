@@ -106,6 +106,10 @@ const (
 	// the mark off.
 	MenuMarkUnread = "menu-mark-unread"
 	MenuMarkRead   = "menu-mark-read"
+	// MenuResumeAfterLimit has the agent told to continue when the usage
+	// limit that stopped it resets; MenuNoResume takes that back.
+	MenuResumeAfterLimit = "menu-resume-after-limit"
+	MenuNoResume         = "menu-no-resume"
 	// MenuSleepPick lists the agents that are awake, to put one to sleep
 	// (MenuSleepOne, Arg its pane) or every idle one (MenuSleepIdle).
 	MenuSleepPick = "menu-sleep-pick"
@@ -404,6 +408,26 @@ func WithMarkUnread(m Menu, marked bool) Menu {
 	item := MenuItem{Label: "mark unread", Action: MenuMarkUnread}
 	if marked {
 		item = MenuItem{Label: "mark read", Action: MenuMarkRead}
+	}
+	at := len(m.Items)
+	for i, it := range m.Items {
+		if it.Action == MenuClose {
+			at = i
+		}
+	}
+	items := append([]MenuItem(nil), m.Items[:at]...)
+	items = append(items, item)
+	m.Items = append(items, m.Items[at:]...)
+	return m
+}
+
+// WithResumeAfterLimit adds to an agent's menu, while a usage limit has it
+// stopped, having it told to continue when the limit resets — or, armed,
+// not. It goes before "close pane", as WithMarkUnread does.
+func WithResumeAfterLimit(m Menu, armed bool) Menu {
+	item := MenuItem{Label: "continue when the limit resets", Action: MenuResumeAfterLimit}
+	if armed {
+		item = MenuItem{Label: "don't continue when it resets", Action: MenuNoResume}
 	}
 	at := len(m.Items)
 	for i, it := range m.Items {
