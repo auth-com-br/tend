@@ -5,6 +5,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/auth-com-br/tend/internal/asks"
 	"github.com/auth-com-br/tend/internal/detect"
 	"github.com/auth-com-br/tend/internal/notify"
 	"github.com/auth-com-br/tend/internal/proto"
@@ -108,8 +109,8 @@ func (t *tui) announceFrom(e *endpoint, ev proto.Event) {
 		go func() {
 			title, body := agent+" needs attention", where
 			if screen, err := t.client.PaneScreen(ev.Pane); err == nil {
-				if asks := ui.AgentAsks(screen.Text); asks != "" {
-					title, body = agent+" needs attention · "+where, asks
+				if asked := asks.Read(screen.Text); asked != "" {
+					title, body = agent+" needs attention · "+where, asked
 				}
 			}
 			t.raiseOn(machine, ui.ToastAttention, title, body, ev.Pane, t.soundFor(agent, notify.SoundRequest))

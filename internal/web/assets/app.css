@@ -37,5 +37,6 @@ main { padding: .5em .6em 2em; }
 #send button { padding: 0 1em; border: 0; border-radius: .7em; background: var(--accent); color: #0b1a1e; font-weight: 600; font: inherit; }
 .toast { position: fixed; left: 50%; bottom: 5.5em; transform: translateX(-50%); padding: .5em .9em;
   border-radius: .6em; background: #2b303a; color: var(--fg); font-size: .9em; z-index: 5; }
+#notify { background: none; border: 0; font-size: 1.1em; padding: 0 .2em; }
 #signout { background: none; border: 1px solid #2f343d; border-radius: .5em; color: var(--dim);
   font: inherit; font-size: .8em; padding: .25em .6em; }

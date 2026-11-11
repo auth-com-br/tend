@@ -10,6 +10,10 @@ let agents = [];
 let shown = 0; // the pane on screen, 0 on the list
 let stream = null;
 let previous = new Map(); // pane → state, to tell what changed
+// A tap on a notification opens the page at /?pane=N: that agent is shown
+// once the list says it is there.
+let wanted = Number(new URLSearchParams(location.search).get('pane')) || 0;
+if (wanted) history.replaceState(null, '', '/');
 
 const STATE_WORDS = {
   blocked: 'needs you',
@@ -89,6 +93,12 @@ function connect() {
     const next = JSON.parse(e.data) || [];
     tell(next);
     agents = next;
+    if (wanted && agents.some(a => a.pane === wanted)) {
+      const pane = wanted;
+      wanted = 0;
+      open(pane);
+      return;
+    }
     if (shown) {
       if (!current()) {
         back();
@@ -219,5 +229,68 @@ $('sleepwake').addEventListener('click', async () => {
   }
 });
 
+// Notifications with the page closed (push.go): offered only on a secure
+// page — the browser allows them nowhere else — and when the server has them
+// on ([web] https). The bell says whether this phone is told.
+function serverKey(b64) {
+  const s = atob(b64.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - (b64.length % 4)) % 4));
+  return Uint8Array.from(s, c => c.charCodeAt(0));
+}
+
+async function postJSON(path, body) {
+  return fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+}
+
+async function setupPush() {
+  if (!window.isSecureContext || !('serviceWorker' in navigator) || !('PushManager' in window)) return;
+  let info;
+  try {
+    info = await (await fetch('/api/push')).json();
+  } catch {
+    return;
+  }
+  if (!info.available) return;
+  const reg = await navigator.serviceWorker.register('/sw.js');
+  let sub = await reg.pushManager.getSubscription();
+  // The server may have lost it (a new key, a cleared state folder): saying
+  // it again costs nothing and keeps the two in step.
+  if (sub) postJSON('/api/push/subscribe', sub.toJSON()).catch(() => {});
+  const bell = $('notify');
+  const paint = () => {
+    bell.textContent = sub ? '🔔' : '🔕';
+    bell.title = sub ? 'this phone is told when an agent needs you — tap to stop' : 'notify this phone when an agent needs you';
+  };
+  paint();
+  bell.classList.remove('hidden');
+  bell.addEventListener('click', async () => {
+    if (sub) {
+      await postJSON('/api/push/unsubscribe', { endpoint: sub.endpoint }).catch(() => {});
+      await sub.unsubscribe();
+      sub = null;
+      paint();
+      toast('notifications off on this phone');
+      return;
+    }
+    if ((await Notification.requestPermission()) !== 'granted') {
+      toast('notifications are blocked for this page in the browser settings');
+      return;
+    }
+    try {
+      sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: serverKey(info.key) });
+    } catch (err) {
+      toast('could not subscribe: ' + err.message);
+      return;
+    }
+    const r = await postJSON('/api/push/subscribe', sub.toJSON());
+    if (!r.ok) {
+      toast((await r.text()).trim() || `failed (${r.status})`);
+      return;
+    }
+    paint();
+    toast('this phone will be told when an agent needs you');
+  });
+}
+
 show('list');
 connect();
+setupPush();

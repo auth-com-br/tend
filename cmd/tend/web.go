@@ -2,12 +2,14 @@ package main
 
 import (
 	"bufio"
+	"crypto/tls"
 	"errors"
 	"flag"
 	"fmt"
 	"net"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -25,13 +27,14 @@ import (
 // VPN, by its address — paired by a token the URL it prints carries. It runs
 // until stopped, and follows the session across a restart of its server.
 
-const webUsage = `usage: tend web [-s session] [-listen address:port] [-new-token]
+const webUsage = `usage: tend web [-s session] [-listen address:port] [-https] [-new-token]
        tend web [-s session] -set-password
 
 serves the session's agents to a phone on this network: watch them, message
 them, answer what they ask, wake them and put them to sleep. Open the address
 it prints on the phone, or sign in there with the login -set-password sets;
-either pairs that phone.`
+either pairs that phone. With -https (or [web] https = true) the page is
+served over TLS, which a phone needs to be notified with the page closed.`
 
 func runWeb(args []string) error {
 	fs := flag.NewFlagSet("web", flag.ExitOnError)
@@ -40,15 +43,21 @@ func runWeb(args []string) error {
 	listen := fs.String("listen", "", "address to listen on (default: [web] listen, else 0.0.0.0:7777)")
 	fresh := fs.Bool("new-token", false, "make a new token, unpairing every phone paired before")
 	setPassword := fs.Bool("set-password", false, "set the login and password a phone signs in with, and exit")
+	https := fs.Bool("https", false, "serve over TLS, for notifications with the page closed (default: [web] https)")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
+	var webCfg config.Web
+	if cfg, err := config.LoadLenient(); err == nil {
+		webCfg = cfg.Web
+	}
 	if *listen == "" {
 		*listen = "0.0.0.0:7777"
-		if cfg, err := config.LoadLenient(); err == nil && cfg.Web.Listen != "" {
-			*listen = cfg.Web.Listen
+		if webCfg.Listen != "" {
+			*listen = webCfg.Listen
 		}
 	}
+	useTLS := *https || webCfg.HTTPS
 	session := *name
 	if session == "" {
 		session = transport.DefaultSessionName
@@ -78,7 +87,31 @@ func runWeb(args []string) error {
 	if err != nil {
 		return err
 	}
-	urls := web.URLs(ln.Addr().(*net.TCPAddr), token)
+	scheme := "http"
+	var caNote string
+	if useTLS {
+		scheme = "https"
+		tlsCfg, note, err := webTLS(stateDir, session, webCfg, ln.Addr().(*net.TCPAddr))
+		if err != nil {
+			_ = ln.Close()
+			return err
+		}
+		caNote = note
+		ln = tls.NewListener(ln, tlsCfg)
+		// Notifications with the page closed: a browser offers them only to
+		// a secure page, so only here.
+		key, err := web.LoadVAPID(web.VAPIDPath(stateDir, session))
+		if err != nil {
+			return err
+		}
+		var caPEM []byte
+		if webCfg.Cert == "" {
+			_, _, caPEM, _ = web.LoadCA(stateDir)
+		}
+		srv.WithPush(web.NewPusher(key, web.PushPath(stateDir, session), "mailto:tend@localhost"), caPEM)
+		srv.PrimePhones()
+	}
+	urls := web.URLsFor(scheme, ln.Addr().(*net.TCPAddr), token)
 	// Said where the session's server reads it: the menu's phone view
 	// shows these addresses and stops this process by its pid.
 	statusPath := web.StatusPath(stateDir, session)
@@ -94,12 +127,57 @@ func runWeb(args []string) error {
 	} else {
 		fmt.Fprintln(os.Stderr, "`tend web -set-password` sets a login, to sign in on the phone instead of typing the token.")
 	}
+	if caNote != "" {
+		fmt.Fprint(os.Stderr, caNote)
+	}
 	fmt.Fprintln(os.Stderr, "anyone with the address can message the agents: keep it to your own devices. ctrl-c stops.")
 	return (&http.Server{Handler: srv.Handler(), ReadHeaderTimeout: 10 * time.Second}).Serve(ln)
 }
 
 // setWebPassword asks for a login and a password, twice, unechoed, and
 // keeps the password's hash.
+// webTLS is the page's TLS: the certificate the settings name, or one the
+// local authority signs for this machine's addresses (internal/web/tls.go),
+// with what to tell the person about making the phone trust it.
+func webTLS(stateDir, session string, cfg config.Web, addr *net.TCPAddr) (*tls.Config, string, error) {
+	if cfg.Cert != "" || cfg.Key != "" {
+		cert, err := tls.LoadX509KeyPair(expandHome(cfg.Cert), expandHome(cfg.Key))
+		if err != nil {
+			return nil, "", fmt.Errorf("[web] cert/key: %w", err)
+		}
+		return &tls.Config{Certificates: []tls.Certificate{cert}, MinVersion: tls.VersionTLS12}, "", nil
+	}
+	ca, caKey, _, err := web.LoadCA(stateDir)
+	if err != nil {
+		return nil, "", fmt.Errorf("web: the local certificate authority: %w", err)
+	}
+	var hosts []string
+	for _, u := range web.URLsFor("https", addr, "") {
+		if h, _, err := net.SplitHostPort(strings.TrimSuffix(strings.TrimPrefix(u, "https://"), "/?t=")); err == nil {
+			hosts = append(hosts, h)
+		}
+	}
+	if name, err := os.Hostname(); err == nil {
+		hosts = append(hosts, name, name+".local")
+	}
+	leaf, err := web.LeafFor(ca, caKey, hosts)
+	if err != nil {
+		return nil, "", err
+	}
+	certPath, _ := web.CAPaths(stateDir)
+	port := strconv.Itoa(addr.Port)
+	host := "this machine"
+	if len(hosts) > 0 {
+		host = net.JoinHostPort(hosts[0], port)
+	}
+	note := "the page's certificate is signed by tend's own authority (" + certPath + "), limited to private networks.\n" +
+		"on the phone, once: open https://" + host + "/ca.crt (accept the warning this one time), then\n" +
+		"  Android: Settings › Security › Encryption & credentials › Install a certificate › CA certificate\n" +
+		"  iPhone: Settings › Profile Downloaded › Install, then General › About › Certificate Trust Settings › on\n" +
+		"after that, the bell on the page turns notifications on.\n"
+	return &tls.Config{Certificates: []tls.Certificate{leaf}, MinVersion: tls.VersionTLS12}, note, nil
+}
+
 func setWebPassword(path string) error {
 	if !term.IsTerminal(int(os.Stdin.Fd())) {
 		return errors.New("-set-password asks for the password at a terminal")

@@ -69,6 +69,11 @@ func ReadStatus(path string) (Status, error) {
 // every address of this machine but the loopback, when listening on all of
 // them.
 func URLs(addr *net.TCPAddr, token string) []string {
+	return URLsFor("http", addr, token)
+}
+
+// URLsFor is URLs with the scheme the page is served on.
+func URLsFor(scheme string, addr *net.TCPAddr, token string) []string {
 	port := strconv.Itoa(addr.Port)
 	var hosts []string
 	if addr.IP.IsUnspecified() {
@@ -89,7 +94,7 @@ func URLs(addr *net.TCPAddr, token string) []string {
 	}
 	var out []string
 	for _, h := range hosts {
-		out = append(out, "http://"+net.JoinHostPort(h, port)+"/?t="+token)
+		out = append(out, scheme+"://"+net.JoinHostPort(h, port)+"/?t="+token)
 	}
 	return out
 }

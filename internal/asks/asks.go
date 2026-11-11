@@ -1,4 +1,7 @@
-package ui
+// Package asks reads, from the screen of an agent stopped for the user, what
+// it is asking — for a notification to say it, on the TUI's card and on the
+// phone.
+package asks
 
 import (
 	"regexp"
@@ -6,11 +9,11 @@ import (
 	"unicode/utf8"
 )
 
-// AsksMaxRunes is how long AgentAsks's line may be: a notification is read at
+// MaxRunes is how long Read's line may be: a notification is read at
 // a glance, and a terminal's or a desktop's card cuts what is longer anyway.
-const AsksMaxRunes = 120
+const MaxRunes = 120
 
-// AgentAsks reads, from the screen of an agent that stopped for the user,
+// Read reads, from the screen of an agent that stopped for the user,
 // what it is asking — "Bash command: touch notes.txt — Do you want to
 // proceed?" — so a notification can say it rather than only that the agent
 // needs attention, which is what made people go and look at every one. It
@@ -24,7 +27,7 @@ const AsksMaxRunes = 120
 // title of that block and its last line are kept — an agent's own heading and
 // the command or the reason — and its options, key hints, tips and rules are
 // not.
-func AgentAsks(screen string) string {
+func Read(screen string) string {
 	lines := strings.Split(strings.TrimRight(screen, "\n"), "\n")
 	if len(lines) > 40 {
 		lines = lines[len(lines)-40:]
@@ -79,7 +82,7 @@ func AgentAsks(screen string) string {
 	if len(parts) == 0 {
 		return ""
 	}
-	return clip(strings.Join(parts, " — "), AsksMaxRunes)
+	return clip(strings.Join(parts, " — "), MaxRunes)
 }
 
 // optionLine is one answer of a numbered choice: "❯ 1. Yes", "  2. No",

@@ -64,6 +64,14 @@ type Web struct {
 	// network of this machine), or one address — the VPN's, say — to be
 	// reached on that one alone.
 	Listen string `toml:"listen"`
+	// HTTPS serves the page over TLS, which a phone's browser requires before
+	// it lets the page notify it with the page closed or be installed as an
+	// app. Cert and Key are a certificate of your own (a VPN's, say);
+	// without them tend signs one with a local authority the phone is told
+	// to trust once.
+	HTTPS bool   `toml:"https"`
+	Cert  string `toml:"cert"`
+	Key   string `toml:"key"`
 }
 
 // Agents configures sleeping agents (internal/server/dormant.go): a sleeping
@@ -1138,6 +1146,13 @@ persist = true
 # Where "tend web" listens for a phone: every network of this machine, or one
 # address (a VPN's) to be reached on that one alone.
 listen = "0.0.0.0:7777"
+# HTTPS, which the phone needs for notifications with the page closed and to
+# install the page as an app. Without cert/key, tend signs a certificate with
+# an authority of its own, limited to private networks, and prints how to
+# make the phone trust it.
+# https = true
+# cert = "~/certs/box.crt"
+# key = "~/certs/box.key"
 
 [agents]
 # After a restart, agents come back asleep: a shell where each was, and the

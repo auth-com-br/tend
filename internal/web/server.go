@@ -77,6 +77,8 @@ type Server struct {
 	screens    map[uint64]*paneScreen
 	failures   []time.Time
 	listDue    bool
+	// phone is push to phones (phone.go), nil when it is off.
+	phone *phone
 }
 
 // watcher is one open page: the pane it shows, if any, and where its
@@ -114,6 +116,12 @@ func New(sess Session, token string) *Server {
 	}
 }
 
+// assetsSub is the page's files.
+func assetsSub() fs.FS {
+	sub, _ := fs.Sub(assets, "assets")
+	return sub
+}
+
 // Handler is the routes: the page, its files, and the API — nothing else.
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
@@ -134,6 +142,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /api/key", s.paired(s.action(s.key)))
 	mux.Handle("POST /api/sleep", s.paired(s.action(s.sleep)))
 	mux.Handle("POST /api/wake", s.paired(s.action(s.wake)))
+	s.phoneRoutes(mux)
 	return securityHeaders(mux)
 }
 
@@ -485,6 +494,7 @@ func (s *Server) Reconnected() {
 	s.subscribed = ""
 	s.mu.Unlock()
 	s.resubscribe()
+	s.PrimePhones()
 }
 
 // resubscribe asks the session for the panes some page shows.
@@ -536,6 +546,7 @@ func (s *Server) broadcastLocked(m sseMessage, pane uint64) {
 // Event is told of the session's events (the client's handler): those that
 // change the agent list send it again, once for a burst.
 func (s *Server) Event(ev proto.Event) {
+	s.tellPhones(ev)
 	switch ev.Kind {
 	case "pane-state", "pane-opened", "pane-closed", "pane-exited", "session-changed", "workspace-created", "tab-created":
 	default:

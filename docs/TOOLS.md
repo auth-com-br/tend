@@ -280,9 +280,40 @@ the addresses to open on the phone — a click copies one. tend's server starts
 it and keeps it: turned on, it comes back when the server restarts, after a
 reboot or an update, until it is turned off again.
 
-It reaches agents only, with a fixed list of actions — never a shell. It is
-plain HTTP: use it on a network you trust, or through a VPN. `[web] listen`
-sets the address and port (`0.0.0.0:7777`).
+It reaches agents only, with a fixed list of actions — never a shell.
+`[web] listen` sets the address and port (`0.0.0.0:7777`).
+
+### Notifications with the page closed
+
+A phone can be told when an agent needs you even with the page closed — the
+agent, where it is and what it asks ("Bash command: npm test — Do you want to
+proceed?"), and a tap opens it. Browsers allow that only on a secure page,
+so it needs HTTPS:
+
+```toml
+[web]
+https = true
+# cert = "~/certs/box.crt"   # a certificate of your own (a VPN's), or none:
+# key = "~/certs/box.key"    # tend signs one with an authority of its own
+```
+
+Without a certificate of your own, tend makes an authority of its own the
+first time and signs the page's certificate with it. That authority is
+limited to private networks and local names: on a phone it vouches for this
+machine and for nothing on the internet. `tend web` prints how to install it
+on the phone, once: open `https://<address>/ca.crt`, accept the warning that
+one time, and install it as a CA certificate (Android: Settings › Security ›
+Encryption & credentials › Install a certificate; iPhone: install the
+profile, then turn it on in General › About › Certificate Trust Settings).
+
+Then tap the bell 🔕 at the top of the page and allow notifications. It tells
+when an agent becomes blocked, and when one finishes while nobody is looking
+at it. The notification travels through your phone's push service (Google's
+or Apple's), encrypted for your phone alone: the service carries it without
+being able to read it. Tap the bell again to stop.
+
+Without HTTPS the page is plain HTTP: use it on a network you trust, or
+through a VPN, which encrypts it anyway.
 
 ## Activity and policies
 
