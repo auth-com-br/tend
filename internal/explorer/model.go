@@ -56,6 +56,13 @@ type Opener interface {
 	Open(path string, line int) error
 }
 
+// Reviewer sends a review of a change to the agent working beside the panel
+// (tend's pane.send_text, submitted), preferring the pane the panel follows,
+// and says which agent it went to.
+type Reviewer interface {
+	Review(prefer, text string) (string, error)
+}
+
 // Previewer shows a file read-only in a tab of its own (tend's preview
 // tab). An opener that is not one leaves previews to the panel itself.
 type Previewer interface {
@@ -626,6 +633,8 @@ func (m *Model) changesKey(k Key, pending string) {
 		m.Refresh()
 	case "A":
 		m.startSuggest()
+	case "M", "R":
+		m.startFinish(k.Name, pending)
 	case "c":
 		if m.changesStaged == 0 {
 			m.say("nothing staged: s stages a file, S everything", true)
@@ -707,6 +716,9 @@ func (m *Model) open(path string, line int) {
 type viewer struct {
 	title string
 	path  string
+	// rel is a diff's file as git names it, from the repository's top: what
+	// a review sent to the agent is about.
+	rel   string
 	lines []string
 	diff  bool
 	top   int
@@ -768,6 +780,7 @@ func (m *Model) showDiff(row changeRow) {
 	m.viewer = viewer{
 		title: row.change.Path + " · " + which,
 		path:  path,
+		rel:   row.change.Path,
 		lines: strings.Split(strings.TrimRight(strings.ReplaceAll(text, "\t", "    "), "\n"), "\n"),
 		diff:  true,
 	}
@@ -799,6 +812,10 @@ func (m *Model) viewerKey(k Key) {
 	case "o":
 		if v.path != "" {
 			m.open(v.path, v.mark)
+		}
+	case "r":
+		if v.diff && v.rel != "" {
+			m.startReview()
 		}
 	}
 	v.top = min(max(v.top, 0), max(len(v.lines)-page, 0))

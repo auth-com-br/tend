@@ -92,6 +92,9 @@ type prompt struct {
 	label string
 	text  string
 	done  func(*Model, string)
+	// back is where esc goes: the list, or the viewer a question was asked
+	// over.
+	back mode
 }
 
 func (m *Model) openMenu(target *Node) {
@@ -181,7 +184,7 @@ func (m *Model) promptKey(k Key) {
 	p := &m.prompt
 	switch k.Name {
 	case "esc", "ctrl+c":
-		m.mode = modeList
+		m.mode = p.back
 	case "enter":
 		m.mode = modeList
 		p.done(m, p.text)

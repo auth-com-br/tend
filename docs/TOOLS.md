@@ -44,6 +44,14 @@ the keys.
   of projects, each repository's under its name and branch); `s` stages,
   `x x` discards, `c` commits, `A` drafts the message with the local `claude`
   (haiku), or from the file names without it.
+- **reviewing an agent's work** — in a diff, `r` writes a comment about the
+  file and the line on screen and sends it to the agent in the panel's tab
+  (the one the panel follows), submitted, as one line: "Review of
+  src/a.go around line 12: …". When the work is committed, in the agent's
+  worktree `M M` merges its branch into the branch the main worktree is on
+  (with a merge commit; refused with uncommitted work on either side, and a
+  conflict is undone, leaving main as it was), and `R R` pushes the branch
+  and opens a pull request with `gh`, titled from its commits.
 - **git bar** — the line under the header: click the branch (or `B`) to
   switch, `⟳` (or `P`) to sync — pull when behind, fast-forward only, push
   when ahead, publish a new branch to origin — without ever asking for a

@@ -253,3 +253,42 @@ func (o *SessionOpener) AddContext(kind, path string) error {
 	_, err := o.call("context.add", map[string]any{"kind": kind, "path": path, "source": "files"})
 	return err
 }
+
+// Review sends a review to an agent in this panel's tab: the one the panel
+// follows when it is an agent, else the first agent the tab has. It is typed
+// into the agent's prompt and submitted, as `tend agent prompt` does.
+func (o *SessionOpener) Review(prefer, text string) (string, error) {
+	if o.Socket == "" || o.Pane == "" {
+		return "", errors.New("not running in a tend pane")
+	}
+	res, err := o.call("pane.list", map[string]any{})
+	if err != nil {
+		return "", err
+	}
+	panes, _ := res["panes"].([]any)
+	tab := ""
+	for _, raw := range panes {
+		if p, _ := raw.(map[string]any); p["pane_id"] == o.Pane {
+			tab, _ = p["tab_id"].(string)
+		}
+	}
+	var target, agent string
+	for _, raw := range panes {
+		p, _ := raw.(map[string]any)
+		id, _ := p["pane_id"].(string)
+		name, _ := p["agent"].(string)
+		if id == o.Pane || p["tab_id"] != tab || name == "" {
+			continue
+		}
+		if target == "" || id == prefer {
+			target, agent = id, name
+		}
+	}
+	if target == "" {
+		return "", errors.New("no agent in this tab to send the review to")
+	}
+	if _, err := o.call("pane.send_text", map[string]any{"pane_id": target, "text": text, "submit": true}); err != nil {
+		return "", err
+	}
+	return agent, nil
+}
