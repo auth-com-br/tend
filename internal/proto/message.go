@@ -415,6 +415,10 @@ const (
 	// FeatureMarkUnread: panes say whether their agent was marked unread by
 	// hand (PaneInfo.Marked), and pane.mark_unread sets it.
 	FeatureMarkUnread = "mark-unread"
+	// FeatureUsage: an agent's pane says what its conversation is spending
+	// (PaneInfo.Usage) — tokens, how full the context is, the cost, the
+	// provider's limit where the agent records it.
+	FeatureUsage = "usage"
 )
 
 // KnownFeatures is every feature this build knows of, for the same reason
@@ -424,7 +428,7 @@ var KnownFeatures = []string{
 	FeatureLifecycle, FeatureWindowTitle, FeatureTabBarStatus, FeatureDone, FeatureWindowFocus,
 	FeatureFocusRequest, FeatureAgentView, FeatureServerShell, FeaturePopup, FeatureUpdate,
 	FeatureDockUnless, FeatureContext, FeatureContextArrived, FeatureFollowCwd, FeatureGitHubFolders,
-	FeatureGroups, FeatureWheelKeys, FeatureDormant, FeatureMarkUnread,
+	FeatureGroups, FeatureWheelKeys, FeatureDormant, FeatureMarkUnread, FeatureUsage,
 }
 
 // --- session ---------------------------------------------------------------
@@ -478,8 +482,65 @@ type PaneInfo struct {
 	// Agent names the agent.
 	Dormant bool `json:"dormant,omitempty"`
 
+	// Usage is what the agent's conversation is spending, read from the
+	// file the agent keeps it in; nil when there is no agent or no file.
+	Usage *PaneUsage `json:"usage,omitempty"`
+
 	Command []string `json:"command,omitempty"`
 	Dir     string   `json:"dir,omitempty"`
+}
+
+// PaneUsage is what an agent's conversation has spent so far.
+type PaneUsage struct {
+	Model string `json:"model,omitempty"`
+	// Tokens is what went in and came out, the prompt cache's reads left
+	// out: those re-read the whole conversation at every reply.
+	Tokens int64 `json:"tokens"`
+	// Context is the conversation as the model last saw it, and Window how
+	// much it can take; Window is zero when it is not known.
+	Context int64 `json:"context"`
+	Window  int64 `json:"window,omitempty"`
+	// Reserve is the part of the window the agent counts as never free —
+	// Codex's 12k for its own instructions — taken out of both sides of
+	// the share, as the agent's own gauge does.
+	Reserve int64 `json:"reserve,omitempty"`
+	// Cost is the estimate in dollars, and CostKnown whether every model in
+	// it has a price — a cost without some of its models is a floor.
+	Cost      float64 `json:"cost"`
+	CostKnown bool    `json:"cost_known,omitempty"`
+	// Limit is the provider's usage limit, where the agent records it.
+	Limit *UsageLimit `json:"limit,omitempty"`
+}
+
+// ContextPercent is how full the context window is, or -1 when unknown.
+func (u *PaneUsage) ContextPercent() int {
+	if u == nil {
+		return -1
+	}
+	return ContextPercent(u.Context, u.Window, u.Reserve)
+}
+
+// ContextPercent is how full a window is with context tokens in it, a
+// reserve taken out of both, rounded as the agents round theirs; -1 for a
+// window not known. Codex says what is left, rounded, so the share used is
+// a hundred less that: 98% left is 2%, as its /status puts it, where the
+// plain share was 4%.
+func ContextPercent(context, window, reserve int64) int {
+	if window <= reserve {
+		return -1
+	}
+	eff := window - reserve
+	used := min(max(context-reserve, 0), eff)
+	left := ((eff-used)*100 + eff/2) / eff
+	return int(100 - left)
+}
+
+// UsageLimit is how much of a provider's usage limit is gone.
+type UsageLimit struct {
+	UsedPercent float64 `json:"used_percent"`
+	// Resets is when it starts over, in Unix seconds; zero when not said.
+	Resets  int64 `json:"resets,omitempty"`
+	Reached bool  `json:"reached,omitempty"`
 }
 
 // AgentToken is one value to show beside an agent.

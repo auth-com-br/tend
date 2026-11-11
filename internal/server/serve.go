@@ -1186,6 +1186,7 @@ func (s *Server) snapshot() proto.SessionSnapshot {
 		snap.Panes[i].WheelKeys = st.WheelKeys
 		snap.Panes[i].AppCursor = st.AppCursor
 		snap.Panes[i].Graphics = st.Graphics
+		snap.Panes[i].Usage = st.Usage
 		snap.Panes[i].Display = st.Presentation.DisplayAgent
 		snap.Panes[i].StateLabels = st.Presentation.StateLabels
 		for _, token := range st.Presentation.Tokens {

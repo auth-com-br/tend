@@ -1052,14 +1052,16 @@ grouped = false
 
 # What the sidebar's rows show. Agent tokens: state_icon, state_text,
 # machine, workspace, tab, pane, agent, terminal_title,
-# terminal_title_stripped. Space tokens: state_icon, state_text, workspace,
+# terminal_title_stripped, and what its conversation spends: context (how
+# full its window is), spent (tokens), cost (estimated) and limit (Codex's
+# usage limit). Space tokens: state_icon, state_text, workspace,
 # branch, git_status. A value a hook reported is $name. A token can be styled,
 # { token = "workspace", fg = "#89b4fa", bold = true, dim = false }, and given
 # rules on its text: rules = [{ gt = 80, fg = "#f38ba8" }, { equals = "", hide = true }].
 # (These tables go after the rest of [ui]; they are shown here to be found.)
 # [ui.sidebar.agents]
 # row_gap = 0
-# rows = [["state_icon", "machine", "workspace", "tab"], ["agent"]]
+# rows = [["state_icon", "machine", "workspace", "tab"], ["agent", "context"]]
 # [ui.sidebar.agents.rows_by_agent]
 # claude = [["state_icon", "workspace", "tab"], ["terminal_title_stripped"], ["agent"]]
 # [ui.sidebar.spaces]

@@ -33,6 +33,10 @@ const (
 	TokenValue
 	// TokenGitStatus is how far a checkout is ahead and behind.
 	TokenGitStatus
+	// TokenGauge is a value that runs out — how full an agent's context
+	// is, how much of its usage limit is gone — coloured as it nears the
+	// end (Level).
+	TokenGauge
 )
 
 // SidebarToken is one resolved token.
@@ -40,7 +44,10 @@ type SidebarToken struct {
 	Kind          TokenKind
 	Text          string
 	Ahead, Behind int
-	Style         config.TokenStyle
+	// Level is how near a gauge is to running out: 0 not near, 1 near, 2
+	// there.
+	Level uint8
+	Style config.TokenStyle
 }
 
 // AgentTokenValues is what an agent's tokens can say. An empty value is a
@@ -48,7 +55,12 @@ type SidebarToken struct {
 type AgentTokenValues struct {
 	StateText, Machine, Workspace, Tab, Pane, Agent string
 	TerminalTitle, TerminalTitleStripped            string
-	Custom                                          map[string]string
+	// Context, Spent, Cost and Limit say what the agent's conversation is
+	// spending (FormatUsage); ContextLevel and LimitLevel colour the
+	// gauges.
+	Context, Spent, Cost, Limit string
+	ContextLevel, LimitLevel    uint8
+	Custom                      map[string]string
 }
 
 // SpaceTokenValues is what a space's tokens can say.
@@ -80,6 +92,14 @@ func ResolveAgentRows(rows [][]config.SidebarToken, v AgentTokenValues) [][]Side
 			return SidebarToken{Kind: TokenValue, Text: v.TerminalTitle}, true
 		case "terminal_title_stripped":
 			return SidebarToken{Kind: TokenValue, Text: v.TerminalTitleStripped}, true
+		case "context":
+			return SidebarToken{Kind: TokenGauge, Text: v.Context, Level: v.ContextLevel}, true
+		case "spent":
+			return SidebarToken{Kind: TokenValue, Text: v.Spent}, true
+		case "cost":
+			return SidebarToken{Kind: TokenValue, Text: v.Cost}, true
+		case "limit":
+			return SidebarToken{Kind: TokenGauge, Text: v.Limit, Level: v.LimitLevel}, true
 		}
 		return SidebarToken{}, false
 	})
@@ -176,7 +196,9 @@ func gitStatusText(t SidebarToken) string {
 // tokenStyles are the default looks, worked out by the row that draws.
 type tokenStyles struct {
 	icon, stateText, primary, secondary, value, separator, ahead, behind vt.Style
-	iconText                                                             string
+	// near and out are a gauge nearing its end and at it.
+	near, out vt.Style
+	iconText  string
 }
 
 // drawTokenLine writes one row of tokens from x, within limit, fitting them
@@ -306,6 +328,13 @@ func drawTokenLine(dst *vt.Grid, line []SidebarToken, x, y, limit int, st tokenS
 				base = st.primary
 			case TokenSecondary:
 				base = st.secondary
+			case TokenGauge:
+				switch t.Level {
+				case 1:
+					base = st.near
+				case 2:
+					base = st.out
+				}
 			}
 			x = writeString(dst, x, y, truncate(t.Text, budgets[i]), patchStyle(base, t.Style), limit)
 		}

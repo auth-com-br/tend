@@ -75,6 +75,10 @@ type openRun struct {
 	place    activity.Place
 	lastSeen time.Time
 	convs    []activity.Conversation
+	// follow reads the current conversation as it grows, and warned is the
+	// thresholds already told of (usage.go).
+	follow *usage.Follower
+	warned map[string]bool
 }
 
 // seenAgent is one pane with an agent, as a round found it.
@@ -209,6 +213,7 @@ func (s *Server) recordActivity() {
 		}
 		run.lastSeen = now
 		s.followConversation(r, a, run, now)
+		s.followSpending(r, a, run)
 	}
 
 	// Runs the record says were going before this server, that no round
@@ -327,6 +332,10 @@ func (s *Server) followConversation(r *recorder, a seenAgent, run *openRun, now 
 // conversations spent.
 func (s *Server) endRun(r *recorder, id session.PaneID, run *openRun, reason string, at time.Time) {
 	delete(r.open, id)
+	s.mu.Lock()
+	rt := s.runtimes[id]
+	s.mu.Unlock()
+	s.clearSpending(rt)
 	files, commits := activity.Changes(run.place)
 	_ = r.log.Append(activity.Record{
 		Kind: activity.KindStop, Time: at, Run: run.id, Session: r.session, Pane: uint64(id),

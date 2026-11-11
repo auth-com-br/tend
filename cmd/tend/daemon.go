@@ -268,6 +268,7 @@ func runServe(args []string) error {
 	// written into the settings file holds from the next agent on. A file
 	// that stopped parsing keeps the rules the server started with rather
 	// than dropping them.
+	srvCfg.Prices = cfg.Activity.Prices
 	srvCfg.Policy = func() policy.Policy {
 		c, err := config.LoadLenient()
 		if err != nil {

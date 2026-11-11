@@ -58,9 +58,52 @@ function renderList() {
     const top = el('div', 'top');
     top.append(el('span', 'name', a.agent), el('span', 'where', a.space), el('span', 'state', words(a)));
     card.append(top, el('div', 'about', a.title || a.tab || ''));
+    const spent = spending(a.usage);
+    if (spent) card.append(el('div', 'spent' + (spent.warn ? ' ' + spent.warn : ''), spent.text));
     card.addEventListener('click', () => open(a.pane));
     list.append(card);
   }
+}
+
+// spending says an agent's usage as the sidebar does: "ctx 42% · 1.2M tok ·
+// $3.10 · limit 61%", with how near the nearest gauge is to its end.
+function spending(u) {
+  if (!u) return null;
+  const parts = [];
+  let worst = 0;
+  const gauge = pct => { worst = Math.max(worst, pct >= 95 ? 2 : pct >= 80 ? 1 : 0); };
+  const reserve = u.reserve || 0;
+  if (u.window > reserve) {
+    // As tend's sidebar and the agents themselves: what is left, rounded,
+    // a reserve the agent never counts as free taken out of both sides.
+    const eff = u.window - reserve;
+    const used = Math.min(Math.max(u.context - reserve, 0), eff);
+    const pct = 100 - Math.round((eff - used) * 100 / eff);
+    parts.push(`ctx ${pct}%`);
+    gauge(pct);
+  }
+  if (u.tokens > 0) parts.push(count(u.tokens) + ' tok');
+  if (u.cost > 0) parts.push((u.cost_known ? '$' : '≥$') + u.cost.toFixed(2));
+  if (u.limit) {
+    if (u.limit.reached) {
+      parts.push('limit hit');
+      worst = 2;
+    } else {
+      parts.push(`limit ${Math.floor(u.limit.used_percent)}%`);
+      gauge(u.limit.used_percent);
+    }
+  }
+  if (!parts.length) return null;
+  return { text: parts.join(' · '), warn: ['', 'near', 'out'][worst] };
+}
+
+function count(n) {
+  const one = x => (x >= 10 ? String(Math.floor(x)) : x.toFixed(1).replace(/\.0$/, ''));
+  if (n < 1000) return String(n);
+  if (n < 1e5) return one(n / 1e3) + 'k';
+  if (n < 1e6) return Math.floor(n / 1e3) + 'k';
+  if (n < 1e9) return one(n / 1e6) + 'M';
+  return one(n / 1e9) + 'G';
 }
 
 function current() {

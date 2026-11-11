@@ -17,7 +17,7 @@ import (
 // [ui.sidebar.spaces] (`config/sidebar.rs`, `config/sidebar/rules.rs`).
 //
 //	[ui.sidebar.agents]
-//	rows = [["state_icon", "machine", "workspace", "tab"], ["agent"]]
+//	rows = [["state_icon", "machine", "workspace", "tab"], ["agent", "context"]]
 //	row_gap = 0
 //	[ui.sidebar.agents.rows_by_agent]
 //	claude = [["state_icon", "workspace"], ["terminal_title_stripped"]]
@@ -46,15 +46,18 @@ const (
 // Built-in token names.
 var (
 	AgentTokenNames = []string{"state_icon", "state_text", "machine", "workspace", "tab",
-		"pane", "agent", "terminal_title", "terminal_title_stripped"}
+		"pane", "agent", "terminal_title", "terminal_title_stripped", "context", "spent", "cost", "limit"}
 	SpaceTokenNames = []string{"state_icon", "state_text", "workspace", "branch", "git_status"}
 )
 
-// DefaultAgentRows and DefaultSpaceRows are herdr's.
+// DefaultAgentRows is herdr's, with how full the agent's context is beside
+// its name: an agent that runs out compacts or stops, and the moment to
+// know is before (issue #46). Where nothing is known it is left out, and the
+// row is herdr's.
 func DefaultAgentRows() [][]SidebarToken {
 	return [][]SidebarToken{
 		{{Name: "state_icon"}, {Name: "machine"}, {Name: "workspace"}, {Name: "tab"}},
-		{{Name: "agent"}},
+		{{Name: "agent"}, {Name: "context"}},
 	}
 }
 

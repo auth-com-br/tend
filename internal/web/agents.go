@@ -20,6 +20,9 @@ type Agent struct {
 	Dormant bool   `json:"dormant,omitempty"`
 	Done    bool   `json:"done,omitempty"`
 	Running bool   `json:"running"`
+	// Usage is what its conversation is spending, as tend's own sidebar
+	// shows it; nil when not known.
+	Usage *proto.PaneUsage `json:"usage,omitempty"`
 }
 
 // Agents are the session's agents, those asleep included, in the order of
@@ -62,7 +65,7 @@ func Agents(snap proto.SessionSnapshot) []Agent {
 				out = append(out, Agent{
 					Pane: id, Agent: p.Agent, Title: p.Title, State: state,
 					Company: company[w.ID], Space: space, Tab: tab,
-					Dormant: p.Dormant, Done: p.Done, Running: p.Running,
+					Dormant: p.Dormant, Done: p.Done, Running: p.Running, Usage: p.Usage,
 				})
 			}
 		}

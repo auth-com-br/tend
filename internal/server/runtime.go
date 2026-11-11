@@ -6,6 +6,7 @@ import (
 
 	"github.com/auth-com-br/tend/internal/agent"
 	"github.com/auth-com-br/tend/internal/detect"
+	"github.com/auth-com-br/tend/internal/proto"
 	"github.com/auth-com-br/tend/internal/pty"
 	"github.com/auth-com-br/tend/internal/session"
 	"github.com/auth-com-br/tend/internal/vt"
@@ -47,8 +48,11 @@ type paneRuntime struct {
 	// shownPresentation is what a hook said to show beside the agent: the
 	// name it goes by, the values worth a glance, the labels for its states.
 	shownPresentation agent.Presentation
-	dirty             bool
-	title             string
+	// spending is what the agent's conversation has spent, kept up to
+	// date by the activity recorder (usage.go); nil with no agent.
+	spending *proto.PaneUsage
+	dirty    bool
+	title    string
 	// foreground is the program last seen in charge of the terminal, so the
 	// costly part — resolving and swapping the detector — happens only when
 	// it actually changes.
@@ -357,6 +361,7 @@ func (rt *paneRuntime) status() PaneStatus {
 		Agent:        rt.shown.Agent,
 		State:        rt.shown.State,
 		Presentation: rt.shownPresentation,
+		Usage:        rt.spending,
 		Rule:         rt.shownRule,
 		Message:      rt.shown.Message,
 		Running:      rt.running,

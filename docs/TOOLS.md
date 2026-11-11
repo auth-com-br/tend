@@ -107,6 +107,29 @@ and unseen — until you go to its tab.
   asks — "Bash command: npm test — Do you want to proceed?" — and where, so
   you know which one can wait.
 
+### What each agent is spending
+
+For Claude Code and Codex, the sidebar says beside the agent's name how full
+its context window is — `claude · ctx 42%` — in the working colour from 80%
+and the blocked one from 95%, the numbers each agent's own `/context` or
+`/status` shows. Passing 80% and 95% is also a notification, and so is a
+Codex agent nearing (90%) or hitting its usage limit, with when it resets.
+The phone page shows the same under each agent, with the tokens, the
+estimated cost and the limit.
+
+They are read from the file the agent keeps its conversation in, which the
+agent's hook names (`tend integration install`), and only while the activity
+record is on (`[activity] record`, on unless turned off). The sidebar's
+other tokens for it are `spent` (tokens in and out, the prompt cache's
+re-reads left out), `cost` (an estimate from public API prices, `≥` when a
+model has none) and `limit` (Codex only: Claude Code writes its limit
+nowhere tend can read):
+
+```toml
+[ui.sidebar.agents]
+rows = [["state_icon", "workspace", "tab"], ["agent", "context", "cost"]]
+```
+
 ## Sleeping agents
 
 After a restart, agents come back **asleep**: each pane is there, with the

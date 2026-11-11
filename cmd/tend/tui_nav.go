@@ -1139,6 +1139,9 @@ func (t *tui) agentLinesLocked(w proto.WorkspaceInfo, tab proto.TabInfo, p proto
 	for _, token := range p.Tokens {
 		v.Custom[token.Key] = token.Value
 	}
+	u := ui.FormatUsage(p.Usage, time.Now())
+	v.Context, v.Spent, v.Cost, v.Limit = u.Context, u.Spent, u.Cost, u.Limit
+	v.ContextLevel, v.LimitLevel = u.ContextLevel, u.LimitLevel
 	return ui.ResolveAgentRows(t.config.UI.Sidebar.AgentRows(p.Agent), v)
 }
 

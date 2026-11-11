@@ -822,6 +822,8 @@ func drawTokenEntry(dst *vt.Grid, r SidebarRow, x, y, limit int, style, mark vt.
 		separator: theme.SidebarDetail,
 		ahead:     theme.Idle,
 		behind:    theme.Blocked,
+		near:      theme.Working,
+		out:       theme.Blocked,
 	}
 	if r.Active {
 		st.stateText, st.secondary, st.value, st.separator, st.ahead, st.behind =

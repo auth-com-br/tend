@@ -17,6 +17,9 @@ main { padding: .5em .6em 2em; }
 .card .top { display: flex; gap: .5em; align-items: baseline; }
 .card .name { font-weight: 600; }
 .card .state { margin-left: auto; font-size: .8em; color: var(--dim); }
+.card .spent { color: var(--dim); font-size: .8em; margin-top: .1em; font-variant-numeric: tabular-nums; }
+.card .spent.near { color: var(--working, #f9e2af); }
+.card .spent.out { color: var(--blocked, #f38ba8); }
 .card .about { color: var(--dim); font-size: .88em; margin-top: .15em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .card.working { border-left-color: var(--working); } .card.working .state { color: var(--working); }
 .card.blocked { border-left-color: var(--blocked); } .card.blocked .state { color: var(--blocked); font-weight: 600; }

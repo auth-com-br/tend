@@ -36,6 +36,7 @@ import (
 	"github.com/auth-com-br/tend/internal/proto"
 	"github.com/auth-com-br/tend/internal/pty"
 	"github.com/auth-com-br/tend/internal/session"
+	"github.com/auth-com-br/tend/internal/usage"
 	"github.com/auth-com-br/tend/internal/vt"
 )
 
@@ -280,6 +281,9 @@ type Config struct {
 	// checked so an edited settings file applies without a restart. Nil
 	// holds them to none.
 	Policy func() policy.Policy
+	// Prices replace or add to what tend thinks a model costs, for the
+	// cost shown beside an agent ([activity.prices]).
+	Prices map[string]usage.Price
 }
 
 // PaneSpec describes a pane to open.
@@ -336,6 +340,8 @@ type PaneStatus struct {
 	// Presentation is what a hook said to show about the pane: a name for the
 	// agent, values beside it, labels for its states.
 	Presentation agent.Presentation
+	// Usage is what the agent's conversation has spent, if it is known.
+	Usage *proto.PaneUsage
 	// Mouse is whether the pane's program asked for mouse reports at all.
 	// MouseDrag and MouseMotion say how much it asked for, and MouseSGR how
 	// it wants them written: a client forwarding the mouse has to send what
