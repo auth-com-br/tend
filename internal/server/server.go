@@ -444,6 +444,9 @@ type Server struct {
 
 // New starts a server with no panes.
 func New(cfg Config) (*Server, error) {
+	// Asked here, with no lock held, so that starting a Codex under the
+	// session's lock finds the answer kept (agent.LaunchArgv).
+	agent.WarmCodex()
 	s, err := build(cfg)
 	if err != nil {
 		return nil, err
@@ -944,7 +947,8 @@ func (s *Server) startLocked(id session.PaneID, spec PaneSpec) error {
 		env = append(env[:len(env):len(env)], s.cfg.PaneEnv(id)...)
 	}
 
-	p, err := pty.Start(spec.Command[0], spec.Command[1:], pty.Options{
+	launch := agent.LaunchArgv(spec.Command)
+	p, err := pty.Start(launch[0], launch[1:], pty.Options{
 		Dir:  spec.Dir,
 		Env:  env,
 		Size: size,

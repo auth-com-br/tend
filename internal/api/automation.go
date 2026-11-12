@@ -721,7 +721,7 @@ func (a *API) callMore(req Request, pend *pending) (any, error) {
 		// Typed into whatever is in the pane, which is how a person starts an
 		// agent: the shell runs it, and detection picks it up from the
 		// foreground process as it does for any other pane.
-		if err := a.srv.Submit(id, strings.Join(argv, " ")); err != nil {
+		if err := a.srv.Submit(id, strings.Join(agent.LaunchArgv(argv), " ")); err != nil {
 			return nil, paneErr(p.PaneID, err)
 		}
 		if known, ok := agent.SessionFromLaunch(argv); ok {

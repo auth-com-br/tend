@@ -159,7 +159,7 @@ func (s *Server) Wake(id session.PaneID) error {
 	if d == nil {
 		return nil
 	}
-	if err := s.Submit(id, shellLine(d.Argv)); err != nil {
+	if err := s.Submit(id, shellLine(agent.LaunchArgv(d.Argv))); err != nil {
 		rt.mu.Lock()
 		rt.dormant = d
 		rt.mu.Unlock()
