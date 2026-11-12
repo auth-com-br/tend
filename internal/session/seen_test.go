@@ -109,3 +109,23 @@ func TestAnAgentMarkedUnreadStaysUntilItsTabIsArrivedAt(t *testing.T) {
 		t.Error("no such pane should be an error")
 	}
 }
+
+// TestAMutedPaneStaysMutedAcrossARestart: muting is kept with the session,
+// as a mark is. If it regresses, every restart or handoff turns a muted
+// worker's notifications back on.
+func TestAMutedPaneStaysMutedAcrossARestart(t *testing.T) {
+	s, _, a, _, _ := threePanes(t)
+	if err := s.SetMuted(a, true); err != nil {
+		t.Fatal(err)
+	}
+	restored, err := Restore(s.Snapshot(nil))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p, _ := restored.Pane(a); p == nil || !p.Muted {
+		t.Error("a restart should keep it muted")
+	}
+	if err := s.SetMuted(9999, true); err == nil {
+		t.Error("no such pane should be an error")
+	}
+}

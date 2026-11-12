@@ -177,6 +177,9 @@ const (
 	// MethodPaneResumeAfterLimit asks the server to tell a pane's agent to
 	// continue when the usage limit that stopped it resets, or not to.
 	MethodPaneResumeAfterLimit = "pane.resume_after_limit"
+	// MethodPaneMute mutes a pane's agent's announcements, or unmutes them
+	// (PaneInfo.Muted).
+	MethodPaneMute = "pane.mute"
 	// MethodPaneEditScrollback opens a pane's history in an editor, in a pane
 	// of its own.
 	MethodPaneEditScrollback = "pane.edit_scrollback"
@@ -264,6 +267,7 @@ var KnownMethods = []string{
 	MethodPaneRename,
 	MethodPaneMarkUnread,
 	MethodPaneResumeAfterLimit,
+	MethodPaneMute,
 	MethodPaneEditScrollback,
 	MethodPanePaste,
 	MethodPaneGraphics,
@@ -452,6 +456,9 @@ type PaneInfo struct {
 	// Marked is an agent marked unread by hand, whatever it is doing; while
 	// it is idle it is Done as well, so a list that knows only Done shows it.
 	Marked bool `json:"marked,omitempty"`
+	// Muted is a pane whose agent is not announced: no card, no system
+	// notification, no sound, no push to a phone.
+	Muted bool `json:"muted,omitempty"`
 
 	Running bool `json:"running"`
 	Pid     int  `json:"pid,omitempty"`
@@ -1468,6 +1475,12 @@ type PaneResizeParams struct {
 type PaneMarkUnreadParams struct {
 	Pane   uint64 `json:"pane"`
 	Unread bool   `json:"unread"`
+}
+
+// PaneMuteParams mutes or unmutes a pane's agent.
+type PaneMuteParams struct {
+	Pane  uint64 `json:"pane"`
+	Muted bool   `json:"muted"`
 }
 
 // PaneRenameParams names a pane.

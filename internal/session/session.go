@@ -74,6 +74,10 @@ type Pane struct {
 	// at its tab from another does (MarkTabArrived), as herdr's users asked
 	// for it (herdr discussion #864).
 	Marked bool
+	// Muted is a pane whose agent is not announced — no card, no system
+	// notification, no sound — for a worker whose every "finished" is
+	// noise. Its state is still shown (herdr discussions #2414, #2529).
+	Muted bool
 	// StateSeq orders the panes by when their state last changed, for a list
 	// that puts the most recent first.
 	StateSeq uint64
@@ -590,6 +594,16 @@ func (s *Session) SetMarked(id PaneID, marked bool) error {
 		return fmt.Errorf("%w: %d", ErrNoSuchPane, id)
 	}
 	p.Marked = marked
+	return nil
+}
+
+// SetMuted mutes a pane's agent's announcements, or unmutes them.
+func (s *Session) SetMuted(id PaneID, muted bool) error {
+	p, ok := s.Pane(id)
+	if !ok {
+		return fmt.Errorf("%w: %d", ErrNoSuchPane, id)
+	}
+	p.Muted = muted
 	return nil
 }
 

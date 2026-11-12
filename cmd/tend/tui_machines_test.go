@@ -119,3 +119,29 @@ func TestNextAgentCrossesMachines(t *testing.T) {
 		t.Errorf("with the other machine unreachable, next = %q %d, want this one's again", machine, pane)
 	}
 }
+
+// TestAMutedAgentIsShownButNotAnnounced: an agent muted from its menu
+// raises no card, no system notification and no sound when it stops for
+// you or finishes; unmuted, it does again. If it regresses, a worker that
+// finishes every minute buzzes every minute, which is what herdr's users
+// asked to be spared (discussions #2414, #2529).
+func TestAMutedAgentIsShownButNotAnnounced(t *testing.T) {
+	tu, far := twoMachines()
+	for i := range far.snap.Panes {
+		if far.snap.Panes[i].ID == 1 {
+			far.snap.Panes[i].Muted = true
+		}
+	}
+	tu.announceFrom(far, proto.Event{Kind: proto.EventPaneState, Pane: 1, State: "blocked", Agent: "claude"})
+	if tu.toast != nil || len(tu.pendingNotices) != 0 {
+		t.Fatalf("a muted agent was announced: %+v", tu.toast)
+	}
+	for i := range far.snap.Panes {
+		far.snap.Panes[i].Muted = false
+	}
+	far.notices = map[uint64]paneNotice{}
+	tu.announceFrom(far, proto.Event{Kind: proto.EventPaneState, Pane: 1, State: "blocked", Agent: "claude"})
+	if tu.toast == nil {
+		t.Error("unmuted, it should be announced again")
+	}
+}

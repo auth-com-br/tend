@@ -103,6 +103,14 @@ and unseen — until you go to its tab.
   its line in the list and choose **mark unread**. The mark stays while you
   look around — even on the agent on screen — and goes when you come to its
   tab from another (or with **mark read**).
+- A worker whose every "finished" is noise: right-click it and **mute
+  notifications**. It is still shown in the list and on its tab; it raises
+  no card, no desktop notification, no sound and no phone push, until you
+  unmute it. Kept across restarts.
+- With `[notify] toasts = "system"`, clicking the desktop notification takes
+  tend to the agent, where the desktop's notify-send can say it was clicked;
+  without notify-send (GNOME without libnotify's tools), the notification is
+  raised over D-Bus and is not clickable.
 - When an agent stops to ask you something, its notification says what it
   asks — "Bash command: npm test — Do you want to proceed?" — and where, so
   you know which one can wait.
@@ -407,6 +415,19 @@ the agent list, clicking a row goes there — a pane, a tab, or a whole space.
 A pane running something that wants the mouse itself, an editor say, gets the
 clicks instead. A right-click on a pane has **copy** (when text is selected)
 and **paste**.
+
+What you select is copied, and on Linux it also goes to the primary
+selection, so a middle click pastes it anywhere, as in every other program
+(`[ui] copy_to_primary = false` to stop it).
+
+Copy mode's keys are vi's out of the box; `[keys.copy_mode]` gives any of
+its actions keys of your own (`left = "h left"`), and `tend keys` lists them
+all.
+
+The tab bar can say each tab's number before the name you gave it
+(`[ui] tab_numbers = true`: "2 build") and, before that, the state of its
+agent — ◐ working, × waiting for you, ✓ finished unseen — which it does
+whenever the sidebar is hidden (`tab_status = "auto"`; `"on"`, `"off"`).
 
 ctrl+click on a web link a pane printed — a URL, or words a program linked
 (OSC 8), as Claude Code does — opens it in the browser on your own machine

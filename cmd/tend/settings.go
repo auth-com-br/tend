@@ -57,6 +57,13 @@ func (t *tui) reloadSettings() error {
 	} else {
 		t.keys.Bindings = bindings
 	}
+	if copyKeys, _, err := ui.CopyKeysFrom(cfg.Keys.CopyMode); err != nil {
+		t.setMessage(err.Error(), true)
+	} else {
+		t.mu.Lock()
+		t.copyKeyMap = copyKeys
+		t.mu.Unlock()
+	}
 	if custom, _, err := ui.CustomFrom(cfg.Keys.Command, t.keys.Bindings); err != nil {
 		t.setMessage(err.Error(), true)
 	} else {

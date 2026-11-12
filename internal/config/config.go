@@ -143,6 +143,10 @@ type Activity struct {
 }
 
 // RecordActivity is whether the server keeps the activity record.
+// PrimarySelection is whether a selection is copied to the primary
+// selection too.
+func (c Config) PrimarySelection() bool { return c.UI.CopyToPrimary == nil || *c.UI.CopyToPrimary }
+
 func (c Config) RecordActivity() bool { return c.Activity.Record == nil || *c.Activity.Record }
 
 // Errors connects the errors panel to a GlitchTip server. Both are set from
@@ -504,6 +508,9 @@ type Keys struct {
 	// Command binds keys to commands the user wrote: herdr's
 	// [[keys.command]]. See commands.go.
 	Command []CommandKey `toml:"command"`
+	// CopyMode gives copy mode's actions keys of the user's, as
+	// <action> = "<key> <key>…" (internal/ui/copykeys.go names them).
+	CopyMode map[string]string `toml:"copy_mode"`
 }
 
 // Pane configures new panes.
@@ -547,6 +554,17 @@ type UI struct {
 	// the row back while a space has one tab. Both herdr's.
 	TabBarPosition          string `toml:"tab_bar_position"`
 	HideTabBarWhenSingleTab bool   `toml:"hide_tab_bar_when_single_tab"`
+	// TabNumbers puts a tab's place in its space before the name it was
+	// given, and TabStatus the state of its most pressing agent: "auto"
+	// (the default) while the sidebar, which already says it, is hidden,
+	// "on" or "off". Not herdr's: asked for in its discussions (#1381,
+	// #1429).
+	TabNumbers bool   `toml:"tab_numbers"`
+	TabStatus  string `toml:"tab_status"`
+	// CopyToPrimary puts what is selected in the primary selection too, for
+	// a middle click to paste, as every other Linux program does. Unset is
+	// on. Not herdr's: its most voted request after mouse selection (#748).
+	CopyToPrimary *bool `toml:"copy_to_primary"`
 	// SidebarWidth is the sidebar's width in columns, and SidebarMinWidth
 	// and SidebarMaxWidth the bounds dragging its edge keeps it within:
 	// herdr's, 26, 18 and 36.
@@ -842,6 +860,11 @@ func (c Config) validate() error {
 	default:
 		return fmt.Errorf("ui.tab_bar_position is %q; use \"top\" or \"bottom\"", c.UI.TabBarPosition)
 	}
+	switch c.UI.TabStatus {
+	case "", "auto", "on", "off":
+	default:
+		return fmt.Errorf("ui.tab_status is %q; use \"auto\", \"on\" or \"off\"", c.UI.TabStatus)
+	}
 	if err := checkTabBar(c.UI.TabBarRight); err != nil {
 		return err
 	}
@@ -1013,6 +1036,12 @@ prefix = "ctrl+b"
 # detach = "q"
 # settings = ","
 
+# Copy mode's keys, as <action> = "<key> <key>…", in place of the action's
+# own. Run "tend keys" for every action and its keys.
+# [keys.copy_mode]
+# left = "h left"
+# yank = "y enter ctrl+w"
+
 # Your own commands on a key after the prefix. type = "shell" runs it in the
 # background, "pane" in a pane of its own that has the screen until the
 # command ends, "plugin_action" invokes an installed plugin's action by id.
@@ -1079,6 +1108,16 @@ grouped = false
 # whether to leave it out while a space has only one tab.
 # tab_bar_position = "top"
 # hide_tab_bar_when_single_tab = false
+
+# A tab's number before the name you gave it ("2 build"), and its agent's
+# state before that — ◐ working, × waiting for you, ✓ finished unseen —
+# "auto" while the sidebar is hidden, "on" or "off".
+# tab_numbers = false
+# tab_status = "auto"
+
+# What you select also goes to the primary selection, which a middle click
+# pastes (Linux).
+# copy_to_primary = true
 
 # The sidebar's width, and the least and most dragging its right edge can
 # make it. A double click on the edge puts it back to sidebar_width.

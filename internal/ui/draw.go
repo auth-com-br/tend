@@ -323,6 +323,11 @@ type Tab struct {
 	// Alert marks a tab holding an agent that needs an answer, so a blocked
 	// agent in a tab you are not looking at is still visible.
 	Alert bool
+	// Number is the tab's place in its space, from 1, and State the state
+	// of its most pressing agent ("blocked", "done", "working"), for the
+	// label when the frame asks for them.
+	Number int
+	State  string
 }
 
 // Frame is everything to draw.
@@ -333,6 +338,9 @@ type Frame struct {
 	// and StatusSeparator what goes between two entries.
 	Status          []StatusEntry
 	StatusSeparator string
+	// TabNumbers and TabStatus put each tab's number and its agent's state
+	// in its label ([ui] tab_numbers, tab_status).
+	TabNumbers, TabStatus bool
 	// TabBarBottom puts the tab bar above the status bar rather than at the
 	// top, and HideSingleTab leaves it out while the space has one tab:
 	// herdr's tab_bar_position and hide_tab_bar_when_single_tab.
@@ -572,7 +580,7 @@ func TabSegments(f Frame, cols int) []TabSegment {
 		if i > 0 {
 			x++
 		}
-		width := max(runewidth.StringWidth(tabLabel(tab))+4, minTabWidth)
+		width := max(runewidth.StringWidth(tabLabel(f, tab))+4, minTabWidth)
 		if x+width > cols {
 			break
 		}
@@ -591,11 +599,22 @@ func TabSegments(f Frame, cols int) []TabSegment {
 // minTabWidth is herdr's MIN_TAB_WIDTH.
 const minTabWidth = 8
 
-func tabLabel(tab Tab) string {
-	if tab.Name == "" {
-		return itoa(tab.ID)
+func tabLabel(f Frame, tab Tab) string {
+	label := tab.Name
+	switch {
+	case label == "" && f.TabNumbers && tab.Number > 0:
+		label = itoa(uint64(tab.Number))
+	case label == "":
+		label = itoa(tab.ID)
+	case f.TabNumbers && tab.Number > 0:
+		label = itoa(uint64(tab.Number)) + " " + label
 	}
-	return tab.Name
+	if f.TabStatus && tab.State != "" && tab.State != "idle" {
+		// The symbols, not the dots: a label is one colour, and a dot
+		// that means three states by colour means nothing in it.
+		label = StatusIcon(tab.State, true, true) + " " + label
+	}
+	return label
 }
 
 // TabAt reports what a click on the bar landed on.
@@ -729,7 +748,7 @@ func drawTabs(dst *vt.Grid, f Frame, theme Theme) {
 		}
 		// The name in the middle of its block, as herdr centres it.
 		width := seg.End - seg.Start
-		label := truncate(tabLabel(tab), width)
+		label := truncate(tabLabel(f, tab), width)
 		pad := width - runewidth.StringWidth(label)
 		text := strings.Repeat(" ", pad/2) + label + strings.Repeat(" ", pad-pad/2)
 		writeString(dst, seg.Start, y, text, style, seg.End)

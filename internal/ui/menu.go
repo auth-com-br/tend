@@ -110,6 +110,10 @@ const (
 	// limit that stopped it resets; MenuNoResume takes that back.
 	MenuResumeAfterLimit = "menu-resume-after-limit"
 	MenuNoResume         = "menu-no-resume"
+	// MenuMute stops the pane's agent being announced; MenuUnmute starts
+	// it again.
+	MenuMute   = "menu-mute"
+	MenuUnmute = "menu-unmute"
 	// MenuSleepPick lists the agents that are awake, to put one to sleep
 	// (MenuSleepOne, Arg its pane) or every idle one (MenuSleepIdle).
 	MenuSleepPick = "menu-sleep-pick"
@@ -409,6 +413,30 @@ func WithMarkUnread(m Menu, marked bool) Menu {
 	if marked {
 		item = MenuItem{Label: "mark read", Action: MenuMarkRead}
 	}
+	at := len(m.Items)
+	for i, it := range m.Items {
+		if it.Action == MenuClose {
+			at = i
+		}
+	}
+	items := append([]MenuItem(nil), m.Items[:at]...)
+	items = append(items, item)
+	m.Items = append(items, m.Items[at:]...)
+	return m
+}
+
+// WithMute adds to a pane's or an agent's menu muting its announcements —
+// or, muted, unmuting them. It goes before "close pane".
+func WithMute(m Menu, muted bool) Menu {
+	item := MenuItem{Label: "mute notifications", Action: MenuMute}
+	if muted {
+		item = MenuItem{Label: "unmute notifications", Action: MenuUnmute}
+	}
+	return beforeClose(m, item)
+}
+
+// beforeClose puts item in m just before "close pane", or last.
+func beforeClose(m Menu, item MenuItem) Menu {
 	at := len(m.Items)
 	for i, it := range m.Items {
 		if it.Action == MenuClose {

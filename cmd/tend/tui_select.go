@@ -143,7 +143,7 @@ func (t *tui) copySelection(pane uint64) {
 		t.setMessage("nothing selected to copy", false)
 		return
 	}
-	t.copyToClipboard(text, copiedMessage(text, false))
+	t.copySelected(text, copiedMessage(text, false))
 }
 
 // copySelectionText puts a selection's text on the clipboard.
@@ -171,7 +171,7 @@ func (t *tui) copySelectionText(sel ui.Selection) {
 		t.setMessage("nothing to copy there", false)
 		return
 	}
-	t.copyToClipboard(text, copiedMessage(text, sel.Block))
+	t.copySelected(text, copiedMessage(text, sel.Block))
 }
 
 // pasteInto pastes the clipboard into a pane: the pane menu's "paste". The
@@ -252,6 +252,24 @@ func (t *tui) copyToClipboard(text, what string) {
 	}
 }
 
+// copySelected is copyToClipboard for what was selected, which also goes to
+// the primary selection — where a middle click pastes from — as selecting
+// does in every other program on Linux ([ui] copy_to_primary).
+func (t *tui) copySelected(text, what string) {
+	t.mu.Lock()
+	primary := t.config.PrimarySelection()
+	t.mu.Unlock()
+	if primary {
+		if seq := ui.SetPrimary(text); seq != "" {
+			_, _ = io.WriteString(os.Stdout, seq)
+		}
+		// Its own tool, beside the clipboard's; a failure here is not one
+		// worth saying over the clipboard's message.
+		go func() { _, _ = clipboard.CopyPrimary(text) }()
+	}
+	t.copyToClipboard(text, what)
+}
+
 // copiedMessage says how much was taken, since the mark is about to be redrawn
 // and the user has nothing else to go on.
 func copiedMessage(text string, block bool) string {
@@ -287,7 +305,7 @@ func (t *tui) paneCopied(pane uint64, text []byte) {
 	}
 	t.programCopy[pane] = string(text)
 	t.mu.Unlock()
-	go t.copyToClipboard(string(text), copiedMessage(string(text), false))
+	go t.copySelected(string(text), copiedMessage(string(text), false))
 }
 
 // paneCellLocked turns a screen point into a cell of a pane, if it is in one.
@@ -547,7 +565,7 @@ func (t *tui) selectWord(ev ui.MouseEvent) bool {
 	if err != nil || strings.TrimSpace(text) == "" {
 		return true
 	}
-	t.copyToClipboard(text, copiedMessage(text, false))
+	t.copySelected(text, copiedMessage(text, false))
 	return true
 }
 

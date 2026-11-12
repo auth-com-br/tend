@@ -91,6 +91,52 @@ func Copy(text string) (string, error) {
 	return "", ErrNoTool
 }
 
+// primaryTools set the X11/Wayland primary selection — what a middle click
+// pastes — which macOS does not have.
+func primaryTools() []tool {
+	if runtime.GOOS == "darwin" {
+		return nil
+	}
+	return []tool{
+		{name: "wl-copy", args: []string{"--primary"}, needs: "WAYLAND_DISPLAY"},
+		{name: "xclip", args: []string{"-selection", "primary"}, needs: "DISPLAY"},
+		{name: "xsel", args: []string{"--primary", "--input"}, needs: "DISPLAY"},
+	}
+}
+
+// CopyPrimary writes text to the primary selection, as selecting text does
+// in every other Linux program, and reports which tool took it. Like Copy,
+// it does nothing useful over ssh, and says so.
+func CopyPrimary(text string) (string, error) {
+	if text == "" {
+		return "", nil
+	}
+	if Remote() {
+		return "", ErrNoTool
+	}
+	var firstErr error
+	for _, t := range primaryTools() {
+		if t.needs != "" && os.Getenv(t.needs) == "" {
+			continue
+		}
+		path, err := exec.LookPath(t.name)
+		if err != nil {
+			continue
+		}
+		if err := run(path, t.args, text); err != nil {
+			if firstErr == nil {
+				firstErr = err
+			}
+			continue
+		}
+		return t.name, nil
+	}
+	if firstErr != nil {
+		return "", firstErr
+	}
+	return "", ErrNoTool
+}
+
 // run feeds text to a tool and waits for it to take it.
 //
 // The pipe is closed before waiting, because that is how these tools know the

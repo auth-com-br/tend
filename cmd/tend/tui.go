@@ -120,6 +120,14 @@ func runAttach(args []string) error {
 			fmt.Fprintf(os.Stderr, "%s keys.bind: %s\n", tag(), note)
 		}
 	}
+	if copyKeys, notes, err := ui.CopyKeysFrom(cfg.Keys.CopyMode); err != nil {
+		fmt.Fprintf(os.Stderr, "%s %v\n", tag(), err)
+	} else {
+		t.copyKeyMap = copyKeys
+		for _, note := range notes {
+			fmt.Fprintf(os.Stderr, "%s keys.copy_mode: %s\n", tag(), note)
+		}
+	}
 	if custom, notes, err := ui.CustomFrom(cfg.Keys.Command, t.keys.Bindings); err != nil {
 		fmt.Fprintf(os.Stderr, "%s %v\n", tag(), err)
 	} else {
@@ -388,6 +396,9 @@ type tui struct {
 	lastNotice uint64
 	// lastNoticeMachine is the saved machine that pane is on.
 	lastNoticeMachine string
+	// copyKeyMap is copy mode's keys: what the terminal sends, to the
+	// action it does ([keys.copy_mode] over the defaults).
+	copyKeyMap map[string]string
 	// promptRepo is the repository a new worktree is for, so the prompt can
 	// say where the checkout will go.
 	promptRepo string
@@ -1216,7 +1227,7 @@ func (t *tui) buildFrame() ui.Frame {
 	if w, ok := t.workspaceLocked(); ok {
 		frame.Workspace = w.Name
 	}
-	for _, tab := range t.tabsLocked() {
+	for i, tab := range t.tabsLocked() {
 		if tab.ID == t.tab {
 			frame.Tab = tab.Name
 		}
@@ -1225,15 +1236,28 @@ func (t *tui) buildFrame() ui.Frame {
 			Name:   tab.Name,
 			Panes:  len(tab.Panes),
 			Active: tab.ID == t.tab,
+			Number: i + 1,
 		}
 		// A blocked agent in a tab you are not looking at is the one thing
 		// the bar exists to tell you about.
 		for _, id := range tab.Panes {
-			if info[id].State == "blocked" {
+			p := info[id]
+			if p.State == "blocked" {
 				label.Alert = true
+			}
+			if p.Agent != "" && p.Running {
+				label.State = moreUrgent(label.State, tabState(p))
 			}
 		}
 		frame.Tabs = append(frame.Tabs, label)
+	}
+	frame.TabNumbers = t.config.UI.TabNumbers
+	switch t.config.UI.TabStatus {
+	case "on":
+		frame.TabStatus = true
+	case "off":
+	default:
+		frame.TabStatus = !t.sidebar
 	}
 
 	frame.StatusSeparator = t.snap.TabBarSeparator
@@ -1598,11 +1622,11 @@ func (t *tui) command(action ui.Action) error {
 		t.mu.Lock()
 		agent := t.paneAgentsLocked()[focus] != ""
 		selected := (t.sel != nil && t.sel.Pane == focus && !t.sel.Empty()) || t.programCopy[focus] != ""
-		asleep, marked := false, false
+		asleep, marked, muted := false, false, false
 		var limited *proto.PaneUsage
 		for _, p := range t.snap.Panes {
 			if p.ID == focus {
-				asleep, marked, limited = p.Dormant, p.Marked, limitedUsage(p)
+				asleep, marked, limited, muted = p.Dormant, p.Marked, limitedUsage(p), p.Muted
 			}
 		}
 		t.mu.Unlock()
@@ -1612,6 +1636,9 @@ func (t *tui) command(action ui.Action) error {
 		}
 		if agent && limited != nil && t.serverKnows(proto.MethodPaneResumeAfterLimit) {
 			m = ui.WithResumeAfterLimit(m, limited.ResumeArmed)
+		}
+		if agent && t.serverKnows(proto.MethodPaneMute) {
+			m = ui.WithMute(m, muted)
 		}
 		if agent && t.serverKnows(proto.MethodPaneSleep) {
 			m = ui.WithSleep(m, asleep)
@@ -2120,4 +2147,23 @@ func firstPane(rects []proto.PaneRect) uint64 {
 		return 0
 	}
 	return rects[0].Pane
+}
+
+// tabState is a pane's agent's state as its tab's label says it: done is
+// an idle agent nobody has looked at since it finished.
+func tabState(p proto.PaneInfo) string {
+	if p.Done {
+		return "done"
+	}
+	return p.State
+}
+
+// moreUrgent is the one of two agent states a tab's label should say: an
+// agent waiting for an answer before one that finished, before one working.
+func moreUrgent(a, b string) string {
+	rank := map[string]int{"blocked": 3, "done": 2, "working": 1}
+	if rank[b] > rank[a] {
+		return b
+	}
+	return a
 }

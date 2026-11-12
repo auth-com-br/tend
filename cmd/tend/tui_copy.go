@@ -175,7 +175,8 @@ func (t *tui) copyKeys(data []byte) (bool, error) {
 	return true, nil
 }
 
-// copyKey is one key. The map is herdr's, which is vi's.
+// copyKey is one key, looked up in copy mode's table: herdr's, which is
+// vi's, with whatever [keys.copy_mode] changed (ui.CopyKeysFrom).
 func (t *tui) copyKey(key string) error {
 	t.mu.Lock()
 	c := t.copy
@@ -191,11 +192,19 @@ func (t *tui) copyKey(key string) error {
 	half := max(c.rows/2, 1)
 	t.mu.Unlock()
 
-	switch key {
-	case "q", "\x03":
+	t.mu.Lock()
+	action := t.copyKeyMap[key]
+	t.mu.Unlock()
+	if action == "" {
+		// Before the settings were read, and in tests: the defaults.
+		defaults, _, _ := ui.CopyKeysFrom(nil)
+		action = defaults[key]
+	}
+	switch action {
+	case "exit":
 		t.leaveCopy()
 		return nil
-	case "\x1b":
+	case "cancel":
 		// Escape clears a selection first and leaves on the second press,
 		// so the one that undoes a mistake does not also throw the place away.
 		t.mu.Lock()
@@ -207,63 +216,63 @@ func (t *tui) copyKey(key string) error {
 		}
 		t.leaveCopy()
 		return nil
-	case "y", "\r":
+	case "yank":
 		return t.yank()
-	case "v", " ":
+	case "select":
 		return t.beginCopySelection(false)
-	case "V":
+	case "select-line":
 		return t.beginCopySelection(true)
-	case "h", "\x1b[D":
+	case "left":
 		return t.moveCopy(0, -1)
-	case "l", "\x1b[C":
+	case "right":
 		return t.moveCopy(0, 1)
-	case "j", "\x1b[B":
+	case "down":
 		return t.moveCopy(1, 0)
-	case "k", "\x1b[A":
+	case "up":
 		return t.moveCopy(-1, 0)
-	case "\x1b[5~", "\x02": // page up, ctrl+b
+	case "page-up":
 		return t.moveCopy(-page, 0)
-	case "\x1b[6~", "\x06": // page down, ctrl+f
+	case "page-down":
 		return t.moveCopy(page, 0)
-	case "\x15": // ctrl+u
+	case "half-page-up":
 		return t.moveCopy(-half, 0)
-	case "\x04": // ctrl+d
+	case "half-page-down":
 		return t.moveCopy(half, 0)
-	case "g":
+	case "top":
 		return t.setCopyCursor(func(c *copyState) { c.cursor = proto.CopyPoint{} })
-	case "G":
+	case "bottom":
 		return t.setCopyCursor(func(c *copyState) {
 			c.cursor = proto.CopyPoint{Row: c.history + c.rows - 1}
 		})
-	case "0", "\x1b[H":
+	case "line-start":
 		return t.setCopyCursor(func(c *copyState) { c.cursor.Col = 0 })
-	case "$", "\x1b[F":
+	case "line-end":
 		return t.copyMotion(copymode.LineEnd)
-	case "^":
+	case "first-non-blank":
 		return t.copyMotion(copymode.FirstNonBlank)
-	case "w":
+	case "word-next":
 		return t.copyMotion(copymode.NextWordStart)
-	case "b":
+	case "word-back":
 		return t.copyMotion(copymode.PreviousWordStart)
-	case "e":
+	case "word-end":
 		return t.copyMotion(copymode.NextWordEnd)
-	case "W":
+	case "bigword-next":
 		return t.copyMotion(copymode.NextBigWordStart)
-	case "B":
+	case "bigword-back":
 		return t.copyMotion(copymode.PreviousBigWordStart)
-	case "E":
+	case "bigword-end":
 		return t.copyMotion(copymode.NextBigWordEnd)
-	case "{":
+	case "paragraph-back":
 		return t.copyMotion(copymode.PreviousParagraph)
-	case "}":
+	case "paragraph-next":
 		return t.copyMotion(copymode.NextParagraph)
-	case "/":
+	case "search-forward":
 		return t.openCopySearch(copymode.Forward)
-	case "?":
+	case "search-backward":
 		return t.openCopySearch(copymode.Backward)
-	case "n":
+	case "search-next":
 		return t.repeatCopySearch(false)
-	case "N":
+	case "search-previous":
 		return t.repeatCopySearch(true)
 	}
 	return nil // anything else does nothing, as in tmux
@@ -368,7 +377,7 @@ func (t *tui) yank() error {
 		t.setMessage("nothing to copy there", false)
 		return nil
 	}
-	t.copyToClipboard(text, copiedMessage(text, false))
+	t.copySelected(text, copiedMessage(text, false))
 	return nil
 }
 

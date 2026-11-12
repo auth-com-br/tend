@@ -1021,6 +1021,12 @@ func (s *Server) MarkUnread(id session.PaneID, unread bool) error {
 		Event{Kind: EventPaneState, Pane: id})
 }
 
+// Mute mutes a pane's agent's announcements, or unmutes them.
+func (s *Server) Mute(id session.PaneID, muted bool) error {
+	return s.announce(s.rearrange(func(sess *session.Session) error { return sess.SetMuted(id, muted) }),
+		Event{Kind: EventPaneState, Pane: id})
+}
+
 // RenameTab changes a tab's label.
 func (s *Server) RenameTab(id session.TabID, name string) error {
 	return s.announce(s.rearrange(func(sess *session.Session) error { return sess.RenameTab(id, name) }),

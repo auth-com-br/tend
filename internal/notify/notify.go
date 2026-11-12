@@ -165,7 +165,8 @@ func System(title, body string) error {
 	title, body = sanitize(title), sanitize(body)
 	tool, args := systemCommand(title, body)
 	if tool == "" {
-		return ErrNoSystemNotifier
+		// No notify-send: the notification server itself, over D-Bus.
+		return systemOverDBus(title, body)
 	}
 	cmd := exec.Command(tool, args...)
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = nil, nil, nil

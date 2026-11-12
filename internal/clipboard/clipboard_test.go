@@ -82,3 +82,35 @@ func TestCopyReachesTheClipboard(t *testing.T) {
 		t.Errorf("clipboard = %q, want %q (copied via %s)", got, want, via)
 	}
 }
+
+// TestASelectionReachesThePrimarySelection: the primary selection is set
+// with the tool's own flag for it — what a middle click pastes, not the
+// clipboard — and over ssh it is not set here at all. The tool is a
+// stand-in that records what it was asked; TestThePrimarySelectionHoldsIt
+// reads the real one back. If it regresses, the middle click pastes
+// whatever was selected before tend.
+func TestASelectionReachesThePrimarySelection(t *testing.T) {
+	if runtime.GOOS == "darwin" {
+		t.Skip("macOS has no primary selection")
+	}
+	bin := t.TempDir()
+	log := bin + "/args"
+	if err := os.WriteFile(bin+"/xclip", []byte("#!/bin/sh\necho \"$@\" > "+log+"\ncat >> "+log+"\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", bin+":/usr/bin:/bin")
+	t.Setenv("SSH_CONNECTION", "")
+	t.Setenv("SSH_TTY", "")
+	t.Setenv("WAYLAND_DISPLAY", "")
+	t.Setenv("DISPLAY", ":0")
+	if via, err := CopyPrimary("picked"); err != nil || via != "xclip" {
+		t.Fatalf("CopyPrimary = %q, %v", via, err)
+	}
+	if got, _ := os.ReadFile(log); string(got) != "-selection primary\npicked" {
+		t.Errorf("xclip was given %q", got)
+	}
+	t.Setenv("SSH_TTY", "/dev/pts/3")
+	if _, err := CopyPrimary("x"); !errors.Is(err, ErrNoTool) {
+		t.Errorf("over ssh: %v", err)
+	}
+}

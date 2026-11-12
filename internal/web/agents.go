@@ -23,6 +23,8 @@ type Agent struct {
 	// Usage is what its conversation is spending, as tend's own sidebar
 	// shows it; nil when not known.
 	Usage *proto.PaneUsage `json:"usage,omitempty"`
+	// Muted is an agent muted in tend: the phone is not told about it.
+	Muted bool `json:"muted,omitempty"`
 }
 
 // Agents are the session's agents, those asleep included, in the order of
@@ -65,7 +67,7 @@ func Agents(snap proto.SessionSnapshot) []Agent {
 				out = append(out, Agent{
 					Pane: id, Agent: p.Agent, Title: p.Title, State: state,
 					Company: company[w.ID], Space: space, Tab: tab,
-					Dormant: p.Dormant, Done: p.Done, Running: p.Running, Usage: p.Usage,
+					Dormant: p.Dormant, Done: p.Done, Running: p.Running, Usage: p.Usage, Muted: p.Muted,
 				})
 			}
 		}

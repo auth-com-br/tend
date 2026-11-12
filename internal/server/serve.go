@@ -61,6 +61,7 @@ var Methods = []string{
 	proto.MethodPaneRename,
 	proto.MethodPaneMarkUnread,
 	proto.MethodPaneResumeAfterLimit,
+	proto.MethodPaneMute,
 	proto.MethodPaneEditScrollback,
 	proto.MethodPaneGraphics,
 	proto.MethodPaneSwap,
@@ -887,6 +888,13 @@ func (c *clientConn) dispatch(req proto.Request) (any, error) {
 		}
 		return nil, c.srv.MarkUnread(session.PaneID(p.Pane), p.Unread)
 
+	case proto.MethodPaneMute:
+		var p proto.PaneMuteParams
+		if err := decodeParams(req.Params, &p); err != nil {
+			return nil, err
+		}
+		return nil, c.srv.Mute(session.PaneID(p.Pane), p.Muted)
+
 	case proto.MethodPaneResumeAfterLimit:
 		var p proto.PaneResumeAfterLimitParams
 		if err := decodeParams(req.Params, &p); err != nil {
@@ -1136,6 +1144,7 @@ func (s *Server) snapshot() proto.SessionSnapshot {
 						Done:     (p.Unseen || p.Marked) && p.State == detect.StateIdle,
 						StateSeq: p.StateSeq,
 						Marked:   p.Marked,
+						Muted:    p.Muted,
 						Command:  p.Command,
 						Dir:      p.Dir,
 					})

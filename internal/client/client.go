@@ -633,6 +633,11 @@ func (c *Client) ResumeAfterLimit(pane uint64, on bool) error {
 	return c.Call(proto.MethodPaneResumeAfterLimit, proto.PaneResumeAfterLimitParams{Pane: pane, On: on}, nil)
 }
 
+// Mute mutes a pane's agent's announcements, or unmutes them.
+func (c *Client) Mute(pane uint64, muted bool) error {
+	return c.Call(proto.MethodPaneMute, proto.PaneMuteParams{Pane: pane, Muted: muted}, nil)
+}
+
 // MarkUnread marks a pane's agent unread by hand, or takes the mark off.
 func (c *Client) MarkUnread(pane uint64, unread bool) error {
 	return c.Call(proto.MethodPaneMarkUnread, proto.PaneMarkUnreadParams{Pane: pane, Unread: unread}, nil)

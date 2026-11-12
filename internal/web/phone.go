@@ -154,7 +154,8 @@ func (s *Server) sendPhoneNotice(pane uint64, kind string) {
 			who = &a
 		}
 	}
-	if who == nil {
+	if who == nil || who.Muted {
+		// Muted in tend is muted on the phone too.
 		return
 	}
 	// Finished is news only when nobody saw it (the session's "done"): an

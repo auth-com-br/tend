@@ -109,6 +109,8 @@ type PaneSnapshot struct {
 	// Marked is an agent marked unread by hand: a reminder to come back to
 	// it, which a restart or a handoff must not forget.
 	Marked bool `json:"marked,omitempty"`
+	// Muted is a pane whose agent is not announced, kept as Marked is.
+	Muted bool `json:"muted,omitempty"`
 }
 
 // AgentSession is a conversation as the agent names it. It is written down
@@ -186,7 +188,7 @@ func (s *Session) SnapshotWith(dirs map[PaneID]string, sessions map[PaneID]Agent
 				pane := PaneSnapshot{
 					ID: uint64(p.ID), Title: p.Title, Named: p.Named,
 					Command: p.Command, Dir: dir, Agent: p.Agent, AgentName: p.AgentName,
-					CloseOnExit: p.CloseOnExit, Marked: p.Marked,
+					CloseOnExit: p.CloseOnExit, Marked: p.Marked, Muted: p.Muted,
 				}
 				if conversation, ok := sessions[id]; ok {
 					pane.Session = &conversation
@@ -292,7 +294,7 @@ func Restore(snap Snapshot) (*Session, error) {
 				t.panes[id] = &Pane{
 					ID: id, Title: ps.Title, Named: ps.Named,
 					Command: ps.Command, Dir: ps.Dir, Agent: ps.Agent, AgentName: ps.AgentName,
-					State: detect.StateUnknown, CloseOnExit: ps.CloseOnExit, Marked: ps.Marked,
+					State: detect.StateUnknown, CloseOnExit: ps.CloseOnExit, Marked: ps.Marked, Muted: ps.Muted,
 				}
 				s.index[id] = t
 			}

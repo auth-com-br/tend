@@ -65,9 +65,10 @@ func (t *tui) announceFrom(e *endpoint, ev proto.Event) {
 	notices[ev.Pane] = paneNotice{state: state, at: time.Now()}
 
 	var agent, where string
+	muted := false
 	for _, p := range snap.Panes {
 		if p.ID == ev.Pane {
-			agent = p.Agent
+			agent, muted = p.Agent, p.Muted
 		}
 	}
 	if agent == "" {
@@ -90,7 +91,7 @@ func (t *tui) announceFrom(e *endpoint, ev proto.Event) {
 	notifyFocused := t.notifyFocused
 	t.mu.Unlock()
 
-	if agent == "" || !worth || (focused && !notifyFocused) {
+	if agent == "" || !worth || muted || (focused && !notifyFocused) {
 		return
 	}
 	t.mu.Lock()
@@ -281,6 +282,18 @@ func (t *tui) deliver(machine, kind, title, body string, pane uint64, sound noti
 		// On its own goroutine: raising one runs another program, and the
 		// event goroutine is the one delivering pane output.
 		go func() {
+			// One that a click on takes you to the agent, where the
+			// desktop can say it was clicked; a plain one otherwise.
+			if pane != 0 {
+				err := notify.SystemWithClick(title, body, func() {
+					if err := t.goToNotice(machine, pane); err == nil {
+						t.wakeUp()
+					}
+				})
+				if err == nil {
+					return
+				}
+			}
 			if err := notify.System(title, body); err != nil {
 				t.setMessage("notification: "+err.Error(), true)
 			}

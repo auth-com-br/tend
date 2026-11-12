@@ -75,6 +75,22 @@ func runKeys(args []string) error {
 			fmt.Fprintf(os.Stderr, "%s %s\n", tag(), note)
 		}
 	}
+	copyKeys, err := ui.CopyKeyNames(cfg.Keys.CopyMode)
+	if err != nil {
+		return err
+	}
+	fmt.Println()
+	c := newTable("COPY MODE", "KEYS")
+	for _, pair := range copyKeys {
+		key := pair[1]
+		if key == "" {
+			key = "-"
+		}
+		c.row(pair[0], key)
+	}
+	if err := c.flush(); err != nil {
+		return err
+	}
 	if len(ui.Bound(bindings)) == 0 {
 		return errors.New("no commands are bound")
 	}

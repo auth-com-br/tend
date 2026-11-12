@@ -146,6 +146,15 @@ func SetClipboard(text string) string {
 	return "\x1b]52;c;" + base64.StdEncoding.EncodeToString([]byte(text)) + "\a"
 }
 
+// SetPrimary is OSC 52 for the primary selection ("p"), which xterm and
+// kitty take and a terminal that does not know it ignores.
+func SetPrimary(text string) string {
+	if text == "" {
+		return ""
+	}
+	return "\x1b]52;p;" + base64.StdEncoding.EncodeToString([]byte(text)) + "\a"
+}
+
 // Highlight marks every visible match of a copy-mode search, as herdr keeps a
 // window of them highlighted: the next one is where n goes, and the others
 // say how far there is to go and whether the one wanted is on screen at all.

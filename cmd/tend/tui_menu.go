@@ -88,11 +88,14 @@ func (t *tui) menuFor(x, y int) (ui.Menu, bool) {
 	asleep := map[uint64]bool{}
 	marked := map[uint64]bool{}
 	limited := map[uint64]*proto.PaneUsage{}
+	muted := map[uint64]bool{}
 	for _, p := range t.snap.Panes {
 		asleep[p.ID] = p.Dormant
 		marked[p.ID] = p.Marked
 		limited[p.ID] = limitedUsage(p)
+		muted[p.ID] = p.Muted
 	}
+	canMute := t.serverKnows(proto.MethodPaneMute)
 	canSleep := t.serverKnows(proto.MethodPaneSleep)
 	canMark := t.serverKnows(proto.MethodPaneMarkUnread)
 	canResume := t.serverKnows(proto.MethodPaneResumeAfterLimit)
@@ -126,6 +129,9 @@ func (t *tui) menuFor(x, y int) (ui.Menu, bool) {
 			if u := limited[row.Pane]; u != nil && canResume {
 				m = ui.WithResumeAfterLimit(m, u.ResumeArmed)
 			}
+			if canMute {
+				m = ui.WithMute(m, muted[row.Pane])
+			}
 			if canSleep {
 				m = ui.WithSleep(m, asleep[row.Pane])
 			}
@@ -150,6 +156,9 @@ func (t *tui) menuFor(x, y int) (ui.Menu, bool) {
 		}
 		if u := limited[pane]; agentAt[pane] != "" && u != nil && canResume {
 			m = ui.WithResumeAfterLimit(m, u.ResumeArmed)
+		}
+		if agentAt[pane] != "" && canMute {
+			m = ui.WithMute(m, muted[pane])
 		}
 		if agentAt[pane] != "" && canSleep {
 			m = ui.WithSleep(m, asleep[pane])
@@ -481,6 +490,20 @@ func (t *tui) runMenu(m ui.Menu, item ui.MenuItem) error {
 		return t.mcpMenuAction(item.Arg)
 	case ui.MenuSleep:
 		go t.sleepAgent(m.Pane)
+		return nil
+	case ui.MenuMute, ui.MenuUnmute:
+		mute := item.Action == ui.MenuMute
+		go func() {
+			if err := t.client.Mute(m.Pane, mute); err != nil {
+				t.setMessage("could not mute it: "+err.Error(), true)
+				return
+			}
+			if mute {
+				t.setMessage("muted — it is shown, not announced", false)
+			} else {
+				t.setMessage("unmuted", false)
+			}
+		}()
 		return nil
 	case ui.MenuResumeAfterLimit, ui.MenuNoResume:
 		on := item.Action == ui.MenuResumeAfterLimit
