@@ -54,7 +54,10 @@ type paneRuntime struct {
 	// resumeArmed: tell the agent to continue when its usage limit resets.
 	resumeArmed bool
 	dirty       bool
-	title       string
+	// statusRev is the last OSC 7501 report passed to the arbiter
+	// (programstatus.go).
+	statusRev uint64
+	title     string
 	// foreground is the program last seen in charge of the terminal, so the
 	// costly part — resolving and swapping the detector — happens only when
 	// it actually changes.
@@ -75,8 +78,12 @@ type paneRuntime struct {
 	// clipboard holds copies the program asked for that have not been passed
 	// on yet.
 	clipboard [][]byte
-	closing   bool
-	exitErr   string
+	// replies are what the terminal answered the program while parsing its
+	// output — a cursor report, device attributes, the OSC 7501 probe —
+	// written back to it by the reader once the lock is let go.
+	replies []byte
+	closing bool
+	exitErr string
 
 	// dormant is set while the pane's agent sleeps (dormant.go): a shell
 	// runs where it was, and this is how to bring it back. idleSince is
@@ -130,6 +137,12 @@ func newPaneRuntime(
 	rt.screen.OnClipboard = func(text []byte) {
 		rt.clipboard = append(rt.clipboard, append([]byte(nil), text...))
 	}
+	// And for the terminal's answers to the program's questions. They were
+	// never wired: the screen answered, and nothing carried the answer to
+	// the program, so every query a program in a pane made went unanswered
+	// — Claude Code's OSC 7501 probe among them, which is why it never told
+	// tend its state (#50).
+	rt.screen.Reply = func(b []byte) { rt.replies = append(rt.replies, b...) }
 	return rt
 }
 
@@ -167,13 +180,23 @@ func (rt *paneRuntime) drainVerdict() {
 // write feeds terminal output to the screen, and returns any clipboard writes
 // the output contained.
 func (rt *paneRuntime) write(b []byte) [][]byte {
+	copies, _ := rt.writeOutput(b)
+	return copies
+}
+
+// writeOutput is write for what the program is printing now, which also
+// says what the terminal answered it. Output replayed — the history put back
+// above a restored pane, a handoff's screen — goes through write, whose
+// answers are dropped: they are to questions asked of a process that is
+// gone.
+func (rt *paneRuntime) writeOutput(b []byte) (copies [][]byte, replies []byte) {
 	rt.mu.Lock()
 	defer rt.mu.Unlock()
 	_, _ = rt.screen.Write(b)
 	rt.dirty = true
-	copies := rt.clipboard
-	rt.clipboard = nil
-	return copies
+	copies, rt.clipboard = rt.clipboard, nil
+	replies, rt.replies = rt.replies, nil
+	return copies, replies
 }
 
 // settleLocked asks the arbiter what the pane should be shown as, and reports
@@ -258,6 +281,7 @@ func (rt *paneRuntime) poll(lastTitle string) observation {
 		rt.arbiter.Observe(rt.agentID, rt.detector.State(),
 			res.VisibleBlocker && !res.SkipStateUpdate, time.Now())
 	}
+	rt.programStatusLocked(time.Now())
 	if eff, rule, changed := rt.settleLocked(); changed {
 		obs.agent, obs.state, obs.rule = eff.Agent, eff.State, rule
 		obs.stateChanged = true

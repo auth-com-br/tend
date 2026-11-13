@@ -108,6 +108,10 @@ type Screen struct {
 	tabs     []bool
 	title    string
 	progress string
+	// status is the last OSC 7501 a program sent of itself, and statusRev
+	// counts them (status.go).
+	status    ProgramStatus
+	statusRev uint64
 
 	parser Parser
 	// replyBuf is reused so cursor reports do not allocate per request.
@@ -556,6 +560,10 @@ func (s *Screen) Reset() {
 	s.alt.Clear(DefaultStyle)
 	s.title = ""
 	s.progress = ""
+	if s.status != (ProgramStatus{}) {
+		s.status = ProgramStatus{}
+		s.statusRev++
+	}
 	s.resetTabs()
 	s.parser.Reset()
 }
@@ -580,6 +588,8 @@ func (s *Screen) OSCDispatch(params [][]byte, _ bool) {
 		s.clipboardWrite(params[1:])
 	case "8": // hyperlink
 		s.setHyperlink(params[1:])
+	case "7501": // program status
+		s.programStatus(joinParams(params[1:]))
 	}
 }
 

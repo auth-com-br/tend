@@ -1311,12 +1311,32 @@ func (s *Server) readPane(rt *paneRuntime) {
 	defer s.wg.Done()
 	defer close(rt.gone)
 
+	// The terminal's answers to the program go back on a goroutine of
+	// their own, in order: written from here, a program not reading its
+	// input would stop this reader, and with it its own output.
+	answers := make(chan []byte, 64)
+	defer close(answers)
+	go func() {
+		for b := range answers {
+			_, _ = rt.pty.Write(b)
+		}
+	}()
+
 	buf := make([]byte, readBuffer)
 	for {
 		n, err := rt.pty.Read(buf)
 		if n > 0 {
-			for _, text := range rt.write(buf[:n]) {
+			copies, replies := rt.writeOutput(buf[:n])
+			for _, text := range copies {
 				s.publish(Event{Kind: EventPaneClipboard, Pane: rt.id, Data: text})
+			}
+			if len(replies) > 0 {
+				select {
+				case answers <- replies:
+				default:
+					// Sixty-four answers it has not read: it is not
+					// reading, and they would be stale when it did.
+				}
 			}
 			s.publish(Event{Kind: EventPaneOutput, Pane: rt.id})
 		}

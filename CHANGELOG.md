@@ -20,7 +20,10 @@ release's notes on GitHub and what "what's new" shows inside tend.
 
 - **tend installed by Homebrew, mise or Nix is updated by them.** `tend update` says which command to run instead of replacing a file the package manager owns, "update ready" says that command, and the preview channel is refused there. Releases now come with a Homebrew formula and a Nix expression for their own binaries (`make packages`).
 
+- **Claude Code and Codex say their own state.** tend now speaks the Program Status Protocol (OSC 7501): Claude Code and Codex tell it when it is working, waiting for you — and for what ("approve Bash: npm test") — or done, and tend believes that over what the screen seems to say.
+
 #### Fixed
+- **Programs in a pane get answers to what they ask their terminal.** The cursor position, device attributes, and the like were answered by tend's terminal and never delivered, so a program that asked waited out a timeout — and Claude Code, whose question went unanswered, never said its state.
 - **Codex 0.167 and later in tend.** Newer Codex runs its sessions in a background server it shares, and its hooks ran there as whichever pane started it first — so a Codex agent's conversation, state and usage went to another pane, or nowhere. tend now starts Codex on its own (`--no-daemon`) wherever tend starts it: `tend new -- codex`, `tend agent start`, a resumed or woken agent, and the issues and errors panels. A `codex` you type yourself in a shell still uses the shared server; start it as `codex --no-daemon` there.
 
 ## v0.17.0 — 2026-10-20

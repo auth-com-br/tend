@@ -134,6 +134,10 @@ type Report struct {
 	// them, which is accepted only from a source that never has.
 	Seq     *uint64
 	Session SessionRef
+	// SessionSource is who named Session, when that is not Source: a
+	// program's own status report (OSC 7501) carries on the conversation a
+	// hook named, and resuming it is only for the hook's source (Official).
+	SessionSource string
 }
 
 // Authority is the report currently believed.
@@ -144,6 +148,8 @@ type Authority struct {
 	Message    string
 	ReportedAt time.Time
 	Session    SessionRef
+	// SessionSource is who named Session, when not Source (Report's).
+	SessionSource string
 }
 
 // PersistedSession is a conversation known for the pane with no live report
@@ -213,9 +219,11 @@ func (a *Arbiter) Authority() *Authority { return a.authority }
 // one that has ended.
 func (a *Arbiter) Session() (PersistedSession, bool) {
 	if a.authority != nil && !a.authority.Session.Empty() {
-		return PersistedSession{
-			Source: a.authority.Source, Agent: a.authority.Agent, Session: a.authority.Session,
-		}, true
+		source := a.authority.Source
+		if a.authority.SessionSource != "" {
+			source = a.authority.SessionSource
+		}
+		return PersistedSession{Source: source, Agent: a.authority.Agent, Session: a.authority.Session}, true
 	}
 	if a.persisted != nil {
 		return *a.persisted, true
@@ -248,11 +256,10 @@ func (a *Arbiter) Observe(agent string, state detect.State, visibleBlocker bool,
 	conflicts := a.conflicts(a.authority.Agent)
 	departed := previous != "" && agent != previous && a.authority.Agent == previous
 	if conflicts || departed {
-		if !a.authority.Session.Empty() {
-			// The conversation outlives the report. Somebody may want it back.
-			a.persisted = &PersistedSession{
-				Source: a.authority.Source, Agent: a.authority.Agent, Session: a.authority.Session,
-			}
+		if known, ok := a.Session(); ok && !a.authority.Session.Empty() {
+			// The conversation outlives the report. Somebody may want it
+			// back, from whoever named it.
+			a.persisted = &known
 		}
 		delete(a.seqs, a.authority.Source)
 		a.authority = nil
@@ -283,16 +290,16 @@ func (a *Arbiter) Report(r Report, now time.Time) bool {
 	if !a.accept(r.Source, r.Seq) {
 		return false
 	}
-	session := r.Session
+	session, sessionSource := r.Session, r.SessionSource
 	if session.Empty() && a.authority != nil && a.authority.Source == r.Source && a.authority.Agent == r.Agent {
 		// Most reports do not repeat the session. The one already known for
 		// this source still stands.
-		session = a.authority.Session
+		session, sessionSource = a.authority.Session, a.authority.SessionSource
 	}
 	a.persisted = nil
 	a.authority = &Authority{
 		Source: r.Source, Agent: r.Agent, State: r.State, Message: r.Message,
-		ReportedAt: now, Session: session,
+		ReportedAt: now, Session: session, SessionSource: sessionSource,
 	}
 	return true
 }
@@ -309,7 +316,10 @@ func (a *Arbiter) ReportSession(source, agent string, session SessionRef, seq *u
 	if !a.accept(source, seq) {
 		return false
 	}
-	if a.authority != nil && a.authority.Source == source && a.authority.Agent == agent {
+	if a.authority != nil && a.authority.Agent == agent &&
+		(a.authority.Source == source || a.authority.SessionSource == source) {
+		// Its own report, or another's — a program's status — carrying on
+		// the conversation this source named: the new one replaces it.
 		a.authority.Session = session
 		return true
 	}
