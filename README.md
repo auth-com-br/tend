@@ -158,6 +158,14 @@ and `u` there installs it without stopping what is running (`tend update
 -handoff`). `[update] version_check = false` turns the check off. **about
 tend**, first in the menu, says which tend is running.
 
+## privacy
+
+tend collects nothing: no telemetry, no analytics, no account. On its own it
+talks to the network once — the release check above, which a setting turns
+off — and otherwise only when you ask (a panel, an update, a push to your
+phone). [docs/PRIVACY.md](docs/PRIVACY.md) lists every connection and when it
+happens, and a test fails if a new one appears.
+
 tend used to live at `github.com/sousaakira/tend`. Old links, clones and
 installs follow it here.
 
