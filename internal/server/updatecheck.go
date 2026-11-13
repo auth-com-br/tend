@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"os"
 	"time"
 
 	"github.com/auth-com-br/tend/internal/proto"
@@ -29,6 +30,19 @@ const updateInterval = 30 * time.Minute
 // say. herdr's says to detach, update and attach again; tend's handoff
 // replaces the server under the programs in it, so nothing needs leaving.
 const UpdateInstall = "press u in the release notes (menu → update ready), or run `tend update -handoff`; what is running keeps running"
+
+// updateInstall is UpdateInstall for this server's own binary: one a
+// package manager installed is updated by it (herdr's
+// update_install_instruction), and tend handoff then moves the running
+// sessions onto the new file.
+func updateInstall() string {
+	if self, err := os.Executable(); err == nil {
+		if m, ok := update.ManagerOf(self); ok {
+			return "run `" + m.Command + "`, then `tend handoff`; what is running keeps running"
+		}
+	}
+	return UpdateInstall
+}
 
 // updateState is what the check knows, under s.mu.
 type updateState struct {
@@ -63,7 +77,7 @@ func (s *Server) updateSnapshotLocked() *proto.UpdateInfo {
 	}
 	info := &proto.UpdateInfo{Ready: s.update.ready, Notes: s.update.notes}
 	if info.Ready != "" {
-		info.Install = UpdateInstall
+		info.Install = updateInstall()
 	}
 	return info
 }
@@ -133,7 +147,7 @@ func (s *Server) checkForUpdate() bool {
 	s.update.ready = release.Version
 	s.update.notes = release.Version
 	s.mu.Unlock()
-	s.publish(Event{Kind: EventUpdateReady, Title: release.Version, Body: UpdateInstall})
+	s.publish(Event{Kind: EventUpdateReady, Title: release.Version, Body: updateInstall()})
 	return true
 }
 
@@ -157,7 +171,7 @@ func (s *Server) ReleaseNotes() (proto.ReleaseNotes, bool) {
 	}
 	out := proto.ReleaseNotes{Version: n.Version, Body: n.Body, Newer: newer}
 	if newer {
-		out.Install = UpdateInstall
+		out.Install = updateInstall()
 	}
 	return out, true
 }

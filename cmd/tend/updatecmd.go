@@ -76,6 +76,9 @@ func runUpdate(args []string) error {
 	if err != nil {
 		return err
 	}
+	if m, ok := update.ManagerOf(self); ok {
+		return update.ErrManaged(m)
+	}
 	downloaded, err := update.Download(release, self)
 	if err != nil {
 		if errors.Is(err, update.ErrChecksum) {
@@ -161,6 +164,13 @@ func runChannel(args []string) error {
 	channel := update.Channel(fs.Arg(0))
 	if !channel.Valid() {
 		return fmt.Errorf("%q is not a channel; use stable or preview", fs.Arg(0))
+	}
+	if self, err := os.Executable(); err == nil && channel == update.Preview {
+		// herdr's preview_channel_rejection: a package manager publishes
+		// releases, not previews.
+		if m, ok := update.ManagerOf(self); ok {
+			return fmt.Errorf("the preview channel is for tend installed on its own; %s installs update through `%s`", m.Name, m.Command)
+		}
 	}
 	if err := config.Set("update", "channel", config.Quote(string(channel))); err != nil {
 		return err

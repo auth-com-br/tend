@@ -829,7 +829,12 @@ Publishing a release, which each one needs for the check to see it:
    notes panel shows.
 4. `make manifest NOTES=notes.md` — `dist/latest.json`.
 5. `gh release create v0.4.0 --notes-file notes.md dist/*` — latest.json
-   with the binaries, or no tend will hear of the release.
+   with the binaries, or no tend will hear of the release. Then `make
+   packages`: `dist/tend.rb` and `dist/tend.nix`, the Homebrew formula and
+   the Nix expression, from the checksums the release published — never
+   from dist/, whose hashes are not the published files' once it has been
+   rebuilt. The formula goes into the tap (`auth-com-br/homebrew-tend`,
+   `Formula/tend.rb`); `gh release upload v0.4.0 dist/tend.nix`.
 6. Put the notes in CHANGELOG.md under `## v0.4.0 — date`, the headings one
    level down and without the install and platforms boilerplate, moving
    what was under "Unreleased" into them.
@@ -840,7 +845,10 @@ nothing uncommitted reaches a release. `.github/workflows/` can only be
 pushed with a token that has the `workflow` scope; over ssh it goes as any
 other file.
 
-Left: Homebrew, mise and Nix guidance (`update_install_command`), the
+Done since: Homebrew, mise and Nix guidance (`update.ManagerOf`, herdr's
+`update_install_command` and `self_update`): `tend update` refuses a tend
+its package manager owns and names the manager's command, `tend channel
+preview` refuses it, and "update ready" says that command. Left: the
 preview channel's own manifest shape (`PreviewManifest`, build ids), the
 manifest's `announcement`, and the Windows installer path. Signing is not
 done.

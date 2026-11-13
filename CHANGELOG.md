@@ -18,6 +18,8 @@ release's notes on GitHub and what "what's new" shows inside tend.
 
 - **Nothing collected, and now written down.** [docs/PRIVACY.md](docs/PRIVACY.md) lists every connection tend makes and when: on its own, only the release check (`[update] version_check = false` turns it off — measured: with it off, a whole session opens no network connection); everything else when you ask. A test fails if a new one appears.
 
+- **tend installed by Homebrew, mise or Nix is updated by them.** `tend update` says which command to run instead of replacing a file the package manager owns, "update ready" says that command, and the preview channel is refused there. Releases now come with a Homebrew formula and a Nix expression for their own binaries (`make packages`).
+
 #### Fixed
 - **Codex 0.167 and later in tend.** Newer Codex runs its sessions in a background server it shares, and its hooks ran there as whichever pane started it first — so a Codex agent's conversation, state and usage went to another pane, or nowhere. tend now starts Codex on its own (`--no-daemon`) wherever tend starts it: `tend new -- codex`, `tend agent start`, a resumed or woken agent, and the issues and errors panels. A `codex` you type yourself in a shell still uses the shared server; start it as `codex --no-daemon` there.
 

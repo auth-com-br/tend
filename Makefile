@@ -31,7 +31,7 @@ DEV_PKGS ?= ./...
 # SESSION is which session `make restart` acts on.
 SESSION ?= default
 
-.PHONY: toolchain run dev watch test test-race check fmt vet bench build install dist manifest stats clean restart
+.PHONY: toolchain run dev watch test test-race check fmt vet bench build install dist manifest packages stats clean restart
 
 ## toolchain: fail with a usable message instead of "go: No such file or directory".
 toolchain:
@@ -172,6 +172,11 @@ stats: toolchain
 manifest: toolchain
 	@test -n "$(NOTES)" || { echo "usage: make manifest NOTES=notes.md"; exit 1; }
 	$(GO) run ./tools/manifest -version $(VERSION) -notes $(NOTES) -dir dist
+
+## packages: write dist/tend.rb (Homebrew) and dist/tend.nix (Nix) from the
+## published release's checksums: make packages (after gh release create).
+packages: toolchain
+	$(GO) run ./tools/packages -version $(VERSION) -dir dist
 
 clean:
 	rm -rf bin dist
