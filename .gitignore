@@ -3,3 +3,6 @@
 *.test
 *.out
 .DS_Store
+
+# A build left in the root by `go build ./cmd/tend`; make builds into bin/.
+/tend
