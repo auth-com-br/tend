@@ -24,6 +24,9 @@ type Worktree struct {
 
 // Worktrees lists the repository's working trees, the main one first.
 func (g Git) Worktrees() ([]Worktree, error) {
+	if g.JJ {
+		return g.jjWorkspaces()
+	}
 	out, err := g.run("worktree", "list", "--porcelain")
 	if err != nil {
 		return nil, err
@@ -72,6 +75,9 @@ func (g Git) MergeTarget(st *Status) (Worktree, error) {
 // worktree as it was: resolving it is work for a person or an agent, not a
 // panel.
 func (g Git) Merge(st *Status) (string, error) {
+	if g.JJ {
+		return "", errJJMerge
+	}
 	target, err := g.MergeTarget(st)
 	if err != nil {
 		return "", err
@@ -100,11 +106,18 @@ func (g Git) Merge(st *Status) (string, error) {
 // opens a pull request for it with gh, titled and described from its
 // commits. It says the pull request's address, or the one already open.
 func (g Git) PullRequest(st *Status) (string, error) {
-	if st == nil || st.Branch == "" || st.detachedOrNone {
-		return "", errors.New("not on a branch")
-	}
 	if _, err := exec.LookPath("gh"); err != nil {
 		return "", errors.New("a pull request needs the gh command (cli.github.com)")
+	}
+	if g.JJ {
+		head, err := g.jjPublish()
+		if err != nil {
+			return "", err
+		}
+		return g.openPR(head)
+	}
+	if st == nil || st.Branch == "" || st.detachedOrNone {
+		return "", errors.New("not on a branch")
 	}
 	if st.Upstream == "" {
 		if err := g.runNet("push", "-u", "origin", st.Branch); err != nil {
@@ -115,7 +128,13 @@ func (g Git) PullRequest(st *Status) (string, error) {
 			return "", err
 		}
 	}
-	cmd := exec.Command("gh", "pr", "create", "--fill", "--head", st.Branch)
+	return g.openPR(st.Branch)
+}
+
+// openPR opens a pull request for head with gh, titled and described from
+// its commits, and says its address, or the one already open.
+func (g Git) openPR(head string) (string, error) {
+	cmd := exec.Command("gh", "pr", "create", "--fill", "--head", head)
 	cmd.Dir = g.Top
 	// gh asks on the terminal for what it lacks; the panel's terminal is
 	// nobody's to answer, so it is told not to.
@@ -152,7 +171,15 @@ func (m *Model) startFinish(key, pending string) {
 	}
 	var want, ask, doing string
 	var run func(*Status) (string, error)
-	if key == "M" {
+	switch {
+	case g.JJ && key == "M":
+		m.fail(errJJMerge)
+		return
+	case g.JJ:
+		want = "pr @-"
+		ask = "R again to push the last change (@-) and open a pull request for it"
+		doing, run = "pushing and opening the pull request…", g.PullRequest
+	case key == "M":
 		target, err := g.MergeTarget(st)
 		if err != nil {
 			m.fail(err)
@@ -161,7 +188,7 @@ func (m *Model) startFinish(key, pending string) {
 		want = "merge " + st.Branch
 		ask = "M again to merge " + st.Branch + " into " + target.Branch
 		doing, run = "merging…", g.Merge
-	} else {
+	default:
 		want = "pr " + st.Branch
 		ask = "R again to open a pull request for " + st.Branch
 		doing, run = "opening the pull request…", g.PullRequest

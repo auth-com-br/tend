@@ -66,6 +66,8 @@ type Repo struct {
 	// by git ("dubious ownership") otherwise. Nothing is written to the
 	// user's git configuration.
 	Trusted bool `json:"-"`
+	// JJ is a Jujutsu repository, whose checkouts are jj workspaces (jj.go).
+	JJ bool `json:"is_jj,omitempty"`
 }
 
 // Find locates the repository a directory belongs to.
@@ -79,6 +81,11 @@ func Find(dir string) (Repo, error) { return FindTrusted(dir, false) }
 // FindTrusted is Find with the repository trusted for the call, as herdr's
 // trust_repository does.
 func FindTrusted(dir string, trust bool) (Repo, error) {
+	// A jj workspace before git: a colocated one is a git checkout too,
+	// and a worktree added there would be one jj does not know.
+	if repo, ok := jjFind(dir); ok {
+		return repo, nil
+	}
 	git := func(dir string, args ...string) (string, error) { return gitTrust(dir, trust, args...) }
 	top, err := git(dir, "rev-parse", "--show-toplevel")
 	if err != nil {
@@ -99,6 +106,9 @@ func FindTrusted(dir string, trust bool) (Repo, error) {
 
 // List returns every worktree of a repository.
 func List(repo Repo) ([]Worktree, error) {
+	if repo.JJ {
+		return jjList(repo)
+	}
 	out, err := gitTrust(repo.Root, repo.Trusted, "worktree", "list", "--porcelain")
 	if err != nil {
 		return nil, err
@@ -159,6 +169,9 @@ func Add(repo Repo, path, branch, base string) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
 	}
+	if repo.JJ {
+		return jjAdd(repo, path, branch, base)
+	}
 	if branchExists(repo, branch) {
 		_, err := gitTrust(repo.Root, repo.Trusted, "worktree", "add", path, branch)
 		return err
@@ -174,6 +187,9 @@ func Add(repo Repo, path, branch, base string) error {
 // changes in it, and that refusal is kept as ErrDirty so the caller can offer
 // to force it rather than show a raw git message.
 func Remove(repo Repo, path string, force bool) error {
+	if repo.JJ {
+		return jjRemove(repo, path)
+	}
 	args := []string{"worktree", "remove"}
 	if force {
 		args = append(args, "--force")

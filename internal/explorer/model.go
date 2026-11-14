@@ -301,7 +301,12 @@ func (m *Model) layout() {
 			m.changeRows = append(m.changeRows, changeRow{heading: "repo", repo: i})
 		}
 		if len(staged) > 0 {
-			m.changeRows = append(m.changeRows, changeRow{heading: "staged", repo: i, count: len(staged)})
+			heading := "staged"
+			if r.git.JJ {
+				// jj has no index: these are the working-copy commit's.
+				heading = "working copy (@)"
+			}
+			m.changeRows = append(m.changeRows, changeRow{heading: heading, repo: i, count: len(staged)})
 			for _, c := range staged {
 				m.changeRows = append(m.changeRows, changeRow{change: c, staged: true, repo: i})
 			}
@@ -613,7 +618,7 @@ func (m *Model) changesKey(k Key, pending string) {
 		m.fail(m.git.StageAll())
 		m.Refresh()
 	case "x":
-		if !ok || row.staged {
+		if !ok || (row.staged && !m.git.JJ) {
 			if ok {
 				m.say("unstage it first (s); x puts back the working copy", true)
 			}
@@ -637,7 +642,11 @@ func (m *Model) changesKey(k Key, pending string) {
 		m.startFinish(k.Name, pending)
 	case "c":
 		if m.changesStaged == 0 {
-			m.say("nothing staged: s stages a file, S everything", true)
+			if m.git.JJ {
+				m.say("the working-copy commit (@) has no changes", true)
+			} else {
+				m.say("nothing staged: s stages a file, S everything", true)
+			}
 			return
 		}
 		m.mode, m.input = modeCommit, ""
@@ -770,7 +779,10 @@ func (m *Model) showDiff(row changeRow) {
 		text = "no textual change (mode, or a binary file)"
 	}
 	which := "unstaged"
-	if row.staged {
+	switch {
+	case m.git.JJ:
+		which = "in @"
+	case row.staged:
 		which = "staged"
 	}
 	path := ""

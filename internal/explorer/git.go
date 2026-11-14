@@ -171,10 +171,16 @@ type Git struct {
 	// Top is the repository's top directory, or "" when the explorer's
 	// directory is not in one.
 	Top string
+	// JJ marks a Jujutsu workspace, which is asked of jj instead (jj.go).
+	JJ bool
 }
 
-// FindRepo is the repository dir is in, if it is in one.
+// FindRepo is the repository dir is in, if it is in one: a jj workspace
+// before a git repository, since a colocated one is both and is jj's.
 func FindRepo(dir string) Git {
+	if top := findJJ(dir); top != "" {
+		return Git{Top: top, JJ: true}
+	}
 	out, err := exec.Command("git", "-C", dir, "rev-parse", "--show-toplevel").Output()
 	if err != nil {
 		return Git{}
@@ -190,6 +196,11 @@ var ErrNoRepo = errors.New("not in a git repository")
 func (g Git) run(args ...string) ([]byte, error) {
 	if g.Top == "" {
 		return nil, ErrNoRepo
+	}
+	if g.JJ && !g.colocated() {
+		// What is left asked of git — history, stashes, tags — has no git
+		// repository to ask in a jj one that is not colocated.
+		return nil, errors.New("a jj repository with no git beside it: jj log has its history")
 	}
 	cmd := exec.Command("git", append([]string{"-C", g.Top}, args...)...)
 	// The panel reads the status every two seconds, and a status takes the
@@ -216,6 +227,9 @@ func (g Git) run(args ...string) ([]byte, error) {
 // listed: in a project with a node_modules they are most of the disk, and
 // the tree marks them itself by asking about the entries it shows.
 func (g Git) Status() (*Status, error) {
+	if g.JJ {
+		return g.jjStatus()
+	}
 	out, err := g.run("status", "--porcelain=v2", "--branch", "-z", "--untracked-files=all")
 	if err != nil {
 		return nil, err
@@ -227,7 +241,9 @@ func (g Git) Status() (*Status, error) {
 // ignores, in one call for a whole directory's entries.
 func (g Git) Ignored(paths []string) map[string]bool {
 	out := map[string]bool{}
-	if g.Top == "" || len(paths) == 0 {
+	// A jj repository with no git one beside it has nobody to ask; jj
+	// itself keeps ignored files out of the changes all the same.
+	if g.Top == "" || len(paths) == 0 || (g.JJ && !g.colocated()) {
 		return out
 	}
 	cmd := exec.Command("git", "-C", g.Top, "check-ignore", "-z", "--stdin")
@@ -245,6 +261,9 @@ func (g Git) Ignored(paths []string) map[string]bool {
 // Diff is the change to one path as a unified diff: what is staged, or
 // what is not. An untracked file is shown whole, as added.
 func (g Git) Diff(c Change, staged bool) (string, error) {
+	if g.JJ {
+		return g.jjDiff(c)
+	}
 	switch {
 	case c.Untracked():
 		// --no-index exits 1 when the files differ, which they always do.
@@ -261,12 +280,18 @@ func (g Git) Diff(c Change, staged bool) (string, error) {
 
 // Stage adds a path to the index, deletions included.
 func (g Git) Stage(path string) error {
+	if g.JJ {
+		return errNoStaging
+	}
 	_, err := g.run("add", "-A", "--", path)
 	return err
 }
 
 // StageAll adds everything, as `git add -A`.
 func (g Git) StageAll() error {
+	if g.JJ {
+		return errNoStaging
+	}
 	_, err := g.run("add", "-A")
 	return err
 }
@@ -275,6 +300,9 @@ func (g Git) StageAll() error {
 // repository with no commit yet has no HEAD to reset to, and there the only
 // way out of the index is rm --cached.
 func (g Git) Unstage(path string) error {
+	if g.JJ {
+		return errNoStaging
+	}
 	if _, err := g.run("reset", "-q", "--", path); err != nil {
 		if _, err2 := g.run("rm", "-q", "--cached", "--", path); err2 != nil {
 			return err
@@ -287,6 +315,9 @@ func (g Git) Unstage(path string) error {
 // refused: there is no copy of them anywhere, and deleting one is a decision
 // for a command line, not a key next to the one that stages it.
 func (g Git) Discard(c Change) error {
+	if g.JJ {
+		return g.jjDiscard(c)
+	}
 	if c.Untracked() {
 		return fmt.Errorf("%s is untracked; git has no copy to put back", c.Path)
 	}
@@ -296,6 +327,10 @@ func (g Git) Discard(c Change) error {
 
 // Commit commits what is staged.
 func (g Git) Commit(message string) error {
+	if g.JJ {
+		_, err := g.jj("commit", "-m", message)
+		return err
+	}
 	_, err := g.run("commit", "-q", "-m", message)
 	return err
 }
@@ -303,6 +338,9 @@ func (g Git) Commit(message string) error {
 // Files is every file a search can find: tracked, and untracked but not
 // ignored, which is what "the project" means to the person searching it.
 func (g Git) Files() ([]string, error) {
+	if g.JJ {
+		return g.jjFiles()
+	}
 	out, err := g.run("ls-files", "-z", "--cached", "--others", "--exclude-standard")
 	if err != nil {
 		return nil, err
@@ -332,6 +370,9 @@ type Branch struct {
 // Branches lists the local branches, then the remote ones that no local
 // branch has the name of, each by name.
 func (g Git) Branches() ([]Branch, error) {
+	if g.JJ {
+		return g.jjBranches()
+	}
 	out, err := g.run("for-each-ref", "--format=%(HEAD) %(refname)", "refs/heads", "refs/remotes")
 	if err != nil {
 		return nil, err
@@ -370,6 +411,9 @@ func (g Git) Branches() ([]Branch, error) {
 // Switch changes to a branch. A remote one becomes a local branch of the
 // same name that tracks it, as an editor's branch picker does.
 func (g Git) Switch(b Branch) error {
+	if g.JJ {
+		return g.jjSwitch(b)
+	}
 	if b.Remote {
 		local := b.Name[strings.Index(b.Name, "/")+1:]
 		_, err := g.run("switch", "-c", local, "--track", b.Name)
@@ -420,6 +464,9 @@ func (g Git) runNet(args ...string) error {
 // decision, not a button), push what is ahead. A branch with no upstream is
 // published to origin. It says what it did.
 func (g Git) Sync(st *Status) (string, error) {
+	if g.JJ {
+		return g.jjSync()
+	}
 	if st == nil || st.Branch == "" || st.detachedOrNone {
 		return "", errors.New("not on a branch")
 	}

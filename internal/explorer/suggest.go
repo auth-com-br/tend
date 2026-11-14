@@ -35,6 +35,20 @@ var suggestCommand = "claude"
 // staged the unstaged one, and the files it touches — the untracked ones
 // when nothing tracked changed. herdr-sidebar's diff_for_message.
 func (g Git) DiffForMessage() (diff string, files []string, err error) {
+	if g.JJ {
+		// jj has one thing to describe: the working-copy commit.
+		if diff, err = g.jjSuggestInput(); err != nil {
+			return "", nil, err
+		}
+		st, err := g.jjStatus()
+		if err != nil {
+			return "", nil, err
+		}
+		for _, c := range st.Changes {
+			files = append(files, c.Path)
+		}
+		return diff, files, nil
+	}
 	staged, err := g.run("diff", "--cached", "--stat", "--patch")
 	if err != nil {
 		return "", nil, err
