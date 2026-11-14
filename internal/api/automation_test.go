@@ -74,6 +74,24 @@ func TestAScriptCanDriveAPaneAndReadItBack(t *testing.T) {
 	// ctrl+c reaches the program as a signal, not as the letter c.
 	call(t, h, MethodPaneSendText, map[string]any{"pane_id": id, "text": "sleep 9"})
 	call(t, h, MethodPaneSendKeys, map[string]any{"pane_id": id, "keys": []string{"ctrl+c"}})
+	// Back at a prompt before the next line: a shell that has read a line
+	// and then takes the SIGINT throws the line away, so text sent at once
+	// after ctrl+c is lost now and then — under load, one run in a few
+	// dozen — whatever sends it.
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		read := result(t, call(t, h, MethodPaneRead, map[string]any{"pane_id": id, "source": "recent"}))
+		shown, _ := read["text"].(string)
+		lines := strings.Split(strings.TrimRight(shown, " \n"), "\n")
+		if after := strings.LastIndex(shown, "^C"); after >= 0 && strings.HasSuffix(strings.TrimSpace(lines[len(lines)-1]), "$") &&
+			strings.Contains(shown[after:], "\n") {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("no prompt came back after ctrl+c:\n%s", read["text"])
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
 	call(t, h, MethodPaneSendText, map[string]any{"pane_id": id, "text": "printf 'after-%s\\n' ctrl-c\n"})
 	res = result(t, call(t, h, MethodPaneWaitForOutput, map[string]any{
 		"pane_id": id, "contains": "after-ctrl-c", "timeout_ms": 5000,
