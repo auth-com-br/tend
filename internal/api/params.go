@@ -200,6 +200,15 @@ type PaneSplitParams struct {
 	CloseOnExit bool `json:"close_on_exit"`
 }
 
+// PaneReportGuardParams is what MethodPaneReportGuard takes.
+type PaneReportGuardParams struct {
+	PaneID  string `json:"pane_id" schema:"required"`
+	Rule    string `json:"rule" schema:"required"`
+	Message string `json:"message" schema:"required"`
+	// Outcome is "refused" or "asked".
+	Outcome string `json:"outcome"`
+}
+
 // PaneRespawnParams is what MethodPaneRespawn takes: what to run in the
 // pane instead of what it runs now.
 type PaneRespawnParams struct {

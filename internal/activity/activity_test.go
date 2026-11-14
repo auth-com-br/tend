@@ -259,3 +259,21 @@ func TestTheTableSaysWhatIsGoingOn(t *testing.T) {
 		}
 	}
 }
+
+// TestAGuardViolationSaysWhatCameOfIt: a command the guard refused is not
+// "ran", which is what a policy an agent broke by being where it was says.
+// If it regresses, tend activity reports a refused rm as having run.
+func TestAGuardViolationSaysWhatCameOfIt(t *testing.T) {
+	var b strings.Builder
+	err := WriteViolationsTable(&b, []Violation{
+		{Policy: "guard_rm_outside", Outcome: "refused", Agent: "claude", Message: "rm -rf ~"},
+		{Policy: "protected_branch", Agent: "codex", Message: "on main"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(strings.TrimSpace(b.String()), "\n")
+	if !strings.Contains(lines[2], "refused") || !strings.Contains(lines[1], "ran") {
+		t.Fatalf("table:\n%s", b.String())
+	}
+}

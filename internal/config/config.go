@@ -859,6 +859,9 @@ func (c Config) validate() error {
 	if lo, hi := c.SidebarBounds(); lo < 4 || hi < lo {
 		return fmt.Errorf("ui.sidebar_min_width and sidebar_max_width are %d and %d; the least must be at least 4 and no more than the most", lo, hi)
 	}
+	if err := c.Policy.Guard.Check(); err != nil {
+		return err
+	}
 	switch c.UI.SidebarSide {
 	case "", "left", "right":
 	default:
@@ -1295,6 +1298,15 @@ enabled = false
 # require_worktree = false
 # How many agents may run at once in a session; 0 is no limit.
 # max_agents = 0
+# What to do when an agent is about to run a destructive shell command — rm -r
+# outside the project, a force push, git reset --hard, DROP DATABASE, a Docker
+# volume removed, a disk overwritten: "off", "ask" (the agent asks you) or
+# "deny" (it is told no, and why). Needs the hook: tend guard install.
+# It catches the common accident; a command built at run time is not seen.
+# guard = "off"
+# Regular expressions of commands to stop as well, and to let through anyway.
+# guard_deny = ['\bterraform destroy\b']
+# guard_allow = ['^rm -rf /srv/scratch/']
 
 [issues]
 # Starting work on a GitHub issue (the issues panel, w) makes a worktree for

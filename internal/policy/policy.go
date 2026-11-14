@@ -38,6 +38,10 @@ type Policy struct {
 	// MaxAgents is how many agents may run at once in a session. Zero is no
 	// limit.
 	MaxAgents int `toml:"max_agents"`
+	// Guard judges the shell commands agents run (guard.go). It is not one
+	// of the rules Empty and Check speak of: those are about where an agent
+	// runs, this about what it does there.
+	Guard
 }
 
 // Empty reports whether no rule is set.

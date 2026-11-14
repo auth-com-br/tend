@@ -121,6 +121,7 @@ tend shortcut               # put tend in your desktop's application launcher
 tend layout open work       # spaces, tabs and what each pane runs, from layouts/work.toml
 tend claude-teams           # Claude Code with agent teams, each teammate a pane
 claude mcp add tend -- tend mcp serve   # let an agent start, message and read other agents
+tend guard install          # with [policy] guard = "ask": agents ask before rm -rf ~, a force push…
 ```
 
 The panes belong to the server, not to the command that opened them: every

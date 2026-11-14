@@ -115,9 +115,11 @@ type Record struct {
 	Commits int         `json:"commits,omitempty"`
 	Usage   usage.Usage `json:"usage,omitempty"`
 
-	// Violation and refusal.
+	// Violation and refusal. Outcome is what came of a violation when it was
+	// not that the agent ran: the guard refused the command, or asked.
 	Policy  string `json:"policy,omitempty"`
 	Message string `json:"message,omitempty"`
+	Outcome string `json:"outcome,omitempty"`
 }
 
 // Path is where the record is kept, in tend's state directory.
@@ -220,7 +222,9 @@ type Violation struct {
 	Policy  string    `json:"policy"`
 	Message string    `json:"message"`
 	// Refused is a launch tend would not make; otherwise the agent ran.
-	Refused bool   `json:"refused,omitempty"`
+	Refused bool `json:"refused,omitempty"`
+	// Outcome is the guard's: "refused" or "asked" about a command.
+	Outcome string `json:"outcome,omitempty"`
 	Agent   string `json:"agent,omitempty"`
 	Place
 	Run string `json:"run,omitempty"`
@@ -333,7 +337,7 @@ func Fold(recs []Record) (runs []*Run, refused []Violation) {
 func violationOf(rec Record) Violation {
 	return Violation{
 		Time: rec.Time, Policy: rec.Policy, Message: rec.Message,
-		Refused: rec.Kind == KindRefused, Agent: rec.Agent, Place: rec.Place, Run: rec.Run,
+		Refused: rec.Kind == KindRefused, Outcome: rec.Outcome, Agent: rec.Agent, Place: rec.Place, Run: rec.Run,
 	}
 }
 

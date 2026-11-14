@@ -63,6 +63,7 @@ commands that need no server:
   activity          what agents did and what it cost: CSV, JSON or a table
   agents            list the agents tend can detect
   claude-teams      Claude Code with agent teams, its teammates as tend panes
+  guard             stop agents' destructive commands: install, check
   detect            report an agent's state from captured terminal output
   explain           show how every rule voted, for one capture
   screen            render captured terminal output as tend parses it
@@ -211,6 +212,8 @@ func main() {
 		err = runCompletion(args[1:])
 	case "claude-teams":
 		err = runClaudeTeams(args[1:])
+	case "guard":
+		err = runGuard(args[1:])
 	case "version":
 		fmt.Printf("tend %s\n", version)
 	case "-h", "--help", "help":

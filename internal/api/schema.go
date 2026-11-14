@@ -65,6 +65,7 @@ var methodParams = map[string]any{
 	MethodPaneCurrent:             PaneCurrentParams{},
 	MethodAgentFocus:              AgentParams{},
 	MethodPaneRespawn:             PaneRespawnParams{},
+	MethodPaneReportGuard:         PaneReportGuardParams{},
 	MethodPaneSendInput:           PaneSendInputParams{},
 	MethodPaneSendKeys:            PaneSendKeysParams{},
 	MethodPaneSendText:            PaneSendTextParams{},

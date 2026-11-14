@@ -174,6 +174,9 @@ func WriteViolationsTable(w io.Writer, vs []Violation) error {
 }
 
 func outcome(v Violation) string {
+	if v.Outcome != "" {
+		return v.Outcome
+	}
 	if v.Refused {
 		return "refused"
 	}

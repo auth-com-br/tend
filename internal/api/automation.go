@@ -53,7 +53,10 @@ const (
 	MethodPaneClose    = "pane.close"
 	// MethodPaneRespawn is tend's: tmux's respawn-pane, a new program in a
 	// pane that stays where it is (internal/tmuxshim).
-	MethodPaneRespawn       = "pane.respawn"
+	MethodPaneRespawn = "pane.respawn"
+	// MethodPaneReportGuard is tend's: a command the guard stopped or put
+	// to the person, written down (tend guard).
+	MethodPaneReportGuard   = "pane.report_guard"
 	MethodPaneResize        = "pane.resize"
 	MethodPaneWaitForOutput = "pane.wait_for_output"
 
@@ -623,6 +626,20 @@ func (a *API) callMore(req Request, pend *pending) (any, error) {
 		}
 		st, _ := a.srv.PaneStatus(child)
 		return map[string]any{"type": "pane_info", "pane": a.info(st)}, nil
+
+	case MethodPaneReportGuard:
+		var p PaneReportGuardParams
+		if err := decode(req.Params, &p); err != nil {
+			return nil, err
+		}
+		id, err := a.pane(p.PaneID)
+		if err != nil {
+			return nil, err
+		}
+		if err := a.srv.ReportGuard(id, p.Rule, p.Outcome, p.Message); err != nil {
+			return nil, paneErr(p.PaneID, err)
+		}
+		return ok2(), nil
 
 	case MethodPaneRespawn:
 		var p PaneRespawnParams
