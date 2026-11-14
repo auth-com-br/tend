@@ -430,6 +430,7 @@ func sectionScrollbar(s SidebarSection, region Rect, width, handleRow int) (Side
 // SidebarScrollbarAt is the list a point is on the scrollbar of, and that
 // scrollbar; ok is false when the point is on neither list's.
 func SidebarScrollbarAt(f Frame, x, y, rows int) (list SidebarPlace, bar SidebarScrollbar, ok bool) {
+	x = sidebarLocalX(f, x)
 	if !f.Sidebar || y >= SidebarHeight(rows) {
 		return SidebarNowhere, SidebarScrollbar{}, false
 	}
@@ -486,6 +487,90 @@ func drawSidebar(dst *vt.Grid, f Frame, theme Theme) {
 	if !f.Sidebar {
 		return
 	}
+	if !f.SidebarRight {
+		drawSidebarAt(dst, f, theme)
+		return
+	}
+	// On the right it is drawn as it is on the left, in a grid of its own,
+	// and put against the right edge with its rule moved to the side that
+	// now faces the panes: one drawing, so the two sides cannot differ in
+	// anything but where they are.
+	width := SidebarColumns(f, dst.Cols())
+	if width <= 0 {
+		return
+	}
+	own := vt.NewGrid(width, dst.Rows(), 0)
+	drawSidebarAt(own, f, theme)
+	x0 := dst.Cols() - width
+	for y := 0; y < dst.Rows(); y++ {
+		from, to := own.Line(y), dst.Line(y)
+		if from == nil || to == nil {
+			continue
+		}
+		for x := 0; x < width && x < from.Len(); x++ {
+			to.SetCell(sidebarScreenX(x0, width, x), from.Cell(x))
+		}
+	}
+}
+
+// sidebarScreenX is where a column of a right sidebar's own drawing goes on
+// screen: its rule, drawn last, goes first; the rest one along.
+func sidebarScreenX(x0, width, x int) int {
+	if x == width-1 {
+		return x0
+	}
+	return x0 + 1 + x
+}
+
+// sidebarLocalX is the column of the sidebar's own drawing under screen
+// column x — x itself on the left; on the right sidebarScreenX undone, and
+// width (nowhere on it) left of it. Every hit test asks it first, so a click
+// lands on what is drawn there.
+func sidebarLocalX(f Frame, x int) int {
+	if !f.SidebarRight {
+		return x
+	}
+	cols := f.ScreenCols
+	if !f.Sidebar {
+		// The handle that brings it back, in the right-hand gutter.
+		if x >= cols-ShowHandleWidth {
+			return x - (cols - ShowHandleWidth)
+		}
+		return cols
+	}
+	width := min(sidebarWidthOf(f), cols)
+	x0 := cols - width
+	switch {
+	case x == x0:
+		return width - 1
+	case x > x0:
+		return x - x0 - 1
+	}
+	return width
+}
+
+// SidebarScreenX is where a column of the sidebar's own drawing is on
+// screen: what a client asks to aim at a row it knows only by its line.
+func SidebarScreenX(f Frame, x int) int {
+	if !f.SidebarRight || !f.Sidebar {
+		return x
+	}
+	width := min(sidebarWidthOf(f), f.ScreenCols)
+	return sidebarScreenX(f.ScreenCols-width, width, x)
+}
+
+// PaneSpan is the columns the panes and the tab bar have, [left, right):
+// everything but the sidebar, or the gutter its handle keeps.
+func PaneSpan(f Frame, cols int) (left, right int) {
+	gutter := SidebarGutter(f, cols)
+	if f.SidebarRight {
+		return 0, cols - gutter
+	}
+	return gutter, cols
+}
+
+// drawSidebarAt draws the sidebar from the grid's left edge.
+func drawSidebarAt(dst *vt.Grid, f Frame, theme Theme) {
 	// The sidebar runs from the very top: it is not inside the tab bar's
 	// space, the tab bar is inside its own.
 	bottom := SidebarHeight(dst.Rows())
@@ -519,7 +604,12 @@ func drawSidebar(dst *vt.Grid, f Frame, theme Theme) {
 	// behind. A keystroke does the same thing, but somebody who found the
 	// sidebar with the mouse should be able to dismiss it the same way.
 	if at := hideHandleRow(f, dst.Rows()); at >= 0 {
-		writeString(dst, width-2, at, "«", theme.SidebarGroup, width)
+		// Pointing the way it goes: off the left edge, or off the right.
+		arrow := "«"
+		if f.SidebarRight {
+			arrow = "»"
+		}
+		writeString(dst, width-2, at, arrow, theme.SidebarGroup, width)
 	}
 }
 
@@ -554,12 +644,20 @@ func drawShowHandle(dst *vt.Grid, f Frame, theme Theme) {
 	if f.Sidebar {
 		return
 	}
+	if f.SidebarRight {
+		writeString(dst, max(dst.Cols()-ShowHandleWidth+1, 0), 0, "«", theme.SidebarGroup, dst.Cols())
+		return
+	}
 	writeString(dst, 0, 0, "»", theme.SidebarGroup, dst.Cols())
 }
 
 // SidebarHandleAt reports whether a point is on the handle that shows or hides
 // the sidebar, which is the same affordance in its two states.
 func SidebarHandleAt(f Frame, x, y, rows int) bool {
+	return handleAt(f, sidebarLocalX(f, x), y, rows)
+}
+
+func handleAt(f Frame, x, y, rows int) bool {
 	if !f.Sidebar {
 		return y == 0 && x < ShowHandleWidth
 	}
@@ -908,13 +1006,17 @@ const (
 // Drawing and hit-testing share sidebarRegions, so a click cannot land
 // somewhere other than what it looks like it is on.
 func SidebarPlaceAt(f Frame, x, y, rows int) SidebarPlace {
+	return placeAt(f, sidebarLocalX(f, x), y, rows)
+}
+
+func placeAt(f Frame, x, y, rows int) SidebarPlace {
 	if !f.Sidebar || x >= sidebarWidthOf(f) || y >= SidebarHeight(rows) {
 		return SidebarNowhere
 	}
 	// The rule down the right edge is herdr's sidebar divider: dragged, it
 	// sets the sidebar's width. Not on the hide handle's row, whose corner
 	// is the handle.
-	if x == sidebarWidthOf(f)-1 && !SidebarHandleAt(f, x, y, rows) {
+	if x == sidebarWidthOf(f)-1 && !handleAt(f, x, y, rows) {
 		return SidebarEdge
 	}
 	if y < toolbarTop(f, rows) {
@@ -938,9 +1040,10 @@ func SidebarPlaceAt(f Frame, x, y, rows int) SidebarPlace {
 // entry is one target: clicking a branch selects the space it belongs to,
 // which is what it looks like it should do.
 func SidebarRowAt(f Frame, x, y, rows int) (SidebarRow, bool) {
+	x = sidebarLocalX(f, x)
 	spaces, agents, _ := sidebarRegions(f, rows)
 	width := sidebarWidthOf(f)
-	switch SidebarPlaceAt(f, x, y, rows) {
+	switch placeAt(f, x, y, rows) {
 	case SidebarSpacesList:
 		return rowInSection(f.Spaces, spaces, width, hideHandleRow(f, rows), x, y)
 	case SidebarAgentsList:

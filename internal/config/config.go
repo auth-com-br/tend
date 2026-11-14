@@ -573,6 +573,8 @@ type UI struct {
 	SidebarWidth    int `toml:"sidebar_width"`
 	SidebarMinWidth int `toml:"sidebar_min_width"`
 	SidebarMaxWidth int `toml:"sidebar_max_width"`
+	// SidebarSide is "left" (herdr's, and the default) or "right".
+	SidebarSide string `toml:"sidebar_side"`
 	// Toolbar is the row of tools over the sidebar's lists.
 	Toolbar Toolbar `toml:"toolbar"`
 }
@@ -857,6 +859,11 @@ func (c Config) validate() error {
 	if lo, hi := c.SidebarBounds(); lo < 4 || hi < lo {
 		return fmt.Errorf("ui.sidebar_min_width and sidebar_max_width are %d and %d; the least must be at least 4 and no more than the most", lo, hi)
 	}
+	switch c.UI.SidebarSide {
+	case "", "left", "right":
+	default:
+		return fmt.Errorf("ui.sidebar_side is %q; use \"left\" or \"right\"", c.UI.SidebarSide)
+	}
 	switch c.UI.TabBarPosition {
 	case "", "top", "bottom":
 	default:
@@ -1129,6 +1136,9 @@ grouped = false
 # sidebar_width = 26
 # sidebar_min_width = 18
 # sidebar_max_width = 36
+
+# Which side of the screen the sidebar is on, "left" or "right".
+# sidebar_side = "left"
 
 # What goes at the right end of the tab bar, in order. Types: zoom (ZOOM
 # while a pane is zoomed), hostname, datetime (format is strftime, "%H:%M"

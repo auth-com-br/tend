@@ -682,6 +682,11 @@ func (t *tui) dragSidebarWidth(x int) bool {
 		return false
 	}
 	lo, hi := t.config.SidebarBounds()
+	if t.sidebarRight() {
+		// The edge is on the sidebar's left: dragged to x, the sidebar is
+		// what lies right of it, as SidebarWidthAt counts from the left.
+		x = t.cols - 1 - x
+	}
 	next := ui.SidebarWidthAt(x, lo, min(hi, t.cols-1))
 	changed := next != t.sidebarWidthLocked()
 	if changed {
@@ -884,7 +889,7 @@ func (t *tui) dragSpace(ev ui.MouseEvent) bool {
 	frame := t.buildFrame()
 	rows := t.rows
 	target, group := uint64(0), ""
-	if row, ok := ui.SidebarRowAt(frame, 1, ev.Y, rows); ok {
+	if row, ok := ui.SidebarRowAt(frame, ui.SidebarScreenX(frame, 1), ev.Y, rows); ok {
 		switch {
 		case row.Machine != "":
 			// A space cannot be dragged to another machine.

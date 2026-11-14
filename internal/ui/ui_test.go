@@ -2460,3 +2460,62 @@ func TestUnfocusedPanesAreDrawnFaintWhenAsked(t *testing.T) {
 		t.Fatal("a pane alone in its tab was dimmed")
 	}
 }
+
+// TestASidebarOnTheRightIsDrawnAndClickedThere: sidebar_side = "right" puts
+// the column against the right edge with its rule facing the panes, the tab
+// bar and the panes starting at the left edge, and a click on what is drawn
+// reaching it; the handle that brings it back is in the right-hand gutter.
+// If it regresses, the sidebar draws on one side and answers clicks on the
+// other, or panes are laid out under it.
+func TestASidebarOnTheRightIsDrawnAndClickedThere(t *testing.T) {
+	const cols, rows = 80, 20
+	f := sidebarFrame([]SidebarRow{
+		{Kind: SidebarHeading, Label: "spaces"},
+		{Kind: SidebarSpace, Label: "one", Detail: "master", Workspace: 1},
+		{Kind: SidebarSpace, Label: "two", Detail: "topic", Workspace: 2},
+	}, nil)
+	f.SidebarRight, f.ScreenCols = true, cols
+	f.Tabs = []Tab{{ID: 1, Name: "build", Active: true}}
+	g := vt.NewGrid(cols, rows, 0)
+	Draw(g, f, DefaultTheme())
+	lines := gridText(g)
+	x0 := cols - SidebarWidth
+
+	if !strings.Contains(lines[1][x0:], "one") || strings.Contains(lines[1][:x0], "one") {
+		t.Fatalf("the space is not drawn in the right-hand column:\n%s", strings.Join(lines, "\n"))
+	}
+	if r := g.Line(3).Cell(x0).R; r != '│' {
+		t.Fatalf("the rule is %q at the sidebar's left edge, want │", r)
+	}
+	if left, right := PaneSpan(f, cols); left != 0 || right != x0 {
+		t.Fatalf("panes get [%d, %d), want [0, %d)", left, right, x0)
+	}
+	if segs := TabSegments(f, cols); len(segs) == 0 || segs[0].Start != 0 {
+		t.Fatalf("the tab bar starts at %v, want the left edge", segs)
+	}
+
+	// Each line of a space is the space, clicked where it is drawn.
+	for y, want := range map[int]uint64{1: 1, 2: 1, 3: 2} {
+		row, ok := SidebarRowAt(f, x0+3, y, rows)
+		if !ok || row.Workspace != want {
+			t.Errorf("a click on line %d at the right reached %+v (%v), want space %d", y, row, ok, want)
+		}
+	}
+	if _, ok := SidebarRowAt(f, 2, 1, rows); ok {
+		t.Error("a click at the left edge reached the sidebar; it is the panes' there")
+	}
+	if SidebarPlaceAt(f, x0, 3, rows) != SidebarEdge {
+		t.Error("the rule at the sidebar's left edge is not the edge to drag")
+	}
+	if !SidebarHandleAt(f, cols-1, rows-StatusRows-1, rows) {
+		t.Error("the hide handle is not in the sidebar's outer corner")
+	}
+
+	f.Sidebar = false
+	if !SidebarHandleAt(f, cols-1, 0, rows) || SidebarHandleAt(f, 0, 0, rows) {
+		t.Error("with the sidebar put away, the handle bringing it back is not in the right-hand gutter")
+	}
+	if left, right := PaneSpan(f, cols); left != 0 || right != cols-ShowHandleWidth {
+		t.Fatalf("with it put away, panes get [%d, %d)", left, right)
+	}
+}

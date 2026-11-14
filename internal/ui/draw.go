@@ -403,6 +403,12 @@ type Frame struct {
 	// SidebarWidth is the sidebar's width in columns, when the user has
 	// dragged it to one; zero is SidebarWidth.
 	SidebarWidth int
+	// SidebarRight puts the sidebar against the right edge (herdr#1465,
+	// #4120 ask it of herdr; tend's own). ScreenCols is the screen's width,
+	// which the hit tests need to know where a right sidebar starts; Draw
+	// reads it off the grid.
+	SidebarRight bool
+	ScreenCols   int
 	// Toolbar is the tools over the sidebar's lists, none when it is off;
 	// ToolbarIcons the icon theme they are drawn in (toolbar.go).
 	Toolbar      []ToolbarItem
@@ -542,13 +548,15 @@ func StatusArea(f Frame, cols int) (start, width int) {
 		width += runewidth.StringWidth(e.Text)
 	}
 	if width == 0 {
-		return cols, 0
+		_, right := PaneSpan(f, cols)
+		return right, 0
 	}
 	// One column of space before it, as herdr leaves.
-	if cols-SidebarGutter(f, cols)-(width+1) < minTabStrip {
-		return cols, 0
+	left, right := PaneSpan(f, cols)
+	if right-left-(width+1) < minTabStrip {
+		return right, 0
 	}
-	return cols - width, width
+	return right - width, width
 }
 
 // NewTabLabel is the button at the end of the bar.
@@ -574,11 +582,12 @@ type TabSegment struct {
 // belonged to the whole session.
 func TabSegments(f Frame, cols int) []TabSegment {
 	var out []TabSegment
-	x := SidebarGutter(f, cols)
+	x, right := PaneSpan(f, cols)
 	// The tabs stop where the status starts, and a column short of it.
 	if start, width := StatusArea(f, cols); width > 0 {
-		cols = start - 1
+		right = start - 1
 	}
+	cols = right
 	// herdr's: each tab a block of its name and four columns, eight at
 	// least, with a column of the bar between two; the new-tab button after
 	// the last, a column along.
@@ -625,7 +634,7 @@ func tabLabel(f Frame, tab Tab) string {
 
 // TabAt reports what a click on the bar landed on.
 func TabAt(f Frame, x, y, cols, rows int) (tab uint64, newTab bool, ok bool) {
-	if row := TabBarRow(f, rows); row < 0 || y != row || x < SidebarGutter(f, cols) {
+	if left, right := PaneSpan(f, cols); TabBarRow(f, rows) < 0 || y != TabBarRow(f, rows) || x < left || x >= right {
 		return 0, false, false
 	}
 	for _, seg := range TabSegments(f, cols) {
@@ -731,7 +740,8 @@ func drawTabs(dst *vt.Grid, f Frame, theme Theme) {
 	if row == nil {
 		return
 	}
-	for x := SidebarGutter(f, dst.Cols()); x < dst.Cols(); x++ {
+	left, right := PaneSpan(f, dst.Cols())
+	for x := left; x < right; x++ {
 		row.SetCell(x, vt.Cell{R: ' ', Style: theme.TabBar, Width: 1})
 	}
 

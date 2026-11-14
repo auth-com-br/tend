@@ -751,11 +751,13 @@ func (t *tui) layoutAreaLocked() ui.Rect {
 	// The gutter is the sidebar's width, or the two columns kept for the
 	// handle that brings it back. One helper answers for both, so the panes
 	// cannot be laid out over something that is drawn.
-	left := ui.SidebarGutter(ui.Frame{Sidebar: t.sidebar, SidebarWidth: t.sidebarWidthLocked()}, t.cols)
+	left, right := ui.PaneSpan(ui.Frame{
+		Sidebar: t.sidebar, SidebarWidth: t.sidebarWidthLocked(), SidebarRight: t.sidebarRight(),
+	}, t.cols)
 	return ui.Rect{
 		X:    left,
 		Y:    top,
-		Cols: t.cols - left,
+		Cols: right - left,
 		Rows: t.rows - bar - ui.StatusRows,
 	}
 }
@@ -1290,6 +1292,9 @@ func (t *tui) buildFrame() ui.Frame {
 		}
 	}
 
+	// Set whether it is shown or not: the handle that brings it back is on
+	// its side too, and the hit tests need the width to find either.
+	frame.SidebarRight, frame.ScreenCols = t.sidebarRight(), t.cols
 	if t.sidebar {
 		frame.Sidebar = true
 		frame.SidebarWidth = t.sidebarWidthLocked()
@@ -2234,3 +2239,6 @@ func (t *tui) syncTargets(focus uint64) []uint64 {
 	}
 	return out
 }
+
+// sidebarRight is whether the settings put the sidebar on the right.
+func (t *tui) sidebarRight() bool { return t.config.UI.SidebarSide == "right" }

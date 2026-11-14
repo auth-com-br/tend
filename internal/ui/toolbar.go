@@ -121,6 +121,7 @@ func ToolbarLayout(f Frame) []ToolbarZone {
 
 // ToolbarItemAt is the tool under a point, by its place in f.Toolbar.
 func ToolbarItemAt(f Frame, x, y, rows int) (int, bool) {
+	x = sidebarLocalX(f, x)
 	if !toolbarShown(f, rows) || y != 0 {
 		return 0, false
 	}
