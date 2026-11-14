@@ -210,6 +210,18 @@ type PaneRespawnParams struct {
 	CloseOnExit bool     `json:"close_on_exit"`
 }
 
+// PaneScrollParams is what MethodPaneScroll takes: how far above the
+// present to show the pane, herdr's offset_from_bottom.
+type PaneScrollParams struct {
+	PaneID           string `json:"pane_id" schema:"required"`
+	OffsetFromBottom int    `json:"offset_from_bottom"`
+}
+
+// PaneCurrentParams is what MethodPaneCurrent takes.
+type PaneCurrentParams struct {
+	CallerPaneID string `json:"caller_pane_id"`
+}
+
 // PaneCloseParams is what MethodPaneClose takes.
 type PaneCloseParams struct {
 	PaneID string `json:"pane_id" schema:"required"`

@@ -19,11 +19,17 @@ import (
 // (prefix+M), where a switch can be seen before it is pressed.
 
 const mcpUsage = `usage: tend mcp list [-s session]             the agents' MCP servers
-       tend mcp test [-s session] [server...]   test them (all, or those named)`
+       tend mcp test [-s session] [server...]   test them (all, or those named)
+       tend mcp serve [-s session]              tend's own MCP server, on stdio: tools for an
+                                                agent to start, message, wait for and read
+                                                other agents (claude mcp add tend -- tend mcp serve)`
 
 func runMCP(args []string) error {
 	if len(args) == 0 {
 		return errors.New(mcpUsage)
+	}
+	if args[0] == "serve" {
+		return runMCPServe(args[1:])
 	}
 	fs := flag.NewFlagSet("mcp "+args[0], flag.ExitOnError)
 	name := sessionFlag(fs)

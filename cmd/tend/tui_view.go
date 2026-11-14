@@ -78,6 +78,24 @@ func (t *tui) enterScroll() error {
 	return t.scrollBy(1)
 }
 
+// scrollPaneTo shows pane offset lines back, as asked over the automation
+// socket (pane.scroll): from the live screen, the way a person scrolling
+// gets there, so an offset past the history stops at its top and zero is
+// the present.
+func (t *tui) scrollPaneTo(pane uint64, offset int) error {
+	t.leaveScroll()
+	if offset <= 0 {
+		return nil
+	}
+	t.mu.Lock()
+	t.scrollPane, t.scrollOffset = pane, 0
+	t.mu.Unlock()
+	err := t.scrollBy(offset)
+	t.requestRepaint()
+	t.wakeUp()
+	return err
+}
+
 // leaveScroll returns to the live screen.
 func (t *tui) leaveScroll() {
 	t.mu.Lock()

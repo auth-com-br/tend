@@ -119,6 +119,7 @@ tend kill -server           # stop the session
 tend --remote host          # a session on another machine, over ssh
 tend shortcut               # put tend in your desktop's application launcher
 tend claude-teams           # Claude Code with agent teams, each teammate a pane
+claude mcp add tend -- tend mcp serve   # let an agent start, message and read other agents
 ```
 
 The panes belong to the server, not to the command that opened them: every

@@ -328,6 +328,9 @@ func (c *clientConn) forward(ev Event) error {
 		out.Kind = proto.EventWorkspaceCreated
 	case EventFocusRequest:
 		out.Kind = proto.EventFocusRequest
+	case EventScrollRequest:
+		out.Kind = proto.EventScrollRequest
+		out.Offset = ev.Offset
 	case EventUpdateReady:
 		out.Kind = proto.EventUpdateReady
 		out.Title = ev.Title

@@ -884,6 +884,16 @@ func (t *tui) Event(ev proto.Event) {
 				_ = t.jumpToPane(ev.Pane)
 			}
 		}()
+	case proto.EventScrollRequest:
+		// pane.scroll: the pane shown, that far back. Zero is the present.
+		go func() {
+			if err := t.refresh(); err != nil || t.jumpToPane(ev.Pane) != nil {
+				return
+			}
+			if err := t.scrollPaneTo(ev.Pane, ev.Offset); err != nil {
+				t.setMessage(err.Error(), true)
+			}
+		}()
 	case proto.EventUpdateReady:
 		t.updateAnnounced(ev)
 	case proto.EventContextChanged:

@@ -84,7 +84,7 @@ func (l *endpointLink) Event(ev proto.Event) {
 		return
 	}
 	switch ev.Kind {
-	case proto.EventPaneClipboard, proto.EventFocusRequest, proto.EventPaneFocused,
+	case proto.EventPaneClipboard, proto.EventFocusRequest, proto.EventScrollRequest, proto.EventPaneFocused,
 		proto.EventTabFocused, proto.EventWorkspaceFocused:
 		// Nothing a list of spaces shows.
 		return

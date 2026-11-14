@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/auth-com-br/tend/internal/server"
 	"github.com/auth-com-br/tend/internal/session"
 )
 
@@ -651,4 +652,52 @@ func parsePane(t *testing.T, id string) session.PaneID {
 		t.Fatalf("pane id %q", id)
 	}
 	return session.PaneID(n)
+}
+
+// TestTheMethodsHerdrHasForWhereAPaneIs: pane.current answers a script with
+// its own pane (or the one focused), agent.focus shows an agent's pane, and
+// pane.scroll asks the clients to show a pane scrolled back. If one
+// regresses, an agent driving tend cannot find itself, or show the person
+// the agent it started and what it said.
+func TestTheMethodsHerdrHasForWhereAPaneIs(t *testing.T) {
+	h := start(t)
+	pane := PaneID(h.pane)
+	sub := h.srv.Subscribe(64)
+	defer sub.Close()
+
+	cur := result(t, call(t, h, MethodPaneCurrent, map[string]any{"caller_pane_id": pane}))
+	if info, _ := cur["pane"].(map[string]any); cur["type"] != "pane_current" || info["pane_id"] != pane {
+		t.Fatalf("pane.current = %v", cur)
+	}
+
+	focused := result(t, call(t, h, MethodAgentFocus, map[string]any{"target": pane}))
+	if focused["type"] != "agent_info" {
+		t.Fatalf("agent.focus = %v", focused)
+	}
+	scrolled := result(t, call(t, h, MethodPaneScroll, map[string]any{"pane_id": pane, "offset_from_bottom": 30}))
+	if scrolled["type"] != "pane_info" {
+		t.Fatalf("pane.scroll = %v", scrolled)
+	}
+
+	var sawFocus, sawScroll bool
+	deadline := time.After(5 * time.Second)
+	for !sawFocus || !sawScroll {
+		select {
+		case ev := <-sub.C:
+			if ev.Pane != h.pane {
+				continue
+			}
+			switch ev.Kind {
+			case server.EventFocusRequest:
+				sawFocus = true
+			case server.EventScrollRequest:
+				if ev.Offset != 30 {
+					t.Fatalf("scroll asked for offset %d, want 30", ev.Offset)
+				}
+				sawScroll = true
+			}
+		case <-deadline:
+			t.Fatalf("the clients were not asked: focus %v, scroll %v", sawFocus, sawScroll)
+		}
+	}
 }

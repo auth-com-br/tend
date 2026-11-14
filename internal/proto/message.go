@@ -390,6 +390,8 @@ const (
 	FeatureWindowFocus = "window-focus"
 	// FeatureFocusRequest: the server asks clients to show a pane.
 	FeatureFocusRequest = "focus-request"
+	// FeatureScrollRequest: the server asks clients to scroll a pane back.
+	FeatureScrollRequest = "scroll-request"
 	// FeatureAgentView: the snapshot carries agent.view.set's view.
 	FeatureAgentView = "agent-view"
 	// FeatureServerShell: a pane asked for with no command runs the server's
@@ -434,7 +436,7 @@ const (
 var KnownFeatures = []string{
 	FeaturePaneClipboard, FeatureMouseDetail, FeatureSessionChanged, FeatureGraphics,
 	FeatureLifecycle, FeatureWindowTitle, FeatureTabBarStatus, FeatureDone, FeatureWindowFocus,
-	FeatureFocusRequest, FeatureAgentView, FeatureServerShell, FeaturePopup, FeatureUpdate,
+	FeatureFocusRequest, FeatureScrollRequest, FeatureAgentView, FeatureServerShell, FeaturePopup, FeatureUpdate,
 	FeatureDockUnless, FeatureContext, FeatureContextArrived, FeatureFollowCwd, FeatureGitHubFolders,
 	FeatureGroups, FeatureWheelKeys, FeatureDormant, FeatureMarkUnread, FeatureUsage,
 }
@@ -1696,6 +1698,9 @@ const (
 	// EventFocusRequest asks a client to show a pane, for pane.focus and
 	// tab.focus over the automation socket.
 	EventFocusRequest = "focus-request"
+	// EventScrollRequest asks a client to show a pane scrolled back by
+	// Offset lines, for pane.scroll.
+	EventScrollRequest = "scroll-request"
 	// EventUpdateReady says the server's check found a newer release:
 	// Title is its version, Body how to install it.
 	EventUpdateReady = "update-ready"
@@ -1726,6 +1731,8 @@ type Event struct {
 	// Tab and Workspace are set on the events about them.
 	Tab       uint64 `json:"tab,omitempty"`
 	Workspace uint64 `json:"workspace,omitempty"`
+	// Offset is set on a scroll request.
+	Offset int `json:"offset,omitempty"`
 }
 
 // Compare reports which side of a connection knows things the other does not,

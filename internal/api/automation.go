@@ -94,6 +94,9 @@ const (
 	MethodPaneSendInput           = "pane.send_input"
 	MethodPaneRename              = "pane.rename"
 	MethodPaneFocus               = "pane.focus"
+	MethodPaneScroll              = "pane.scroll"
+	MethodPaneCurrent             = "pane.current"
+	MethodAgentFocus              = "agent.focus"
 	MethodTabFocus                = "tab.focus"
 	MethodPaneEdges               = "pane.edges"
 	MethodPaneProcesses           = "pane.process_info"
@@ -481,6 +484,47 @@ func (a *API) callMore(req Request, pend *pending) (any, error) {
 		}
 		return map[string]any{"type": "pane_info", "pane": a.info(st)}, nil
 
+	case MethodPaneScroll:
+		var p PaneScrollParams
+		if err := decode(req.Params, &p); err != nil {
+			return nil, err
+		}
+		id, err := a.pane(p.PaneID)
+		if err != nil {
+			return nil, err
+		}
+		if _, err := a.srv.RequestScroll(id, p.OffsetFromBottom); err != nil {
+			return nil, paneErr(p.PaneID, err)
+		}
+		st, err := a.srv.PaneStatus(id)
+		if err != nil {
+			return nil, paneErr(p.PaneID, err)
+		}
+		return map[string]any{"type": "pane_info", "pane": a.info(st)}, nil
+
+	case MethodPaneCurrent:
+		var p PaneCurrentParams
+		if err := decode(req.Params, &p); err != nil {
+			return nil, err
+		}
+		// herdr's: the caller's own pane when it says which (a script reads
+		// TEND_PANE_ID), else the one focused.
+		var id session.PaneID
+		if p.CallerPaneID != "" {
+			pane, err := a.pane(p.CallerPaneID)
+			if err != nil {
+				return nil, err
+			}
+			id = pane
+		} else if id = a.srv.FocusedPane(); id == 0 {
+			return nil, fail("pane_not_found", "pane not found")
+		}
+		st, err := a.srv.PaneStatus(id)
+		if err != nil {
+			return nil, fail("pane_not_found", "pane not found")
+		}
+		return map[string]any{"type": "pane_current", "pane": a.info(st)}, nil
+
 	case MethodPaneFocus, MethodTabFocus:
 		var p FocusParams
 		if err := decode(req.Params, &p); err != nil {
@@ -654,7 +698,7 @@ func (a *API) callMore(req Request, pend *pending) (any, error) {
 		return map[string]any{"type": "agent_list", "agents": out}, nil
 
 	case MethodAgentGet, MethodAgentRead, MethodAgentPrompt, MethodAgentSendKeys,
-		MethodAgentWait, MethodAgentExplain:
+		MethodAgentWait, MethodAgentExplain, MethodAgentFocus:
 		return a.agentCall(req)
 
 	case MethodAgentViewSet:
@@ -1200,6 +1244,17 @@ func (a *API) agentCall(req Request) (any, error) {
 
 	case MethodAgentRead:
 		return a.read(target, id, p.Source, p.Lines)
+
+	case MethodAgentFocus:
+		// herdr's agent.focus: the agent's pane shown, the agent answered.
+		if _, err := a.srv.RequestFocus(id); err != nil {
+			return nil, paneErr(target, err)
+		}
+		st, err := a.srv.PaneStatus(id)
+		if err != nil {
+			return nil, paneErr(target, err)
+		}
+		return map[string]any{"type": "agent_info", "agent": a.info(st)}, nil
 
 	case MethodAgentSendKeys:
 		if err := a.srv.SendKeys(id, p.Keys); err != nil {

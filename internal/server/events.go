@@ -72,6 +72,9 @@ const (
 	// and each client moves itself; a session nobody is attached to has
 	// nothing to move.
 	EventFocusRequest
+	// EventScrollRequest asks the clients to show a pane scrolled back:
+	// pane.scroll over the automation socket.
+	EventScrollRequest
 	// EventUpdateReady says the release check found a newer release: Title
 	// is its version, Body how to install it.
 	EventUpdateReady
@@ -147,6 +150,10 @@ type Event struct {
 	// Tab and Workspace are set on the events about them.
 	Tab       session.TabID
 	Workspace session.WorkspaceID
+
+	// Offset is set on EventScrollRequest: how many lines above the
+	// present the pane is to be shown at.
+	Offset int
 }
 
 // Subscription is a stream of events.

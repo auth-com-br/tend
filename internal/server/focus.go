@@ -168,6 +168,23 @@ func (s *Server) RequestFocus(id session.PaneID) (int, error) {
 	return clients, nil
 }
 
+// RequestScroll asks every attached client to show a pane scrolled back
+// offset lines from the present, herdr's pane.scroll. Where herdr's app
+// holds one scroll position per pane, tend's is each client's own (what one
+// person is looking at), so the server asks, as RequestFocus does; zero
+// asks for the live screen.
+func (s *Server) RequestScroll(id session.PaneID, offset int) (int, error) {
+	tab, ws := s.placeOf(id)
+	if tab == 0 {
+		return 0, session.ErrNoSuchPane
+	}
+	s.mu.Lock()
+	clients := len(s.conns)
+	s.mu.Unlock()
+	s.publish(Event{Kind: EventScrollRequest, Pane: id, Tab: tab, Workspace: ws, Offset: max(offset, 0)})
+	return clients, nil
+}
+
 // TabActivePane is the pane a tab last had focused, for tab.focus.
 func (s *Server) TabActivePane(id session.TabID) (session.PaneID, error) {
 	s.mu.Lock()
