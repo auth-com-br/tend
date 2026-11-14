@@ -74,22 +74,9 @@ func (s *Server) ApplyLayout(ws session.WorkspaceID, name string, tree session.L
 		return 0, err
 	}
 
-	// Each further leaf is a split of the pane before it, in the order the
-	// tree lists them; the shape comes out right because the shares are
-	// copied on afterwards.
-	previous := root
-	for _, leaf := range leaves[1:] {
-		spec := specFor(specs, leaf, fallback)
-		direction := session.Columns
-		if tree.Dir == "rows" {
-			direction = session.Rows
-		}
-		pane, err := s.SplitPane(previous, direction, spec)
-		if err != nil {
-			_ = s.CloseTab(tab)
-			return 0, err
-		}
-		previous = pane
+	if err := s.buildLayout(root, tree, specs, fallback); err != nil {
+		_ = s.CloseTab(tab)
+		return 0, err
 	}
 
 	s.mu.Lock()
@@ -104,6 +91,37 @@ func (s *Server) ApplyLayout(ws session.WorkspaceID, name string, tree session.L
 	return tab, nil
 }
 
+// buildLayout makes pane, which holds the whole of node's area and runs its
+// first leaf, into node's shape. Its children are made first, as siblings
+// split off in node's direction one after another, each started as its own
+// first leaf; then each is made into its own shape the same way. Splitting
+// every leaf off the one before it in the root's direction, as this did
+// before, built an editor beside two stacked panes as three side by side,
+// and the sizes could not be copied onto that.
+func (s *Server) buildLayout(pane session.PaneID, node session.LayoutSnapshot, specs map[uint64]PaneSpec, fallback PaneSpec) error {
+	if len(node.Kids) == 0 {
+		return nil
+	}
+	direction := session.Columns
+	if node.Dir == "rows" {
+		direction = session.Rows
+	}
+	kids := []session.PaneID{pane}
+	for _, kid := range node.Kids[1:] {
+		next, err := s.SplitPane(kids[len(kids)-1], direction, specFor(specs, layoutLeaves(kid)[0], fallback))
+		if err != nil {
+			return err
+		}
+		kids = append(kids, next)
+	}
+	for i, kid := range node.Kids {
+		if err := s.buildLayout(kids[i], kid, specs, fallback); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // layoutLeaves lists a tree's panes, left to right and top to bottom.
 func layoutLeaves(n session.LayoutSnapshot) []uint64 {
 	if len(n.Kids) == 0 {
@@ -116,10 +134,20 @@ func layoutLeaves(n session.LayoutSnapshot) []uint64 {
 	return out
 }
 
-// specFor is what a leaf should run: what the layout said, or the fallback.
+// specFor is what a leaf should run: what the layout said, with the
+// fallback's command when it names none. A leaf with a directory and no
+// command is a shell there; taking the whole fallback for it, as this did,
+// opened it wherever the server was.
 func specFor(specs map[uint64]PaneSpec, leaf uint64, fallback PaneSpec) PaneSpec {
-	if spec, ok := specs[leaf]; ok && len(spec.Command) > 0 {
-		return spec
+	spec, ok := specs[leaf]
+	if !ok {
+		return fallback
 	}
-	return fallback
+	if len(spec.Command) == 0 {
+		spec.Command = fallback.Command
+		if spec.Dir == "" {
+			spec.Dir = fallback.Dir
+		}
+	}
+	return spec
 }
