@@ -46,11 +46,14 @@ const (
 	MethodTabRename = "tab.rename"
 	MethodTabClose  = "tab.close"
 
-	MethodPaneRead          = "pane.read"
-	MethodPaneSendText      = "pane.send_text"
-	MethodPaneSendKeys      = "pane.send_keys"
-	MethodPaneSplit         = "pane.split"
-	MethodPaneClose         = "pane.close"
+	MethodPaneRead     = "pane.read"
+	MethodPaneSendText = "pane.send_text"
+	MethodPaneSendKeys = "pane.send_keys"
+	MethodPaneSplit    = "pane.split"
+	MethodPaneClose    = "pane.close"
+	// MethodPaneRespawn is tend's: tmux's respawn-pane, a new program in a
+	// pane that stays where it is (internal/tmuxshim).
+	MethodPaneRespawn       = "pane.respawn"
 	MethodPaneResize        = "pane.resize"
 	MethodPaneWaitForOutput = "pane.wait_for_output"
 
@@ -575,6 +578,29 @@ func (a *API) callMore(req Request, pend *pending) (any, error) {
 			return nil, paneErr(p.PaneID, err)
 		}
 		st, _ := a.srv.PaneStatus(child)
+		return map[string]any{"type": "pane_info", "pane": a.info(st)}, nil
+
+	case MethodPaneRespawn:
+		var p PaneRespawnParams
+		if err := decode(req.Params, &p); err != nil {
+			return nil, err
+		}
+		id, err := a.pane(p.PaneID)
+		if err != nil {
+			return nil, err
+		}
+		if len(p.Command) == 0 {
+			return nil, fail("invalid_params", "name a command to run")
+		}
+		spec, err := a.spec(p.Command, p.Dir, p.Agent)
+		if err != nil {
+			return nil, err
+		}
+		spec.CloseOnExit = p.CloseOnExit
+		if err := a.srv.RespawnPane(id, spec); err != nil {
+			return nil, paneErr(p.PaneID, err)
+		}
+		st, _ := a.srv.PaneStatus(id)
 		return map[string]any{"type": "pane_info", "pane": a.info(st)}, nil
 
 	case MethodPaneClose:

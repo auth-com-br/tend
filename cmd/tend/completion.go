@@ -45,6 +45,7 @@ var commands = []struct{ name, help string }{
 	{"keys", "list every command and the key it is on"},
 	{"activity", "what agents did and what it cost"},
 	{"agents", "list the agents tend can recognise"},
+	{"claude-teams", "Claude Code with agent teams, teammates as panes"},
 	{"detect", "classify a screen capture"},
 	{"explain", "classify a screen capture and say why"},
 	{"screen", "print a pane's screen"},

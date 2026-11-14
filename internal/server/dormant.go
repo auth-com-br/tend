@@ -273,25 +273,10 @@ func waitUntil(cond func() bool, limit time.Duration) bool {
 // restartAsDormant ends a pane's process and starts the pane again, with the
 // same id and the screen it had, as a dormant shell.
 func (s *Server) restartAsDormant(id session.PaneID, rt *paneRuntime, d dormantAgent) error {
-	var history []byte
-	rt.withScreen(func(screen *vt.Screen) {
-		history = vt.RenderResume(screen, 2000)
-	})
-	dir := rt.pty.Cwd()
-	// Closing first, so the reader leaves quietly: no "exited", and no
-	// close-on-exit taking the pane away.
-	rt.setClosing()
-	if err := endGroup(rt.pty.Pid(), func() bool {
-		select {
-		case <-rt.gone:
-			return true
-		default:
-			return false
-		}
-	}); err != nil {
+	history, dir, err := endInPlace(rt)
+	if err != nil {
 		return err
 	}
-	_ = rt.pty.Close()
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -305,6 +290,71 @@ func (s *Server) restartAsDormant(id session.PaneID, rt *paneRuntime, d dormantA
 		p.Command = d.Argv
 	}
 	return s.startDormantLocked(id, spec, d)
+}
+
+// endInPlace ends a pane's process so another can be started in the same
+// pane: what its screen showed, to be put back above the new program, and
+// where the old one was working. The runtime is marked closing first, so
+// its reader leaves quietly — no "exited", and no close-on-exit taking the
+// pane away.
+func endInPlace(rt *paneRuntime) (history []byte, dir string, err error) {
+	rt.withScreen(func(screen *vt.Screen) {
+		history = vt.RenderResume(screen, 2000)
+	})
+	dir = rt.pty.Cwd()
+	rt.setClosing()
+	if err := endGroup(rt.pty.Pid(), func() bool {
+		select {
+		case <-rt.gone:
+			return true
+		default:
+			return false
+		}
+	}); err != nil {
+		return nil, "", err
+	}
+	_ = rt.pty.Close()
+	return history, dir, nil
+}
+
+// RespawnPane ends whatever a pane runs and starts spec in its place: the
+// same pane, id and screen, a new program. It is tmux's `respawn-pane -k`,
+// which is how Claude Code's agent teams start a teammate in the pane it
+// split for it (see internal/tmuxshim). With no directory, the new program
+// starts where the old one was.
+func (s *Server) RespawnPane(id session.PaneID, spec PaneSpec) error {
+	if len(spec.Command) == 0 {
+		return fmt.Errorf("server: respawning pane %d: no command", id)
+	}
+	if err := s.admitSpec(spec); err != nil {
+		return err
+	}
+	rt, err := s.runtime(id)
+	if err != nil {
+		return err
+	}
+	rt.mu.Lock()
+	rt.dormant = nil
+	rt.mu.Unlock()
+	history, dir, err := endInPlace(rt)
+	if err != nil {
+		return err
+	}
+	if spec.Dir == "" {
+		spec.Dir = dir
+	}
+	spec.history, spec.restarted = history, true
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	p, ok := s.session.Pane(id)
+	if !ok {
+		return fmt.Errorf("%w: %d", session.ErrNoSuchPane, id)
+	}
+	spec.Title, spec.Named = p.Title, p.Named
+	// What a restore brings back, and what the pane is now.
+	p.Command, p.Dir, p.Agent, p.CloseOnExit = spec.Command, spec.Dir, spec.Agent, spec.CloseOnExit
+	return s.startLocked(id, spec)
 }
 
 // sleepLoop puts agents to sleep that have been idle, unfocused and

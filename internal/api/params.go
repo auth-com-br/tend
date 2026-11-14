@@ -200,6 +200,16 @@ type PaneSplitParams struct {
 	CloseOnExit bool `json:"close_on_exit"`
 }
 
+// PaneRespawnParams is what MethodPaneRespawn takes: what to run in the
+// pane instead of what it runs now.
+type PaneRespawnParams struct {
+	PaneID      string   `json:"pane_id" schema:"required"`
+	Command     []string `json:"command" schema:"required"`
+	Dir         string   `json:"dir"`
+	Agent       string   `json:"agent"`
+	CloseOnExit bool     `json:"close_on_exit"`
+}
+
 // PaneCloseParams is what MethodPaneClose takes.
 type PaneCloseParams struct {
 	PaneID string `json:"pane_id" schema:"required"`

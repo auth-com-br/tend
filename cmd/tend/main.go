@@ -9,6 +9,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -61,6 +62,7 @@ commands that need no server:
   keys              list every command and the key it is on
   activity          what agents did and what it cost: CSV, JSON or a table
   agents            list the agents tend can detect
+  claude-teams      Claude Code with agent teams, its teammates as tend panes
   detect            report an agent's state from captured terminal output
   explain           show how every rule voted, for one capture
   screen            render captured terminal output as tend parses it
@@ -116,6 +118,10 @@ func main() {
 	// Bare "tend" opens a session, starting a server if there is none. Asking
 	// someone to run a daemon before they can use the thing is a step that
 	// exists only because of how it is built.
+	if filepath.Base(os.Args[0]) == "tmux" {
+		// The `tmux` a claude-teams launch puts on Claude Code's PATH.
+		os.Exit(runTmux(os.Args[1:]))
+	}
 	args, err := launchArgs(os.Args[1:])
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "tend: %v\n", err)
@@ -203,6 +209,8 @@ func main() {
 		err = runBridge(args[1:])
 	case "completion":
 		err = runCompletion(args[1:])
+	case "claude-teams":
+		err = runClaudeTeams(args[1:])
 	case "version":
 		fmt.Printf("tend %s\n", version)
 	case "-h", "--help", "help":
