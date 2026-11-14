@@ -47,8 +47,12 @@ func TestAScriptCanDriveAPaneAndReadItBack(t *testing.T) {
 		t.Fatalf("split returned %v", res)
 	}
 
+	// The output differs from the line typed (%s), so the wait is for the
+	// shell running it, not for the terminal echoing it. Waiting on the echo
+	// went on before the shell had started, and under load the ctrl+c below
+	// reached a shell not yet ignoring SIGINT and killed it.
 	call(t, h, MethodPaneSendText, map[string]any{
-		"pane_id": id, "text": "printf hello-from-a-script\n",
+		"pane_id": id, "text": "printf 'hello-from-%s\\n' a-script\n",
 	})
 	res = result(t, call(t, h, MethodPaneWaitForOutput, map[string]any{
 		"pane_id": id, "contains": "hello-from-a-script", "timeout_ms": 5000,
@@ -70,12 +74,13 @@ func TestAScriptCanDriveAPaneAndReadItBack(t *testing.T) {
 	// ctrl+c reaches the program as a signal, not as the letter c.
 	call(t, h, MethodPaneSendText, map[string]any{"pane_id": id, "text": "sleep 9"})
 	call(t, h, MethodPaneSendKeys, map[string]any{"pane_id": id, "keys": []string{"ctrl+c"}})
-	call(t, h, MethodPaneSendText, map[string]any{"pane_id": id, "text": "printf after-ctrl-c\n"})
+	call(t, h, MethodPaneSendText, map[string]any{"pane_id": id, "text": "printf 'after-%s\\n' ctrl-c\n"})
 	res = result(t, call(t, h, MethodPaneWaitForOutput, map[string]any{
 		"pane_id": id, "contains": "after-ctrl-c", "timeout_ms": 5000,
 	}))
 	if res["timed_out"] == true {
-		t.Error("the shell never came back after ctrl+c")
+		after := result(t, call(t, h, MethodPaneRead, map[string]any{"pane_id": id, "source": "recent"}))
+		t.Errorf("the shell never came back after ctrl+c; the pane shows:\n%v", after["text"])
 	}
 }
 
