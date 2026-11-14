@@ -554,6 +554,8 @@ type UI struct {
 	// the row back while a space has one tab. Both herdr's.
 	TabBarPosition          string `toml:"tab_bar_position"`
 	HideTabBarWhenSingleTab bool   `toml:"hide_tab_bar_when_single_tab"`
+	// DimUnfocused draws the panes not focused faint. tend's own.
+	DimUnfocused bool `toml:"dim_unfocused"`
 	// TabNumbers puts a tab's place in its space before the name it was
 	// given, and TabStatus the state of its most pressing agent: "auto"
 	// (the default) while the sidebar, which already says it, is hidden,
@@ -1108,6 +1110,9 @@ grouped = false
 # whether to leave it out while a space has only one tab.
 # tab_bar_position = "top"
 # hide_tab_bar_when_single_tab = false
+
+# Draw the panes you are not typing into faint, so the focused one stands out.
+# dim_unfocused = false
 
 # A tab's number before the name you gave it ("2 build"), and its agent's
 # state before that — ◐ working, × waiting for you, ✓ finished unseen —

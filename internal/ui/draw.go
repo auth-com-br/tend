@@ -344,7 +344,11 @@ type Frame struct {
 	// TabBarBottom puts the tab bar above the status bar rather than at the
 	// top, and HideSingleTab leaves it out while the space has one tab:
 	// herdr's tab_bar_position and hide_tab_bar_when_single_tab.
-	TabBarBottom  bool
+	TabBarBottom bool
+	// DimUnfocused draws every pane but the focused one faint, so the one
+	// being typed into stands out (herdr#544 asks it of herdr). Not
+	// herdr's.
+	DimUnfocused  bool
 	HideSingleTab bool
 	// TabDropTarget is the tab a dragged tab would take the place of, marked
 	// with a bar at its edge as herdr marks where a tab will land.
@@ -374,6 +378,8 @@ type Frame struct {
 	// say so — a zoomed pane and a session with one pane look identical
 	// otherwise.
 	Zoomed bool
+	// Synced marks that what is typed goes to every pane of the tab.
+	Synced bool
 
 	// Message is shown in place of the pane list, for a moment, after an
 	// action or an error.
@@ -643,6 +649,9 @@ func Draw(dst *vt.Grid, f Frame, theme Theme) {
 	drawShowHandle(dst, f, theme)
 	for _, p := range f.Panes {
 		drawPane(dst, p, theme)
+		if f.DimUnfocused && !p.Focused && len(f.Panes) > 1 {
+			dimArea(dst, innerRect(p.Rect))
+		}
 	}
 	drawStatus(dst, f, theme)
 
@@ -1046,6 +1055,22 @@ func stateMarker(state string, running bool) string {
 }
 
 // blitScreen copies a pane's terminal into the grid.
+// dimArea makes the text in an area faint (SGR 2), keeping its colours: the
+// pane is still readable, and plainly not the one keys go to.
+func dimArea(dst *vt.Grid, area Rect) {
+	for y := 0; y < area.Rows; y++ {
+		row := dst.Line(area.Y + y)
+		if row == nil {
+			continue
+		}
+		for x := 0; x < area.Cols && area.X+x < row.Len(); x++ {
+			cell := row.Cell(area.X + x)
+			cell.Style.Attrs |= vt.AttrDim
+			row.SetCell(area.X+x, cell)
+		}
+	}
+}
+
 func blitScreen(dst *vt.Grid, area Rect, screen *vt.Screen) {
 	if area.Cols <= 0 || area.Rows <= 0 {
 		return
@@ -1125,6 +1150,11 @@ func drawStatus(dst *vt.Grid, f Frame, theme Theme) {
 	}
 	if f.Navigating {
 		x = writeString(dst, x, y, " NAVIGATE ", theme.StatusKey, limit)
+	}
+	if f.Synced {
+		// In the alert's colour: keys going to every pane at once is a
+		// thing to see before typing rm.
+		x = writeString(dst, x, y, " SYNC ", theme.StatusAlert, limit)
 	}
 	if f.Waiting > 0 {
 		x = writeString(dst, x, y, " "+itoa(uint64(f.Waiting))+" waiting ", theme.StatusAlert, limit)

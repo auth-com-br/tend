@@ -336,6 +336,9 @@ type tui struct {
 	urlLoaded    bool
 	promptChoice int
 	zoom         bool
+	// synced are the tabs whose panes all get what is typed (prefix y):
+	// this client's, as zoom is, since it is what one person types.
+	synced map[uint64]bool
 	// hostLight is whether the outer terminal is light, as it last said;
 	// hostExplicit whether it said so itself rather than by its background
 	// colour; hostAsked whether it was asked, so the reports are turned off
@@ -1203,6 +1206,7 @@ func (t *tui) buildFrame() ui.Frame {
 		Selection:    t.sel,
 		Waiting:      t.waitingLocked(),
 		Zoomed:       t.zoom,
+		Synced:       t.synced[t.tab],
 		Offline:      t.offline,
 	}
 	if t.prompt != promptNone {
@@ -1274,6 +1278,7 @@ func (t *tui) buildFrame() ui.Frame {
 	frame.TabDropTarget = t.tabDropTarget
 	frame.TabBarBottom = t.config.UI.TabBarPosition == "bottom"
 	frame.HideSingleTab = t.config.UI.HideTabBarWhenSingleTab
+	frame.DimUnfocused = t.config.UI.DimUnfocused
 	for _, seg := range t.snap.TabBarRight {
 		switch {
 		case seg.Zoom && t.zoom:
@@ -1579,6 +1584,10 @@ func (t *tui) handleInput(data []byte) error {
 		if err := t.client.SendInput(focus, forward); err != nil {
 			return err
 		}
+		for _, other := range t.syncTargets(focus) {
+			// One pane that has gone does not stop the others.
+			_ = t.client.SendInput(other, forward)
+		}
 	}
 	for _, action := range commands {
 		if err := t.command(action); err != nil {
@@ -1776,6 +1785,25 @@ func (t *tui) command(action ui.Action) error {
 		t.mu.Lock()
 		t.zoom = !t.zoom
 		t.mu.Unlock()
+		return t.refresh()
+
+	case ui.CommandSyncInput:
+		t.mu.Lock()
+		if t.synced == nil {
+			t.synced = map[uint64]bool{}
+		}
+		on := !t.synced[tab]
+		if on {
+			t.synced[tab] = true
+		} else {
+			delete(t.synced, tab)
+		}
+		t.mu.Unlock()
+		if on {
+			t.setMessage("typing goes to every pane of this tab — the prefix and y again to stop", true)
+		} else {
+			t.setMessage("typing goes to the focused pane again", false)
+		}
 		return t.refresh()
 
 	case ui.CommandGrowLeft, ui.CommandGrowRight, ui.CommandGrowUp, ui.CommandGrowDown:
@@ -2176,4 +2204,33 @@ func moreUrgent(a, b string) string {
 		return b
 	}
 	return a
+}
+
+// syncTargets are the panes besides focus that what is typed also goes to:
+// every pane of the tab while its input is synchronised, but the files
+// panel, which would take the keys for its own commands.
+func (t *tui) syncTargets(focus uint64) []uint64 {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if !t.synced[t.tab] {
+		return nil
+	}
+	titles := map[uint64]string{}
+	for _, p := range t.snap.Panes {
+		titles[p.ID] = p.Title
+	}
+	var out []uint64
+	for _, ws := range t.snap.Workspaces {
+		for _, tab := range ws.Tabs {
+			if tab.ID != t.tab {
+				continue
+			}
+			for _, p := range tab.Panes {
+				if p != focus && titles[p] != filesTitle {
+					out = append(out, p)
+				}
+			}
+		}
+	}
+	return out
 }

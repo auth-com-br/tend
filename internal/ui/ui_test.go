@@ -2421,3 +2421,42 @@ func TestAClickFindsTheOverlayLineDrawnUnderIt(t *testing.T) {
 	}
 	t.Fatal("the button was not drawn")
 }
+
+// TestUnfocusedPanesAreDrawnFaintWhenAsked: dim_unfocused leaves the
+// focused pane as it is and draws the others faint, colours kept; off, and
+// with one pane, nothing is dimmed. If it regresses, the setting does
+// nothing — or dims the pane being typed into.
+func TestUnfocusedPanesAreDrawnFaintWhenAsked(t *testing.T) {
+	screen := func(text string) *vt.Screen {
+		s := vt.NewScreen(8, 2, 0)
+		_, _ = s.Write([]byte("\x1b[31m" + text))
+		return s
+	}
+	panes := []Pane{
+		{ID: 1, Rect: Rect{X: 0, Y: 1, Cols: 10, Rows: 4}, Screen: screen("one"), Focused: true, Running: true},
+		{ID: 2, Rect: Rect{X: 10, Y: 1, Cols: 10, Rows: 4}, Screen: screen("two"), Running: true},
+	}
+	cell := func(g *vt.Grid, x, y int) vt.Cell { return g.Line(y).Cell(x) }
+	for _, dim := range []bool{false, true} {
+		g := vt.NewGrid(20, 6, 0)
+		Draw(g, Frame{Panes: panes, DimUnfocused: dim}, DefaultTheme())
+		focused, other := cell(g, 1, 2), cell(g, 11, 2)
+		if focused.R != 'o' || other.R != 't' {
+			t.Fatalf("drew %q and %q where the panes' text is", focused.R, other.R)
+		}
+		if focused.Style.Attrs&vt.AttrDim != 0 {
+			t.Fatal("the focused pane was dimmed")
+		}
+		if got := other.Style.Attrs&vt.AttrDim != 0; got != dim {
+			t.Fatalf("dim_unfocused %v: the other pane dimmed %v", dim, got)
+		}
+		if other.Style.FG != focused.Style.FG {
+			t.Fatalf("dimming changed the colour: %v vs %v", other.Style.FG, focused.Style.FG)
+		}
+	}
+	g := vt.NewGrid(20, 6, 0)
+	Draw(g, Frame{Panes: panes[1:2], DimUnfocused: true}, DefaultTheme())
+	if cell(g, 11, 2).Style.Attrs&vt.AttrDim != 0 {
+		t.Fatal("a pane alone in its tab was dimmed")
+	}
+}

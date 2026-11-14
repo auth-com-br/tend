@@ -292,9 +292,12 @@ func runLayout(args []string) error {
 	usage := func(w io.Writer) {
 		fmt.Fprint(w,
 			"usage: tend layout save [tab] [-o file]\n"+
-				"       tend layout apply <file> [-name …]\n\n"+
+				"       tend layout apply <file> [-name …]\n"+
+				"       tend layout open <preset>\n\n"+
 				"saves the shape of a tab and what each pane runs, or builds that\n"+
-				"arrangement again in a space of its own.\n\n")
+				"arrangement again in a space of its own. open builds a preset —\n"+
+				"spaces, tabs, splits and what each pane runs, written by hand in\n"+
+				"TOML — named as a file, or by name from "+presetDir()+".\n\n")
 	}
 	if len(args) == 0 {
 		usage(os.Stderr)
@@ -312,6 +315,11 @@ func runLayout(args []string) error {
 	}
 
 	switch sub {
+	case "open":
+		if fs.NArg() == 0 {
+			return errors.New("usage: tend layout open <preset>")
+		}
+		return openPreset(*name, fs.Arg(0))
 	case "save":
 		tab := fs.Arg(0)
 		if tab == "" {

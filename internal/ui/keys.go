@@ -127,6 +127,10 @@ const (
 	// CommandCompanies opens the companies panel: which company's spaces
 	// the sidebar shows (herdr's user-defined Spaces, prefix+O).
 	CommandCompanies
+	// CommandSyncInput sends what is typed to every pane of the tab at once
+	// (tmux's synchronize-panes; herdr#949 asks it of herdr), until it is
+	// pressed again. Each client's own, as zoom is.
+	CommandSyncInput
 	// CommandLiteralPrefix sends the prefix key itself to the pane, which is
 	// how an inner multiplexer or an editor bound to Ctrl+B still receives it.
 	CommandLiteralPrefix
@@ -156,6 +160,8 @@ func (c Command) String() string {
 		return "close-pane"
 	case CommandZoom:
 		return "zoom"
+	case CommandSyncInput:
+		return "sync-input"
 	case CommandScroll:
 		return "scroll"
 	case CommandGrowLeft:
@@ -275,6 +281,7 @@ var Keys = []struct {
 	{"u", CommandNextPending, "next agent waiting for you"},
 	{"x", CommandClosePane, "close pane"},
 	{"z", CommandZoom, "zoom pane"},
+	{"y", CommandSyncInput, "type into every pane of the tab"},
 	{"[", CommandScroll, "copy mode"},
 	{"e", CommandEditScrollback, "history in $EDITOR"},
 	{"f", CommandFiles, "files and git, docked left"},
@@ -371,6 +378,7 @@ func DefaultBindings() map[string]Command {
 		"u":         CommandNextPending,
 		"x":         CommandClosePane,
 		"z":         CommandZoom,
+		"y":         CommandSyncInput,
 		"[":         CommandScroll,
 		"H":         CommandSwapLeft,
 		"L":         CommandSwapRight,
