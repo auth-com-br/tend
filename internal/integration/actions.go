@@ -51,6 +51,13 @@ func Install(target Target) ([]string, error) {
 			fmt.Sprintf("installed codex integration hook to %s", installed.HookPath),
 			fmt.Sprintf("ensured codex hooks at %s", installed.HooksPath),
 			fmt.Sprintf("ensured codex config at %s", installed.ConfigPath),
+			// Codex 0.169 runs a new or changed hook only once the person
+			// trusts it — the "Hooks need review" screen at its start, or
+			// /hooks — and one left untrusted never runs, silently: tend
+			// then never hears Codex's conversations from it. Found with the
+			// real Codex; the trust is the person's to give, since a
+			// trusted hook runs outside Codex's sandbox.
+			"codex runs it only once you trust it: answer \"Trust all\" on Codex's \"Hooks need review\" screen, or trust it in /hooks",
 		}, nil
 	case TargetCopilot:
 		installed, err := InstallCopilot()

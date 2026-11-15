@@ -1,6 +1,7 @@
 package server
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/auth-com-br/tend/internal/session"
@@ -48,5 +49,24 @@ func TestRespawningAPaneThatIsGoneSaysSo(t *testing.T) {
 	s := newServer(t)
 	if err := s.RespawnPane(999, PaneSpec{Command: []string{"/bin/true"}}); err == nil {
 		t.Fatal("respawning a pane that does not exist succeeded")
+	}
+}
+
+// TestAPaneInADirectoryThatIsGoneSaysTheDirectory: the start fails with the
+// directory named, not as "fork/exec /bin/sh: no such file or directory",
+// which blamed a shell that was there all along. Found opening a pane in a
+// folder that had been cleaned away.
+func TestAPaneInADirectoryThatIsGoneSaysTheDirectory(t *testing.T) {
+	s := newServer(t)
+	ws, err := s.NewWorkspace("main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	gone := t.TempDir() + "/not-here"
+	spec := shell("true")
+	spec.Dir = gone
+	_, _, err = s.NewTab(ws, "x", spec)
+	if err == nil || !strings.Contains(err.Error(), "the directory "+gone+" does not exist") {
+		t.Fatalf("err = %v", err)
 	}
 }

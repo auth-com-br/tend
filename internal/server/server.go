@@ -954,6 +954,16 @@ func (s *Server) startLocked(id session.PaneID, spec PaneSpec) error {
 		Size: size,
 	})
 	if err != nil {
+		// A directory that is not there fails as the program not being
+		// there — exec's chdir and its lookup give the same ENOENT — and
+		// "fork/exec /bin/bash: no such file or directory" sent a person
+		// looking for a shell that was there all along. Asked only on the
+		// way out, so the lock is held for no I/O when the start works.
+		if spec.Dir != "" {
+			if info, statErr := os.Stat(spec.Dir); statErr != nil || !info.IsDir() {
+				return fmt.Errorf("server: starting %s: the directory %s does not exist", spec.Command[0], spec.Dir)
+			}
+		}
 		return fmt.Errorf("server: starting %s: %w", spec.Command[0], err)
 	}
 

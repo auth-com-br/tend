@@ -415,6 +415,39 @@ protocol has 88, and its automation socket 95.
   herdr target. An installed hook reports over `$TEND_SOCKET_PATH` so the
   arbiter can prefer the agent's own account over screen detection.
 
+### Checked against the real programs (November 2026, issue #60)
+
+What had only been run against stand-ins, run against the real thing:
+
+- **Hooks from real agents, and the arbiter.** Claude Code 2.1.323's
+  SessionStart hook reports its conversation (`tend:claude`; issue #50's run).
+  Codex 0.169: the hook `tend integration install codex` puts in
+  `~/.codex/hooks.json` **never ran**, and tend never heard a Codex
+  conversation from it — Codex runs a new or changed hook only once the person
+  trusts it ("Hooks need review" at its start, or `/hooks`), and on this
+  machine it had not been. herdr has the same gap. The install now says so;
+  the trust is the person's to give, since a trusted hook runs outside Codex's
+  sandbox. The arbiter read Codex's screen right meanwhile: working while its
+  title said so at start, idle at its prompt (`agent.explain`). Gemini CLI and
+  OpenCode had no tend integration installed to fire.
+- **`tend attach -ssh` against a real sshd** (OpenSSH on the same machine, key
+  authentication): the frame drawn, a command typed over ssh run, the client
+  leaving on detach and the far side's panes still running after. Run through
+  `TEND_SSH` so the far side's tend was the build under test — over plain ssh
+  the attach would have offered to copy it over the one installed there.
+- **Kitty graphics with a real viewer**: `chafa -f kitty` (1.8.0) in a pane,
+  a client whose terminal said xterm-kitty: tend took chafa's image and sent
+  the outer terminal its own transmission and placement (24 commands, `a=t`
+  with tend's id, `a=p` with columns and rows). What a real kitty or Ghostty
+  then draws was not seen: neither is on this machine.
+- **`trust_repository` with another owner**: not run. It needs a repository
+  owned by another user, and this machine has neither a second account nor
+  sudo for the test.
+
+Found on the way: a pane asked to start in a directory that is gone said
+"fork/exec /bin/bash: no such file or directory", blaming a shell that was
+there; it now names the directory.
+
 ## Different from herdr on purpose
 
 | | herdr | tend | why |
