@@ -71,7 +71,7 @@ func editClaudeSettings(path string, edit func(map[string]any) error) (bool, err
 	if reflect.DeepEqual(desired, original) {
 		return false, nil
 	}
-	out, err := marshalSettings(desired)
+	out, err := rewriteSettings(content, desired)
 	if err != nil {
 		return false, err
 	}

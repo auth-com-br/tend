@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+
+	"github.com/auth-com-br/tend/internal/jsonc"
 )
 
 // Object is a JSON object that keeps its keys in the order the file has
@@ -16,6 +18,8 @@ import (
 type Object struct {
 	keys []string
 	vals map[string]json.RawMessage
+	// src is the file the object was read from, which Bytes patches.
+	src []byte
 }
 
 // ErrNotObject is a file, or a value, that is not a JSON object.
@@ -28,6 +32,7 @@ func ParseObject(data []byte) (*Object, error) {
 	if len(bytes.TrimSpace(data)) == 0 {
 		return o, nil
 	}
+	o.src = append([]byte(nil), data...)
 	dec := json.NewDecoder(bytes.NewReader(data))
 	tok, err := dec.Token()
 	if err != nil {
@@ -137,6 +142,9 @@ func (o *Object) Bytes() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	if patched, ok := o.patched(raw); ok {
+		return patched, nil
+	}
 	var out bytes.Buffer
 	if err := json.Indent(&out, raw, "", "  "); err != nil {
 		return nil, err
@@ -146,6 +154,36 @@ func (o *Object) Bytes() ([]byte, error) {
 		return nil, fmt.Errorf("the edit would not read back: %w", err)
 	}
 	return out.Bytes(), nil
+}
+
+// patched is the file the object was read from with only what changed
+// written again (issue #61): its layout, and the order of what was not
+// touched, as it was. It is taken only when it says exactly what raw says,
+// keys in raw's order — the order is what a rule means in OpenCode, and a
+// rule moved must not come back unmoved.
+func (o *Object) patched(raw json.RawMessage) ([]byte, bool) {
+	if len(o.src) == 0 {
+		return nil, false
+	}
+	dec := json.NewDecoder(bytes.NewReader(raw))
+	dec.UseNumber()
+	var want any
+	if err := dec.Decode(&want); err != nil {
+		return nil, false
+	}
+	out, err := jsonc.Patch(o.src, want)
+	if err != nil {
+		return nil, false
+	}
+	got, err1 := jsonc.Canonical(out)
+	meant, err2 := jsonc.Canonical(raw)
+	if err1 != nil || err2 != nil || got != meant {
+		return nil, false
+	}
+	if _, err := ParseObject(out); err != nil {
+		return nil, false
+	}
+	return out, true
 }
 
 // Marshal encodes a value without escaping <, > and & — a URL with a query,

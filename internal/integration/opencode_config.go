@@ -1,8 +1,8 @@
 package integration
 
 import (
-	"encoding/json"
 	"fmt"
+	"github.com/auth-com-br/tend/internal/jsonc"
 	"os"
 	"path/filepath"
 )
@@ -16,8 +16,7 @@ func TUIConfigPath(configDir string) string {
 
 // ValidateTUIPluginConfig fails when tui.jsonc's "plugin" or cli.json's
 // "plugins" exists but is not an array — install must not overwrite a broken
-// config. Deliberate divergence from herdr: JSONC comments are not preserved
-// (encoding/json); see Claude settings for the same trade-off.
+// config.
 func ValidateTUIPluginConfig(configDir string) error {
 	if err := validatePluginConfig(TUIConfigPath(configDir), "plugin"); err != nil {
 		return err
@@ -221,8 +220,10 @@ func readOpencodeConfigObject(path string) (map[string]any, error) {
 }
 
 func parseOpencodeConfigObject(content, path string) (map[string]any, error) {
-	var root any
-	if err := json.Unmarshal([]byte(content), &root); err != nil {
+	// tui.jsonc is JSONC: comments are read, and kept when it is written
+	// back (WriteJSONPretty patches it).
+	root, err := jsonc.Decode([]byte(content))
+	if err != nil {
 		return nil, fmt.Errorf("failed to parse OpenCode TUI config at %s: %w", path, err)
 	}
 	obj, ok := root.(map[string]any)

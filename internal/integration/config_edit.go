@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"os"
 	"strings"
+
+	"github.com/auth-com-br/tend/internal/jsonc"
 )
 
 // MarshalJSONPretty serializes v the way herdr's installers do: two-space indent,
@@ -463,8 +465,10 @@ func RemoveFlatCommandHook(hooks map[string]any, event, command string) (bool, e
 // ParseJSONObject parses content as a JSON object. description names the file
 // in error messages (e.g. "qodercli settings").
 func ParseJSONObject(content, path, description string) (map[string]any, error) {
-	var root any
-	if err := json.Unmarshal([]byte(content), &root); err != nil {
+	// JSONC, numbers as their text: a file with comments is read, and a
+	// value tend did not change is written back as it was (WriteJSONPretty).
+	root, err := jsonc.Decode([]byte(content))
+	if err != nil {
 		return nil, fmt.Errorf("failed to parse %s: %w", path, err)
 	}
 	obj, ok := root.(map[string]any)
@@ -474,8 +478,16 @@ func ParseJSONObject(content, path, description string) (map[string]any, error) 
 	return obj, nil
 }
 
-// WriteJSONPretty writes v with two-space indent and a trailing newline.
+// WriteJSONPretty writes v to path. A file already there is patched, so
+// its comments, key order and layout stay where the change is not (issue
+// #61; herdr's jsonc-parser rewrite); a new file, or one the patch cannot
+// keep, is written whole with two-space indent and a trailing newline.
 func WriteJSONPretty(path string, v any) error {
+	if old, err := os.ReadFile(path); err == nil && len(bytes.TrimSpace(old)) > 0 {
+		if out, err := jsonc.Patch(old, v); err == nil {
+			return os.WriteFile(path, out, 0o644)
+		}
+	}
 	data, err := MarshalJSONPretty(v)
 	if err != nil {
 		return err

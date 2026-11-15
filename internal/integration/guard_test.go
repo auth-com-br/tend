@@ -29,7 +29,9 @@ func TestTheGuardsHookGoesInBesideWhatIsThereAndOutAgain(t *testing.T) {
 		t.Fatal(err)
 	}
 	pre := s["hooks"].(map[string]any)["PreToolUse"].([]any)
-	if len(pre) != 2 || s["model"] != "opus" || !strings.Contains(string(data), `"matcher": "Bash"`) {
+	// The file was on one line and stays on it, its own keys first (#61).
+	if len(pre) != 2 || s["model"] != "opus" || !strings.Contains(string(data), `"matcher":"Bash"`) ||
+		!strings.HasPrefix(string(data), `{"model":"opus","hooks":{"PreToolUse":[{"matcher":"Edit"`) {
 		t.Fatalf("after install:\n%s", data)
 	}
 	if changed, _ := InstallClaudeGuard(path, cmd); changed {

@@ -346,8 +346,10 @@ func TestOpenCodeKeepsTheOrderItsRulesDependOn(t *testing.T) {
 	if strings.Join(got, ",") != want {
 		t.Fatalf("got %v\nwant %s", got, want)
 	}
-	if !strings.HasPrefix(read(t, path), "{\n  \"$schema\"") {
-		t.Fatalf("$schema moved:\n%s", read(t, path))
+	// $schema still first, and the file still on the one line it was on:
+	// only the rules changed were written (issue #61).
+	if text := read(t, path); !strings.HasPrefix(text, `{"$schema"`) || strings.Count(strings.TrimSpace(text), "\n") != 0 {
+		t.Fatalf("$schema moved, or the file was laid out again:\n%s", text)
 	}
 	if err := m.Add(p, "opencode", path, Allow, "webfetch(x.com)"); err == nil {
 		t.Fatal("webfetch took a pattern")

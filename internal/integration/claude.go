@@ -1,12 +1,16 @@
 package integration
 
 import (
+	"bytes"
 	_ "embed"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
+
+	"github.com/auth-com-br/tend/internal/jsonc"
 )
 
 //go:embed assets/claude/tend-agent-state.sh
@@ -138,11 +142,10 @@ func UninstallClaude() (ClaudeUninstallResult, error) {
 
 // installClaudeSettings merges the SessionStart hook into Claude settings.
 //
-// Deliberate divergence from herdr: herdr uses jsonc_parser so comments and
-// compact formatting survive. tend rewrites with encoding/json (map[string]any)
-// to avoid a new dependency; JSONC comments are not preserved. If the file is
-// not valid JSON, this returns a clear parse error instead of stripping
-// comments.
+// As herdr's jsonc_parser rewrite does, the file is changed only where the
+// hook goes (rewriteSettings, internal/jsonc): the person's order, layout
+// and comments stay. A file that does not parse is a clear error, never
+// rewritten from a guess.
 func installClaudeSettings(content, settingsPath, hookPath string) (string, error) {
 	original, err := parseSettingsObject(content, settingsPath)
 	if err != nil {
@@ -165,7 +168,7 @@ func installClaudeSettings(content, settingsPath, hookPath string) (string, erro
 	if reflect.DeepEqual(desired, original) {
 		return content, nil
 	}
-	return marshalSettings(desired)
+	return rewriteSettings(content, desired)
 }
 
 func uninstallClaudeSettings(content, settingsPath, hookPath string) (string, error) {
@@ -192,7 +195,7 @@ func uninstallClaudeSettings(content, settingsPath, hookPath string) (string, er
 	if reflect.DeepEqual(desired, original) {
 		return content, nil
 	}
-	return marshalSettings(desired)
+	return rewriteSettings(content, desired)
 }
 
 func applyClaudeRemovals(hooks map[string]any, hookPath string, canonical map[string]any) (bool, error) {
@@ -296,15 +299,27 @@ func canonicalSessionStartEntry(hookPath string) map[string]any {
 }
 
 func parseSettingsObject(content, settingsPath string) (map[string]any, error) {
-	var root any
-	if err := json.Unmarshal([]byte(content), &root); err != nil {
-		return nil, fmt.Errorf("failed to parse %s: %w (settings must be valid JSON; JSONC comments are not supported)", settingsPath, err)
+	root, err := jsonc.Decode([]byte(content))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse %s: %w", settingsPath, err)
 	}
 	obj, ok := root.(map[string]any)
 	if !ok {
 		return nil, fmt.Errorf("claude settings at %s must be a JSON object", settingsPath)
 	}
 	return obj, nil
+}
+
+// rewriteSettings is content changed to hold settings: patched, so the
+// person's comments, order and layout stay (issue #61), or written whole
+// when the patch cannot keep them.
+func rewriteSettings(content string, settings map[string]any) (string, error) {
+	if strings.TrimSpace(content) != "" {
+		if out, err := jsonc.Patch([]byte(content), settings); err == nil {
+			return string(out), nil
+		}
+	}
+	return marshalSettings(settings)
 }
 
 func marshalSettings(settings map[string]any) (string, error) {
@@ -320,8 +335,12 @@ func cloneJSONMap(in map[string]any) map[string]any {
 	if err != nil {
 		return map[string]any{}
 	}
+	// Numbers as their text, as parseSettingsObject reads them, so a clone
+	// is equal to what it was cloned from.
+	dec := json.NewDecoder(bytes.NewReader(data))
+	dec.UseNumber()
 	var out map[string]any
-	if err := json.Unmarshal(data, &out); err != nil {
+	if err := dec.Decode(&out); err != nil {
 		return map[string]any{}
 	}
 	return out

@@ -1,6 +1,7 @@
 package agentfile
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 )
@@ -64,5 +65,35 @@ func TestAShellRuleIsWrittenAsTyped(t *testing.T) {
 	raw, _ := Marshal("Bash(make && make install > log)")
 	if string(raw) != `"Bash(make && make install > log)"` {
 		t.Fatalf("got %s", raw)
+	}
+}
+
+// TestAnEditWritesOnlyWhatChanged: a file laid out by hand — four spaces,
+// a list on one line — comes back with only the value changed written
+// again (issue #61); a key moved still moves.
+func TestAnEditWritesOnlyWhatChanged(t *testing.T) {
+	src := "{\n    \"b\": [1, 2, 3],\n    \"a\": {\"x\": 1}\n}\n"
+	o, err := ParseObject([]byte(src))
+	if err != nil {
+		t.Fatal(err)
+	}
+	o.Set("a", json.RawMessage(`{"x":2}`))
+	out, err := o.Bytes()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "{\n    \"b\": [1, 2, 3],\n    \"a\": {\"x\": 2}\n}\n"; string(out) != want {
+		t.Fatalf("got\n%s\nwant\n%s", out, want)
+	}
+
+	o, _ = ParseObject([]byte(src))
+	o.Delete("b")
+	o.Set("b", json.RawMessage(`[1,2,3]`))
+	out, err = o.Bytes()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Index(string(out), `"a"`) > strings.Index(string(out), `"b"`) {
+		t.Fatalf("b was moved last and came back first:\n%s", out)
 	}
 }
