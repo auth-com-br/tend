@@ -129,6 +129,14 @@ line above is a separate process, and the agents keep working between them.
 `-s NAME` runs more than one session side by side. `tend help` lists the
 rest.
 
+Over a connection that drops — a phone's, a far VPN — `tend --remote host`
+waits for ssh to come back, as ssh does. [mosh](https://mosh.org) keeps a
+terminal alive through that instead: `mosh host -- tend` runs the client on
+the other machine and mosh carries its screen. The mouse, the clipboard and
+images then depend on mosh, which passes clicks and OSC 52 but not images.
+mosh cannot carry `--remote` itself: it moves a terminal's screen, not the
+bytes tend's protocol is made of.
+
 ## settings
 
 Optional, at `~/.config/tend/config.toml`. `tend config -init` writes a
