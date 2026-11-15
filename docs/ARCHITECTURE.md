@@ -592,8 +592,9 @@ Go's poller, so a reader can be stopped without the process ending.
 What has crossed over, what has not, and where each missing piece lives in
 herdr's source is tracked in `PORTING.md`, which is the work queue.
 
-A session outlives its server as a description, not as processes. The server
-writes the arrangement down (`internal/server/persist.go`) and the next one to
-start reads it back: same spaces, tabs and splits, each pane a new process in
-the directory the old one was in, under the old one's scrollback. Handing live
-processes from one server to the next is the part still missing.
+Without a handoff — the server stopped, or the machine restarted — a session
+outlives its server as a description, not as processes. The server writes the
+arrangement down (`internal/server/persist.go`) and the next one to start reads
+it back: same spaces, tabs and splits, each pane a new process in the directory
+the old one was in, under the old one's scrollback, an agent coming back
+asleep in its conversation.

@@ -17,6 +17,8 @@ button in the row over the spaces; `ctrl+b w` walks that row too, and
   [Tickets](#tickets)
 - [Companies](#companies) · [The navigator](#the-navigator) ·
   [Your phone](#your-phone) · [Activity and policies](#activity-and-policies)
+- [Agent teams](#agent-teams) · [Agents driving agents](#agents-driving-agents) ·
+  [Layouts](#layouts) · [The guard](#the-guard)
 - [The mouse and links](#the-mouse-and-links)
 
 ## Files
@@ -74,6 +76,14 @@ follow = true    # follow the pane beside it
 auto_open = true # open in every tab by itself; false: only on prefix+f
 hidden = false   # hide dotfiles
 ```
+
+In a [Jujutsu](https://jj-vcs.github.io/) repository (a `.jj` folder, beside
+a `.git` or not) the panel asks jj instead of git: the changes are the
+working-copy commit's (`@`), one group with nothing to stage, since jj has
+none; `x` restores a file (`jj restore`), `c` commits (`jj commit`), the
+branch picker lists bookmarks (switching makes a change on top of one), and
+sync is `jj git fetch` and `jj git push`. A new worktree there is a jj
+workspace.
 
 ## Agents
 
@@ -406,6 +416,81 @@ tend refuses to start an agent that would break one — from the issues,
 errors and tickets panels, `tend new`, or the automation socket — and says
 why. One started by hand in a shell is not stopped: tend says so, and writes
 it down for `tend activity -violations`.
+
+## Agent teams
+
+```bash
+tend claude-teams            # in a tend pane; every argument goes to claude
+```
+
+starts Claude Code with its agent teams on, and each teammate it starts opens
+as a tend pane beside it — named, its state shown, closed when the team is.
+Claude Code puts teammates in panes only under tmux; tend gives that one
+Claude Code a `tmux` of its own to talk to, and leaves the other panes and
+any real tmux alone.
+
+## Agents driving agents
+
+```bash
+claude mcp add tend -- tend mcp serve
+```
+
+gives an agent tend's own MCP server: tools to list the session's agents,
+start one in a tab of its own space (`start_agent`, with a first task),
+message one and wait for its answer (`send_message` with `wait`), read its
+screen, and show it to you. The session's policies and companies hold, as
+they do for anything else that starts an agent.
+
+## Layouts
+
+`tend layout open work` builds a whole setup from `layouts/work.toml` beside
+the settings file — spaces, their tabs, how each tab is split, and what each
+pane runs:
+
+```toml
+[[space]]
+name = "api"
+dir = "~/code/api"
+
+  [[space.tab]]
+  name = "work"
+    [[space.tab.pane]]
+    agent = "claude"        # started as tend starts agents
+    size = 0.6
+    [[space.tab.pane]]
+    split = "rows"          # one above the other; "columns" side by side
+      [[space.tab.pane.pane]]
+      run = "npm run dev"   # typed into the pane's shell
+      [[space.tab.pane.pane]]
+      dir = "server"        # under the space's
+```
+
+`tend layout save` and `tend layout apply` keep and rebuild a single tab as it
+is. `ctrl+b y` types into every pane of the tab at once (SYNC on the status
+bar) until pressed again.
+
+In `[ui]`: `sidebar_side = "right"` puts the sidebar on the right,
+`tab_bar_position = "bottom"` the tabs at the bottom, and
+`dim_unfocused = true` draws the panes you are not typing into faint.
+
+## The guard
+
+Agents run without asking — Claude Code's `--dangerously-skip-permissions`,
+the auto modes — sometimes delete what they should not. With
+
+```toml
+[policy]
+guard = "ask"     # or "deny"; "off" by default
+```
+
+and `tend guard install` once (a hook in Claude Code's settings), a shell
+command that would destroy work outside the agent's — `rm -r` outside the
+project, a force push, `git reset --hard`, `DROP DATABASE`, a Docker volume, a
+disk — is put to you, or refused with the reason. `guard_deny` and
+`guard_allow` take patterns of your own; `tend guard check '<command>'` says
+what it would do; `tend activity -violations` lists what it stopped. It
+catches the common accident, not everything: a command an agent builds at run
+time is not seen through.
 
 ## The mouse and links
 
