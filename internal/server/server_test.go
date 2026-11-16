@@ -793,3 +793,26 @@ func TestANewTabOpensWhereThePaneItCameFromIsWorking(t *testing.T) {
 		return err == nil && c.Cwd == elsewhere
 	})
 }
+
+// TestAdoptsAnAgentRunInAContainer: a pane whose foreground program is
+// docker, running `exec -it box claude`, is Claude Code (herdr#699, issue
+// #53). The "docker" here is a stand-in that prints what Claude Code's
+// title says and waits, named docker so the foreground is: no container is
+// run. If it regresses, an agent in a container has no state in tend.
+func TestAdoptsAnAgentRunInAContainer(t *testing.T) {
+	s := newServer(t)
+	docker := fakeAgent(t, "docker", "printf '\\033]0;\\342\\240\\201 Thinking\\007'; sleep 10")
+
+	_, pane := openTab(t, s, "exec sh -i")
+	waitFor(t, "the shell to start", func() bool {
+		st, err := s.PaneStatus(pane)
+		return err == nil && st.Running
+	})
+	if err := s.Write(pane, []byte(docker+" exec -it box claude --resume\n")); err != nil {
+		t.Fatal(err)
+	}
+	waitFor(t, "the agent in the container to be adopted", func() bool {
+		st, err := s.PaneStatus(pane)
+		return err == nil && st.Agent == "claude"
+	})
+}

@@ -1486,6 +1486,13 @@ func (s *Server) adoptOnce() {
 				manifest, _ = agent.ResolveManifest(catalog, "", wrapped)
 			}
 		}
+		if manifest == nil && agent.IsContainerTool(name) {
+			// docker exec -it box claude: the agent in the container is the
+			// command after it (internal/agent's container.go).
+			if inside := agent.ContainerAgentName(rt.pty.ForegroundArgv()); inside != "" {
+				manifest, _ = agent.ResolveManifest(catalog, "", inside)
+			}
+		}
 		if manifest == nil {
 			// The foreground is something with no rules — a shell, a pager, a
 			// build. Fall back to what the pane was opened as, so a pane
