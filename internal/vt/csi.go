@@ -1,5 +1,7 @@
 package vt
 
+import "strconv"
+
 // CSIDispatch executes a control sequence.
 //
 // Private sequences are identified by a leading marker byte, which the parser
@@ -28,6 +30,22 @@ func (s *Screen) CSIDispatch(ps *Params, intermediates []byte, final byte, ignor
 			s.setPrivateModes(ps, false)
 		case 'n':
 			s.deviceStatusPrivate(ps)
+		case 'u':
+			// The kitty keyboard query: answering it is what makes a
+			// program (Claude Code) turn the protocol on. Unanswered, it
+			// takes the terminal to have none.
+			s.reply([]byte("\x1b[?" + strconv.Itoa(int(s.modes.KittyKeyboard)) + "u"))
+		}
+		return
+	}
+	if final == 'u' && (marker == '>' || marker == '<' || marker == '=') {
+		s.kittyKeyboard(marker, ps)
+		return
+	}
+	if marker == '>' && final == 'm' {
+		// xterm's modifyOtherKeys: CSI > 4 ; level m, and CSI > 4 m off.
+		if ps.Get(0) == 4 {
+			s.modes.ModifyOtherKeys = uint8(min(max(int(ps.Get(1)), 0), 2))
 		}
 		return
 	}

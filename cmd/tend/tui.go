@@ -1072,8 +1072,12 @@ func (t *tui) paint() error {
 	x, y, visible := ui.CursorPosition(frame, cols, rows)
 	title, titled := t.windowTitleLocked()
 	motion := t.wantsMotionLocked()
+	kittyFlags, kittyMOK := t.focusedKeyboardLocked()
 	t.mu.Unlock()
 	t.syncMotion(motion)
+	// Before the paint, so the key typed next comes in the focused pane's
+	// form (hostkeyboard.go).
+	setHostKeyboard(os.Stdout, kittyFlags, kittyMOK)
 
 	if repaintAll {
 		// Something changed the size or the theme under this frame, and only
@@ -1406,6 +1410,13 @@ func (t *tui) handleInput(data []byte) error {
 	if data = t.takeHostReports(data); len(data) == 0 {
 		return nil
 	}
+	// With a pane's keyboard protocol on outside (hostkeyboard.go), keys
+	// come as CSI … u. tend's panels read the legacy bytes; the pane gets
+	// them as they came.
+	raw := data
+	if hostKeyboardOn() {
+		data = ui.LegacyKeys(data)
+	}
 	// The welcome is over everything and takes every key, as herdr's does.
 	if t.onboardingUp() {
 		return t.onboardingInput(data)
@@ -1447,7 +1458,13 @@ func (t *tui) handleInput(data []byte) error {
 	if t.contextUp() {
 		return t.contextInput(data)
 	}
-	forward, commands, mice := t.keys.FeedAll(data)
+	forward, commands, mice := t.keys.FeedAll(raw)
+	// What reaches the pane is the bytes as typed (rawForward); what tend's
+	// own modes below read is their legacy form.
+	rawForward := forward
+	if hostKeyboardOn() {
+		forward = ui.LegacyKeys(forward)
+	}
 	if len(forward) > 0 {
 		t.dismissOverlay()
 	}
@@ -1586,11 +1603,12 @@ func (t *tui) handleInput(data []byte) error {
 		t.mu.Lock()
 		delete(t.programCopy, focus)
 		t.mu.Unlock()
-		if err := t.client.SendInput(focus, forward); err != nil {
+		if err := t.client.SendInput(focus, rawForward); err != nil {
 			return err
 		}
 		for _, other := range t.syncTargets(focus) {
-			// One pane that has gone does not stop the others.
+			// One pane that has gone does not stop the others. They get the
+			// legacy form: the protocol outside is the focused pane's.
 			_ = t.client.SendInput(other, forward)
 		}
 	}
@@ -2093,6 +2111,7 @@ func enterFullScreen(mouse bool) (func(), error) {
 		return nil, fmt.Errorf("attach: raw mode: %w", err)
 	}
 	io.WriteString(os.Stdout, "\x1b[?1049h\x1b[?25l\x1b[2J\x1b[H")
+	initHostKeyboard()
 	if mouse {
 		io.WriteString(os.Stdout, ui.EnableMouse)
 	}
@@ -2103,6 +2122,7 @@ func enterFullScreen(mouse bool) (func(), error) {
 			// Mouse reporting is always turned off, even if it was never
 			// turned on: a terminal left reporting makes every later click in
 			// that window emit gibberish.
+			resetHostKeyboard(os.Stdout)
 			io.WriteString(os.Stdout, ui.DisableMotion+ui.DisableMouse+"\x1b[0m\x1b[?25h\x1b[?1049l")
 			_ = term.Restore(fd, state)
 		})

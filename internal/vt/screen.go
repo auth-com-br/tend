@@ -49,6 +49,14 @@ type Modes struct {
 	SyncOutput      bool // 2026
 	Mouse           MouseMode
 	MouseEncoding   MouseEncoding
+	// KittyKeyboard is the kitty keyboard protocol's flags the program has
+	// asked for (CSI > f u, the top of its stack), and ModifyOtherKeys
+	// xterm's level (CSI > 4 ; n m). A client gives them to the terminal
+	// outside while the pane is focused, so keys come in the form the
+	// program asked for: Shift+Enter as CSI 13;2u, which Claude Code reads
+	// as a new line (issue #66).
+	KittyKeyboard   uint16
+	ModifyOtherKeys uint8
 }
 
 // Cursor is the caret and the style new text takes.
@@ -104,10 +112,12 @@ type Screen struct {
 
 	top, bottom int // scroll region, inclusive, 0-based
 
-	modes    Modes
-	tabs     []bool
-	title    string
-	progress string
+	modes Modes
+	// kittyStack is what CSI > f u pushed the flags over, for CSI < n u.
+	kittyStack []uint16
+	tabs       []bool
+	title      string
+	progress   string
 	// status is the last OSC 7501 a program sent of itself, and statusRev
 	// counts them (status.go).
 	status    ProgramStatus
@@ -552,6 +562,7 @@ func (s *Screen) Reset() {
 	s.cur = Cursor{}
 	s.saved = Cursor{}
 	s.modes = Modes{AutoWrap: true, CursorVisible: true, AlternateScroll: true}
+	s.kittyStack = nil
 	s.top, s.bottom = 0, s.rows-1
 	s.onAlt = false
 	s.grid = s.main

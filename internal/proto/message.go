@@ -392,6 +392,9 @@ const (
 	FeatureFocusRequest = "focus-request"
 	// FeatureScrollRequest: the server asks clients to scroll a pane back.
 	FeatureScrollRequest = "scroll-request"
+	// FeatureKittyKeyboard: panes say the keyboard protocol their program
+	// asked for, and the server answers its query.
+	FeatureKittyKeyboard = "kitty-keyboard"
 	// FeatureAgentView: the snapshot carries agent.view.set's view.
 	FeatureAgentView = "agent-view"
 	// FeatureServerShell: a pane asked for with no command runs the server's
@@ -436,7 +439,7 @@ const (
 var KnownFeatures = []string{
 	FeaturePaneClipboard, FeatureMouseDetail, FeatureSessionChanged, FeatureGraphics,
 	FeatureLifecycle, FeatureWindowTitle, FeatureTabBarStatus, FeatureDone, FeatureWindowFocus,
-	FeatureFocusRequest, FeatureScrollRequest, FeatureAgentView, FeatureServerShell, FeaturePopup, FeatureUpdate,
+	FeatureFocusRequest, FeatureScrollRequest, FeatureKittyKeyboard, FeatureAgentView, FeatureServerShell, FeaturePopup, FeatureUpdate,
 	FeatureDockUnless, FeatureContext, FeatureContextArrived, FeatureFollowCwd, FeatureGitHubFolders,
 	FeatureGroups, FeatureWheelKeys, FeatureDormant, FeatureMarkUnread, FeatureUsage,
 }
@@ -478,6 +481,11 @@ type PaneInfo struct {
 	// when AppCursor is set.
 	WheelKeys bool `json:"wheel_keys,omitempty"`
 	AppCursor bool `json:"app_cursor,omitempty"`
+	// KittyKeyboard and ModifyOtherKeys are the keyboard protocol the
+	// pane's program asked for, which the client sets on the terminal
+	// outside while the pane is focused (FeatureKittyKeyboard).
+	KittyKeyboard   uint16 `json:"kitty_keyboard,omitempty"`
+	ModifyOtherKeys uint8  `json:"modify_other_keys,omitempty"`
 	// Graphics changes whenever a pane's images or their placements do, so a
 	// client can tell whether to ask for them again.
 	Graphics uint64 `json:"graphics,omitempty"`

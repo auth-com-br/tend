@@ -356,6 +356,11 @@ type PaneStatus struct {
 	// application form when AppCursor says the program asked for it.
 	WheelKeys bool
 	AppCursor bool
+	// KittyKeyboard and ModifyOtherKeys are the keyboard protocol the
+	// pane's program asked for (vt.Modes), which a client sets on the
+	// terminal outside while the pane is focused.
+	KittyKeyboard   uint16
+	ModifyOtherKeys uint8
 	// Graphics changes whenever the pane's images or their placements do.
 	Graphics uint64
 }

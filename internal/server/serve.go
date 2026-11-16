@@ -1205,6 +1205,7 @@ func (s *Server) snapshot() proto.SessionSnapshot {
 		snap.Panes[i].MouseSGR = st.MouseSGR
 		snap.Panes[i].WheelKeys = st.WheelKeys
 		snap.Panes[i].AppCursor = st.AppCursor
+		snap.Panes[i].KittyKeyboard, snap.Panes[i].ModifyOtherKeys = st.KittyKeyboard, st.ModifyOtherKeys
 		snap.Panes[i].Graphics = st.Graphics
 		snap.Panes[i].Usage = st.Usage
 		snap.Panes[i].Display = st.Presentation.DisplayAgent

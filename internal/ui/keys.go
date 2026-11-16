@@ -675,6 +675,25 @@ func (in *Input) FeedAll(data []byte) ([]byte, []Action, []MouseEvent) {
 			}
 		}
 
+		// A key in the kitty protocol's form (kittykeys.go): the prefix, and
+		// the keys while it is armed, read as their legacy bytes; anything
+		// else goes to the pane as it came, in the form the pane asked for.
+		if legacy, n, ok := kittyKey(data[i:]); n > 0 {
+			if ok && (in.armed || (len(legacy) == 1 && legacy[0] == in.prefix())) {
+				for _, b := range legacy {
+					r := in.Feed(b)
+					forward = append(forward, r.Forward...)
+					if r.Command != CommandNone {
+						commands = append(commands, Action{Command: r.Command, Arg: r.Arg})
+					}
+				}
+			} else {
+				forward = append(forward, data[i:i+n]...)
+			}
+			i += n
+			continue
+		}
+
 		r := in.Feed(data[i])
 		forward = append(forward, r.Forward...)
 		if r.Command != CommandNone {
@@ -683,6 +702,36 @@ func (in *Input) FeedAll(data []byte) ([]byte, []Action, []MouseEvent) {
 		i++
 	}
 	return forward, commands, mice
+}
+
+// LegacyKeys rewrites the keys in data that are in the kitty protocol's
+// form into the bytes a terminal without it sends: for tend's own panels and
+// menus, which read keys as those bytes, while a pane's protocol is on in
+// the terminal outside. Anything else is left as it is.
+func LegacyKeys(data []byte) []byte {
+	var out []byte
+	changed := false
+	for i := 0; i < len(data); {
+		if legacy, n, ok := kittyKey(data[i:]); n > 0 {
+			if !changed {
+				out = append(out, data[:i]...)
+				changed = true
+			}
+			if ok {
+				out = append(out, legacy...)
+			}
+			i += n
+			continue
+		}
+		if changed {
+			out = append(out, data[i])
+		}
+		i++
+	}
+	if !changed {
+		return data
+	}
+	return out
 }
 
 // command interprets a byte while the prefix is armed.

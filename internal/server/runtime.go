@@ -69,7 +69,11 @@ type paneRuntime struct {
 	// wheelKeys and appCursor are what the client was last told about the
 	// wheel, so a change is told.
 	wheelKeys, appCursor bool
-	running              bool
+	// kittyKeyboard and modifyOtherKeys are the keyboard protocol it was
+	// last told of.
+	kittyKeyboard   uint16
+	modifyOtherKeys uint8
+	running         bool
 	// closeOnExit closes the pane when its program ends, for a pane opened to
 	// run one thing — a user's command, the scrollback editor — whose frame
 	// would otherwise sit there saying "exited" until closed by hand. Set
@@ -272,6 +276,12 @@ func (rt *paneRuntime) poll(lastTitle string) observation {
 		rt.wheelKeys, rt.appCursor = keys, app
 		obs.mouseChanged = true
 	}
+	// The keyboard protocol too: Claude Code pushes its flags as it starts,
+	// and the client has to hear of it to set them outside.
+	if m := rt.screen.Modes(); m.KittyKeyboard != rt.kittyKeyboard || m.ModifyOtherKeys != rt.modifyOtherKeys {
+		rt.kittyKeyboard, rt.modifyOtherKeys = m.KittyKeyboard, m.ModifyOtherKeys
+		obs.mouseChanged = true
+	}
 	if rt.dirty && rt.detector != nil {
 		rt.dirty = false
 		res, _ := rt.detector.Update(rt.screen)
@@ -375,24 +385,26 @@ func (rt *paneRuntime) status() PaneStatus {
 
 	modes := rt.screen.Modes()
 	st := PaneStatus{
-		Mouse:        modes.Mouse != vt.MouseOff,
-		MouseDrag:    modes.Mouse >= vt.MouseButtonEvent,
-		MouseMotion:  modes.Mouse >= vt.MouseAnyEvent,
-		MouseSGR:     modes.MouseEncoding == vt.MouseEncodingSGR || modes.MouseEncoding == vt.MouseEncodingSGRPixels,
-		WheelKeys:    rt.screen.WheelKeys(),
-		AppCursor:    modes.ApplicationCur,
-		Graphics:     rt.screen.KittyRevision(),
-		ID:           rt.id,
-		Title:        rt.title,
-		Agent:        rt.shown.Agent,
-		State:        rt.shown.State,
-		Presentation: rt.shownPresentation,
-		Usage:        rt.spending,
-		Rule:         rt.shownRule,
-		Message:      rt.shown.Message,
-		Running:      rt.running,
-		ExitErr:      rt.exitErr,
-		Pid:          rt.pty.Pid(),
+		Mouse:           modes.Mouse != vt.MouseOff,
+		MouseDrag:       modes.Mouse >= vt.MouseButtonEvent,
+		MouseMotion:     modes.Mouse >= vt.MouseAnyEvent,
+		MouseSGR:        modes.MouseEncoding == vt.MouseEncodingSGR || modes.MouseEncoding == vt.MouseEncodingSGRPixels,
+		WheelKeys:       rt.screen.WheelKeys(),
+		AppCursor:       modes.ApplicationCur,
+		KittyKeyboard:   modes.KittyKeyboard,
+		ModifyOtherKeys: modes.ModifyOtherKeys,
+		Graphics:        rt.screen.KittyRevision(),
+		ID:              rt.id,
+		Title:           rt.title,
+		Agent:           rt.shown.Agent,
+		State:           rt.shown.State,
+		Presentation:    rt.shownPresentation,
+		Usage:           rt.spending,
+		Rule:            rt.shownRule,
+		Message:         rt.shown.Message,
+		Running:         rt.running,
+		ExitErr:         rt.exitErr,
+		Pid:             rt.pty.Pid(),
 	}
 	if rt.dormant != nil {
 		st.Dormant = rt.dormant.Agent
