@@ -160,3 +160,72 @@ func TestPaneTextReadsTheScreenThatIsShowing(t *testing.T) {
 		t.Errorf("back on the main screen = %q, want the shell", back)
 	}
 }
+
+// TestALineTheTerminalWrappedIsCopiedAsOneLine: a long command at a
+// prompt, wider than the pane, is one line the terminal wrapped, and copied
+// it must come back as the one line it was — not with a line break where
+// the pane happened to end, which turns a command pasted into a shell into
+// two commands. A line ended by the program (a newline) stays two lines.
+func TestALineTheTerminalWrappedIsCopiedAsOneLine(t *testing.T) {
+	screen := vt.NewScreen(20, 4, 0)
+	long := "git tag -fa v1.1.0 && git push --force github v1.1.0"
+	_, _ = screen.Write([]byte(long + "\r\nnext line"))
+	got := paneText(screen, proto.PaneTextParams{FromRow: 0, FromCol: 0, ToRow: 3, ToCol: 19})
+	if want := long + "\nnext line"; got != want {
+		t.Fatalf("copied %q\nwant   %q", got, want)
+	}
+}
+
+// screenOf is a terminal of the width given, each line its own row.
+func screenOf(cols int, lines ...string) *vt.Screen {
+	s := vt.NewScreen(cols, len(lines)+1, 0)
+	_, _ = s.Write([]byte(strings.Join(lines, "\r\n")))
+	return s
+}
+
+// TestALineAnAgentWrappedIsCopiedAsOneLine is the owner's: Claude Code
+// gave a command longer than the pane and drew it as two rows, the second
+// indented under the text — rows as the real Claude Code 2.1.325 drew them
+// in an 82-column pane. Copied, it came back broken where the pane ended,
+// "… && git\n  push …", which pasted into a shell is two commands. If it
+// regresses, every long command an agent gives has to be mended by hand.
+func TestALineAnAgentWrappedIsCopiedAsOneLine(t *testing.T) {
+	row0 := "● cd /mnt/sdb1/Document/Desenvolvimentos/RetroStudioDev/retro-studio-cenas && git"
+	row1 := `  tag -fa v1.1.0 -m "Retro Studio 1.1.0" && git push --force github v1.1.0`
+	screen := screenOf(82, row0, row1)
+	got := paneText(screen, proto.PaneTextParams{FromRow: 0, FromCol: 2, ToRow: 1, ToCol: 81})
+	want := `cd /mnt/sdb1/Document/Desenvolvimentos/RetroStudioDev/retro-studio-cenas && git tag -fa v1.1.0 -m "Retro Studio 1.1.0" && git push --force github v1.1.0`
+	if got != want {
+		t.Fatalf("copied %q\nwant   %q", got, want)
+	}
+	// A third row of the same paragraph joins too.
+	three := screenOf(30, "● one two three four five six", "  seven eight nine ten eleven", "  twelve")
+	if got := paneText(three, proto.PaneTextParams{FromRow: 0, FromCol: 2, ToRow: 2, ToCol: 29}); got != "one two three four five six seven eight nine ten eleven twelve" {
+		t.Fatalf("three rows: %q", got)
+	}
+}
+
+// TestLinesAProgramEndedStayLines: what the rule must not join — a short
+// line, a line with no indent after a long one, a new paragraph, a code
+// block indented deeper, and a block selection.
+func TestLinesAProgramEndedStayLines(t *testing.T) {
+	for name, c := range map[string]struct {
+		cols  int
+		lines []string
+	}{
+		"short":         {40, []string{"● done", "  next"}},
+		"no indent":     {30, []string{"a long log line that fills it", "another line"}},
+		"new paragraph": {30, []string{"● one two three four five six", "● seven"}},
+		"code block":    {30, []string{"● one two three four five six", "    seven"}},
+	} {
+		s := screenOf(c.cols, c.lines...)
+		got := paneText(s, proto.PaneTextParams{FromRow: 0, FromCol: 0, ToRow: len(c.lines) - 1, ToCol: c.cols - 1})
+		if !strings.Contains(got, "\n") {
+			t.Errorf("%s: joined into %q", name, got)
+		}
+	}
+	block := screenOf(30, "● one two three four five six", "  seven")
+	if got := paneText(block, proto.PaneTextParams{FromRow: 0, FromCol: 0, ToRow: 1, ToCol: 29, Block: true}); !strings.Contains(got, "\n") {
+		t.Errorf("a block selection was joined: %q", got)
+	}
+}

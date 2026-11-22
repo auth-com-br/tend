@@ -1316,15 +1316,29 @@ func paneText(screen *vt.Screen, p proto.PaneTextParams) string {
 	first := min(max(top+fromRow, 0), total-1)
 	last := min(max(top+toRow, 0), total-1)
 
-	var out []byte
-	for at := first; at <= last; at++ {
-		row := grid.Line(at - history)
+	rowAt := func(at int) *vt.Row {
 		if at < history {
-			row = main.HistoryLine(at)
+			return main.HistoryLine(at)
 		}
-		if at > first {
+		return grid.Line(at - history)
+	}
+
+	var out []byte
+	// How the row before ends this one's start: on a new line (the usual), run
+	// straight on (the terminal wrapped it), or after a space with the
+	// program's indent dropped (the program wrapped it by word).
+	joined, spaced, indent := false, false, 0
+	for at := first; at <= last; at++ {
+		row := rowAt(at)
+		switch {
+		case at == first:
+		case spaced:
+			out = append(out, ' ')
+		case !joined:
 			out = append(out, '\n')
 		}
+		drop := indent
+		joined, spaced, indent = false, false, 0
 		if row == nil {
 			continue
 		}
@@ -1341,10 +1355,89 @@ func paneText(screen *vt.Screen, p proto.PaneTextParams) string {
 			if at == last {
 				end = toCol
 			}
+			// The indent of a row the program wrapped into is its layout,
+			// not the text.
+			start = max(start, drop)
+		}
+		// A row the terminal wrapped — the line went on past the pane's
+		// edge — runs on into the next: copied, a long command is the one
+		// line it was, not two where the pane happened to end. Its spaces
+		// are kept, since one at the edge is part of the line. A block is
+		// a rectangle, and keeps its rows.
+		if !p.Block && row.Wrapped() && at < last {
+			out = append(out, cellsOf(row, start, end)...)
+			joined = true
+			continue
 		}
 		out = append(out, trimRight(cellsOf(row, start, end))...)
+		if !p.Block && at < last {
+			if in, ok := wordWrapped(row, rowAt(at+1)); ok {
+				spaced, indent = true, in
+			}
+		}
 	}
 	return string(out)
+}
+
+// bullets are the marks a paragraph of an agent's answer starts with, its
+// text after them: Claude Code's ● and ⏺, a list's • - *, a prompt's ❯ >.
+const bullets = "●⏺•-*❯>"
+
+// wordWrapped reports whether a program wrapped row into next by word — a
+// line too long for the pane, drawn as two with its continuation indented
+// under the text — and the indent to drop. That is how Claude Code lays out
+// a long line of its answer: a command it gives you comes out as
+// "● cd … && git" and "  push …", with a real line break between that a
+// terminal's soft wrap would not have, and copied as two lines it is two
+// commands. It is read from the layout, and only where that is plain: the
+// next row's first word could not have fitted at the end of this one, and
+// the next row is indented by exactly the paragraph's hanging indent — where
+// the text starts after a bullet, or this row's own indent for a third row
+// on. A row with no indent is never joined: a log's long line followed by
+// another is two lines.
+func wordWrapped(row, next *vt.Row) (int, bool) {
+	if row == nil || next == nil || row.Wrapped() {
+		return 0, false
+	}
+	cols := row.Len()
+	used := 0 // the cells up to the last that is not blank
+	for x := 0; x < cols; x++ {
+		if c := row.Cell(x); c.R != 0 && c.R != ' ' {
+			used = x + 1
+		}
+	}
+	lead := 0
+	for lead < cols && (row.Cell(lead).R == ' ' || row.Cell(lead).R == 0) {
+		lead++
+	}
+	if used == 0 {
+		return 0, false
+	}
+	hang := lead
+	if lead+1 < cols && strings.ContainsRune(bullets, row.Cell(lead).R) && row.Cell(lead+1).R == ' ' {
+		hang = lead + 2
+	}
+	in := 0
+	for in < next.Len() && (next.Cell(in).R == ' ' || next.Cell(in).R == 0) {
+		in++
+	}
+	word := 0
+	for x := in; x < next.Len(); x++ {
+		if c := next.Cell(x); c.R == ' ' || c.R == 0 {
+			break
+		}
+		word++
+	}
+	if in == 0 || word == 0 || in != hang {
+		return 0, false
+	}
+	// The word would have gone at the end of this row had there been room:
+	// a space and the word past the last column the program draws in, one
+	// short of the pane's (Ink keeps the last column free).
+	if used+1+word <= cols-1 {
+		return 0, false
+	}
+	return in, true
 }
 
 // ordered puts the corners of a region in reading order.
