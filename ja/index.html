@@ -194,7 +194,7 @@
       <h2>スペースの上にあるツール</h2>
       <p class="note">サイドバー上部のボタン。それぞれプレフィックスの後のキーでも開けます。</p>
       <div class="cards">
-        <article class="card"><a class="card-shot" href="../img/card-files.png"><img src="../img/card-files.png" loading="lazy" alt=""></a><h3>ファイル <kbd>f</kbd></h3><p>ペインの横のパネル：プロジェクトのツリー、その中の検索、git の変更 — diff、stage、commit、push。作業中のペインに追従します。</p></article>
+        <article class="card"><a class="card-shot" href="../img/card-files.png"><img src="../img/card-files.png" loading="lazy" alt=""></a><h3>ファイル <kbd>f</kbd></h3><p>ペインの横のパネル：プロジェクトのツリー、その中の検索、git の変更 — diff、stage、commit、push。作業中のペインに追従します。 Jujutsu のリポジトリにも対応しています。</p></article>
         <article class="card"><a class="card-shot" href="../img/card-agents.png"><img src="../img/card-agents.png" loading="lazy" alt=""></a><h3>エージェント <kbd>A</kbd></h3><p>tend が知っているエージェント CLI — Claude Code、Codex、Gemini CLI、Cursor、OpenCode など — のうち、このマシンにあるものと、残りのインストールコマンド。確認するとタブで実行します。</p></article>
         <article class="card"><a class="card-shot" href="../img/card-sleep.png"><img src="../img/card-sleep.png" loading="lazy" alt=""></a><h3>スリープするエージェント</h3><p>再起動後、エージェントはそのペインに移動したときにだけ、元の会話のまま起動します。アイドルのままのエージェントは自動的にメモリを解放するので、多数のエージェントを抱えていてもマシンが重くなりません。</p></article>
         <article class="card"><a class="card-shot" href="../img/card-mcp.png"><img src="../img/card-mcp.png" loading="lazy" alt=""></a><h3>MCP サーバー <kbd>M</kbd></h3><p>すべてのエージェントの MCP サーバーを一つの表で：任意のエージェントでオン・オフ、テスト、別のエージェントへコピー、一行で追加。</p></article>
@@ -206,6 +206,12 @@
         <article class="card plain"><h3>ブラウザとコンテキスト <kbd>B</kbd> <kbd>C</kbd></h3><p>tend の拡張機能入りの Chromium、Chrome、Edge：ページの要素を選び、それぞれにメモを付け、コンテキストパネルで確認してからエージェントへ送ります。</p></article>
         <article class="card plain"><h3>スマートフォンから</h3><p><code>tend web</code> は自宅のネットワークや VPN 上のスマートフォン向けページを提供します：各エージェントの状態、ライブ画面、メッセージ入力欄、そしてエージェントがあなたを必要としたときの通知。操作できるのはエージェントだけで、シェルは使えません。</p></article>
         <article class="card plain"><h3>アップデート</h3><p>新しいリリースを検知して知らせます。リリースノートで <kbd>u</kbd> を押すとインストールし、ペインのプログラムを止めずにセッションを移行します。</p></article>
+        <article class="card plain"><h3>エージェントチーム</h3><p><code>tend claude-teams</code> は Claude Code をエージェントチーム付きで起動し、作られたチームメイトはそれぞれ隣の tend ペインとして開きます。名前と状態が付き、チームが終わると閉じます。</p></article>
+        <article class="card plain"><h3>エージェントを起動するエージェント</h3><p><code>tend mcp serve</code> は、セッション内で別のエージェントを起動し、タスクを渡し、待って、答えを読むためのツールをエージェントに与えます。どのエージェントを動かしてよいかのルールはそのまま効きます。</p></article>
+        <article class="card plain"><h3>エージェントごとの消費</h3><p>各エージェントのコンテキストの使用率、会話のトークンと費用、利用上限とそのリセット時刻。上限の前に知らせ、<em>上限がリセットされたら続ける</em>で作業を自動で再開します。</p></article>
+        <article class="card plain"><h3>エージェントの作業をレビュー</h3><p>ファイルパネルの変更一覧で、差分の行の上で <kbd>r</kbd> を押すと、その変更をしたエージェントに直接コメントを書けます。問題なければ <kbd>M</kbd> でワークツリーのブランチをマージ、<kbd>R</kbd> でプルリクエストを開きます。</p></article>
+        <article class="card plain"><h3>レイアウト</h3><p><code>tend layout open work</code> は、スペース、タブ、分割、各ペインで動かすものをファイルから一度に組み立てます。<kbd>y</kbd> でタブ内のすべてのペインに同時に入力。サイドバーは右、タブは下にも置け、使っていないペインを淡く表示できます。</p></article>
+        <article class="card plain"><h3>ガード</h3><p>確認なしで動くエージェントは、消すべきでないものを消すことがあります。ガードを有効にすると、作業を壊すコマンド（プロジェクト外の <code>rm -rf</code>、force push、<code>DROP DATABASE</code>、Docker のボリューム削除など）は先にあなたに確認されるか、拒否され、記録されます。</p></article>
       </div>
       <div class="stage">
       <div class="term">
