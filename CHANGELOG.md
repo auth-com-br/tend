@@ -3,7 +3,7 @@
 What changed in each release of tend, newest first. The same text is each
 release's notes on GitHub and what "what's new" shows inside tend.
 
-## Unreleased
+## v0.18.0 — 2026-11-24
 
 #### New
 - **See what each agent is spending.** Beside a Claude Code or Codex agent's name, the sidebar says how full its context is — `claude · ctx 42%`, yellow from 80% and red from 95% — the same number the agent's own `/context` or `/status` shows, and you are told when it passes 80% and 95%, or when a Codex agent nears or hits its usage limit (with when it resets). The phone page shows it too, with the tokens, the estimated cost and the limit; in the sidebar those are the `spent`, `cost` and `limit` tokens of `[ui.sidebar.agents]`.
@@ -20,9 +20,23 @@ release's notes on GitHub and what "what's new" shows inside tend.
 
 - **tend installed by Homebrew, mise or Nix is updated by them.** `tend update` says which command to run instead of replacing a file the package manager owns, "update ready" says that command, and the preview channel is refused there. Releases now come with a Homebrew formula and a Nix expression for their own binaries (`make packages`).
 
+- **Claude Code's agent teams as tend panes.** `tend claude-teams` starts Claude Code with its agent teams on, and each teammate it starts opens as a tend pane beside it — named, its state shown, closed when the team is done. Only that Claude Code is shown a `tmux` (tend's own); your other panes, and a real tmux, are left alone.
+- **Agents that start agents.** `claude mcp add tend -- tend mcp serve` gives an agent tools to list the session's agents, start one in a tab of its own space with a first task, message one and wait for its answer, read its screen and show it to you. Your policies and companies still hold. The automation socket gains `agent.focus`, `pane.scroll` and `pane.current`.
+- **Layouts from a file, and typing into every pane.** `tend layout open work` builds a whole setup from `layouts/work.toml` beside your settings — spaces, tabs, splits with their sizes, and what each pane runs (a command typed into its shell, or an agent). `ctrl+b y` types into every pane of the tab at once, with SYNC on the status bar, until pressed again.
+- **The sidebar on the right, and faint panes you are not using.** `[ui] sidebar_side = "right"`, and `[ui] dim_unfocused = true`.
+- **The guard.** Agents run without asking sometimes delete what they should not. With `[policy] guard = "ask"` (or `"deny"`) and `tend guard install`, a shell command that would destroy work — `rm -rf` outside the project, a force push, `git reset --hard`, `DROP DATABASE`, a Docker volume, a disk — is put to you first, or refused with the reason, and listed in `tend activity -violations`. `guard_deny` and `guard_allow` take your own patterns; `tend guard check '<command>'` says what it would do. Off unless you turn it on; Claude Code only, for now.
+- **Jujutsu repositories.** In a jj repository the files panel's changes, diffs, commits and sync go through jj, and a new worktree is a jj workspace.
+- **Shift+Enter is a new line in Claude Code inside tend** — in kitty, Ghostty and WezTerm, as outside tend. tend answers a program's question about the kitty keyboard protocol and gives the terminal the focused pane's choice. (In a terminal without it, a new line is still ctrl+J.)
+- **An agent run in a container is recognised.** `docker exec -it box claude`, `docker run … codex`, `docker compose exec`, podman and `kubectl exec … -- claude` show their agent, its state and its notices.
+- **Your agents' settings files keep their comments, order and layout.** Installing a hook, switching an MCP server or changing a permission now changes only what it has to: Claude Code's `settings.json` takes a hook as a few added lines, and comes back byte for byte when it is taken out.
+
 - **Claude Code and Codex say their own state.** tend now speaks the Program Status Protocol (OSC 7501): Claude Code and Codex tell it when it is working, waiting for you — and for what ("approve Bash: npm test") — or done, and tend believes that over what the screen seems to say.
 
 #### Fixed
+- **A long line copies as one line.** A command that ran past the pane's edge was copied broken where the pane ended — both one the terminal wrapped and one an agent wrapped itself (Claude Code's "● cd … && git" and "  push …"). Pasted into a shell it was two commands.
+- **Layouts saved with `tend layout save` came back in their shape.** A pane beside two stacked ones was rebuilt as three side by side, and a pane with no command opened wherever the server was.
+- **A pane asked to open in a folder that is gone says so,** instead of "fork/exec /bin/bash: no such file or directory".
+- **Codex's hook needs your trust once.** Codex 0.167 and later run a new hook only after you trust it ("Hooks need review" at its start, or `/hooks`); `tend integration install codex` now says so.
 - **Programs in a pane get answers to what they ask their terminal.** The cursor position, device attributes, and the like were answered by tend's terminal and never delivered, so a program that asked waited out a timeout — and Claude Code, whose question went unanswered, never said its state.
 - **Codex 0.167 and later in tend.** Newer Codex runs its sessions in a background server it shares, and its hooks ran there as whichever pane started it first — so a Codex agent's conversation, state and usage went to another pane, or nowhere. tend now starts Codex on its own (`--no-daemon`) wherever tend starts it: `tend new -- codex`, `tend agent start`, a resumed or woken agent, and the issues and errors panels. A `codex` you type yourself in a shell still uses the shared server; start it as `codex --no-daemon` there.
 
