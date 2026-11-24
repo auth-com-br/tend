@@ -194,7 +194,7 @@
       <h2>空间上方的工具</h2>
       <p class="note">侧边栏顶部的按钮，每个都可在前缀后用一个键打开。</p>
       <div class="cards">
-        <article class="card"><a class="card-shot" href="../img/card-files.png"><img src="../img/card-files.png" loading="lazy" alt=""></a><h3>文件 <kbd>f</kbd></h3><p>窗格旁的面板：项目的文件树、在其中搜索，以及 git 改动 — diff、暂存、提交、推送。它跟随你正在工作的窗格。</p></article>
+        <article class="card"><a class="card-shot" href="../img/card-files.png"><img src="../img/card-files.png" loading="lazy" alt=""></a><h3>文件 <kbd>f</kbd></h3><p>窗格旁的面板：项目的文件树、在其中搜索，以及 git 改动 — diff、暂存、提交、推送。它跟随你正在工作的窗格。 也支持 Jujutsu 仓库。</p></article>
         <article class="card"><a class="card-shot" href="../img/card-agents.png"><img src="../img/card-agents.png" loading="lazy" alt=""></a><h3>代理 <kbd>A</kbd></h3><p>tend 认识的代理 CLI — Claude Code、Codex、Gemini CLI、Cursor、OpenCode 等 — 这台机器装了哪些，以及其余的安装命令，确认后在标签页中运行。</p></article>
         <article class="card"><a class="card-shot" href="../img/card-sleep.png"><img src="../img/card-sleep.png" loading="lazy" alt=""></a><h3>休眠的智能体</h3><p>重启之后，只有当你切换到某个智能体的窗格时它才会启动，并回到原来的对话。空闲的智能体会自动释放内存，因此多个项目里的二十个智能体也不会拖慢机器。</p></article>
         <article class="card"><a class="card-shot" href="../img/card-mcp.png"><img src="../img/card-mcp.png" loading="lazy" alt=""></a><h3>MCP 服务器 <kbd>M</kbd></h3><p>所有智能体的 MCP 服务器集中在一张表格里：在任意智能体中开启或关闭、测试、复制到另一个智能体、用一行添加。</p></article>
@@ -206,6 +206,12 @@
         <article class="card plain"><h3>浏览器与上下文 <kbd>B</kbd> <kbd>C</kbd></h3><p>带 tend 扩展的 Chromium、Chrome 或 Edge 窗口：在页面上选取元素，为每个写下要求，先在上下文面板中查看，再发送给代理。</p></article>
         <article class="card plain"><h3>在手机上</h3><p><code>tend web</code> 为你的手机提供一个页面，可在家庭网络或 VPN 中访问：每个智能体及其状态、实时屏幕、发送消息的输入框，以及智能体需要你时的提醒。只能操作智能体，绝不是 shell。</p></article>
         <article class="card plain"><h3>更新</h3><p>tend 会发现新版本并提示。在更新说明中按 <kbd>u</kbd> 即可安装，并在不停止窗格中程序的情况下把会话迁移过去。</p></article>
+        <article class="card plain"><h3>智能体团队</h3><p><code>tend claude-teams</code> 以开启智能体团队的方式启动 Claude Code，它创建的每个队友都会作为旁边的 tend 窗格打开——带名字和状态，团队结束时关闭。</p></article>
+        <article class="card plain"><h3>能启动智能体的智能体</h3><p><code>tend mcp serve</code> 让智能体获得工具：在你的会话里启动另一个智能体、交给它任务、等待并读取答复。你对哪些智能体可以运行的规则依然有效。</p></article>
+        <article class="card plain"><h3>每个智能体的花费</h3><p>每个智能体的上下文占用了多少，对话花掉的 token 和费用，以及用量上限和重置时间——快用完前提醒你，并可<em>在上限重置后继续</em>，自动接着干。</p></article>
+        <article class="card plain"><h3>审阅智能体的工作</h3><p>在文件面板的变更里，对 diff 的某一行按 <kbd>r</kbd>，就能直接给做出改动的智能体写评论。确认无误后，<kbd>M</kbd> 合并该 worktree 的分支，或 <kbd>R</kbd> 打开拉取请求。</p></article>
+        <article class="card plain"><h3>布局</h3><p><code>tend layout open work</code> 从一个文件一次搭好整套环境——空间、标签页、分屏以及每个窗格运行什么。<kbd>y</kbd> 同时向一个标签页的所有窗格输入。侧边栏可以放在右边，标签页放在底部，没在用的窗格可以变暗。</p></article>
+        <article class="card plain"><h3>防护</h3><p>不经确认就运行的智能体有时会删掉不该删的东西。开启防护后，会破坏工作的命令——项目外的 <code>rm -rf</code>、force push、<code>DROP DATABASE</code>、删除 Docker 卷——会先问你，或被拒绝，并记录下来。</p></article>
       </div>
       <div class="stage">
       <div class="term">
@@ -253,7 +259,7 @@
 
     <section id="phone" class="facts">
       <h2>在手机上</h2>
-      <p class="note">离开书桌，智能体仍在工作——你也能继续关注。<code>tend web</code> 为你的手机提供一个页面：无需安装应用，智能体的屏幕不会离开你的网络。</p>
+      <p class="note">离开书桌，智能体仍在工作——你也能继续关注。<code>tend web</code> 为你的手机提供一个页面：无需安装应用，数据不会离开你的网络。</p>
       <div class="phones">
         <figure class="phone">
           <img src="../img/phone-list.png" width="780" height="1280" loading="lazy" alt="按公司列出所有智能体：谁需要你、谁在工作、谁在休眠。">
@@ -269,11 +275,6 @@
           <p>它只能操作智能体，且动作固定：发消息、智能体要求的按键、唤醒和休眠。绝不是 shell。可在家庭网络中使用，或通过 VPN 在任何地方使用。</p>
         </div>
       </div>
-    </section>
-
-    <section id="privacy" class="facts">
-      <h2>不收集任何数据</h2>
-      <p class="note">没有遥测,没有分析,不需要账号。tend 自己只会检查新版本——向 GitHub 发一次请求,可以在设置中关闭——除此之外什么也不做。其余的都只在你要求时发生:一个面板、一次更新、一条端到端加密的手机通知。<a href="https://github.com/auth-com-br/tend/blob/master/docs/PRIVACY.md">所有连接的清单。</a></p>
     </section>
 
     <section id="clients" class="clients" aria-labelledby="clients-heading">

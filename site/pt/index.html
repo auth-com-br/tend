@@ -194,7 +194,7 @@
       <h2>Ferramentas, acima dos spaces</h2>
       <p class="note">Botões no topo da barra lateral, cada um com uma tecla depois do prefixo.</p>
       <div class="cards">
-        <article class="card"><a class="card-shot" href="../img/card-files.png"><img src="../img/card-files.png" loading="lazy" alt=""></a><h3>Arquivos <kbd>f</kbd></h3><p>Um painel ao lado dos seus: a árvore do projeto, uma busca nela e as mudanças do git — diff, stage, commit, push. Ele segue o painel em que você está trabalhando.</p></article>
+        <article class="card"><a class="card-shot" href="../img/card-files.png"><img src="../img/card-files.png" loading="lazy" alt=""></a><h3>Arquivos <kbd>f</kbd></h3><p>Um painel ao lado dos seus: a árvore do projeto, uma busca nela e as mudanças do git — diff, stage, commit, push. Ele segue o painel em que você está trabalhando. Repositórios Jujutsu também funcionam.</p></article>
         <article class="card"><a class="card-shot" href="../img/card-agents.png"><img src="../img/card-agents.png" loading="lazy" alt=""></a><h3>Agentes <kbd>A</kbd></h3><p>Os CLIs de agentes que o tend conhece — Claude Code, Codex, Gemini CLI, Cursor, OpenCode e outros —, quais esta máquina tem e o comando para instalar os outros, rodado numa aba quando você confirma.</p></article>
         <article class="card"><a class="card-shot" href="../img/card-sleep.png"><img src="../img/card-sleep.png" loading="lazy" alt=""></a><h3>Agentes adormecidos</h3><p>Depois de reiniciar, um agente só é iniciado quando você vai ao painel dele, na conversa em que estava. Um que fica parado devolve a memória sozinho, e vinte agentes em vários projetos não pesam na máquina.</p></article>
         <article class="card"><a class="card-shot" href="../img/card-mcp.png"><img src="../img/card-mcp.png" loading="lazy" alt=""></a><h3>Servidores MCP <kbd>M</kbd></h3><p>Os servidores MCP de todos os agentes numa grade só: ligue ou desligue um em qualquer agente, teste, copie para outro agente, adicione um com uma linha.</p></article>
@@ -206,6 +206,12 @@
         <article class="card plain"><h3>Navegador e contexto <kbd>B</kbd> <kbd>C</kbd></h3><p>Uma janela do Chromium, Chrome ou Edge com a extensão do tend: escolha elementos numa página, anote o que quer de cada um e mande para o agente, revisando antes no painel de contexto.</p></article>
         <article class="card plain"><h3>No celular</h3><p><code>tend web</code> serve uma página para o seu celular, na rede de casa ou na sua VPN: cada agente com o que está fazendo, a tela dele ao vivo, um campo para mandar mensagem e um aviso quando algum precisa de você. Só agentes — nunca um shell.</p></article>
         <article class="card plain"><h3>Atualizações</h3><p>O tend percebe um release novo e avisa. <kbd>u</kbd> nas notas instala e passa a sessão para a versão nova, sem parar os programas dos painéis.</p></article>
+        <article class="card plain"><h3>Equipes de agentes</h3><p><code>tend claude-teams</code> abre o Claude Code com as equipes de agentes ligadas, e cada colega que ele cria vira um painel do tend ao lado — com nome, com estado, fechado quando a equipe termina.</p></article>
+        <article class="card plain"><h3>Agentes que criam agentes</h3><p><code>tend mcp serve</code> dá a um agente ferramentas para abrir outro na sua sessão, passar uma tarefa, esperar e ler a resposta. As suas regras sobre quais agentes podem rodar continuam valendo.</p></article>
+        <article class="card plain"><h3>Quanto cada agente gasta</h3><p>Quanto do contexto de cada agente está ocupado, os tokens e o custo da conversa, e o limite de uso com a hora em que renova — com aviso antes de acabar, e <em>continuar quando o limite renovar</em> para retomar o trabalho sozinho.</p></article>
+        <article class="card plain"><h3>Revisar o trabalho do agente</h3><p>Nas mudanças do painel de arquivos, <kbd>r</kbd> numa linha do diff escreve um comentário direto para o agente que a fez. Quando estiver certo, <kbd>M</kbd> faz o merge do branch da worktree, ou <kbd>R</kbd> abre o pull request.</p></article>
+        <article class="card plain"><h3>Layouts</h3><p><code>tend layout open trabalho</code> monta todo o seu ambiente a partir de um arquivo — espaços, abas, divisões e o que cada painel roda. <kbd>y</kbd> digita em todos os painéis da aba ao mesmo tempo. A barra lateral pode ficar à direita, as abas embaixo, e os painéis fora de foco podem ficar esmaecidos.</p></article>
+        <article class="card plain"><h3>A guarda</h3><p>Agentes rodando sem pedir permissão às vezes apagam o que não deviam. Com a guarda ligada, um comando que destruiria trabalho — <code>rm -rf</code> fora do projeto, um force push, <code>DROP DATABASE</code>, um volume do Docker — é perguntado a você antes, ou recusado, e fica registrado.</p></article>
       </div>
       <div class="stage">
       <div class="term">
@@ -253,7 +259,7 @@
 
     <section id="phone" class="facts">
       <h2>No celular</h2>
-      <p class="note">Longe da mesa, os agentes continuam trabalhando — e você continua acompanhando. <code>tend web</code> serve uma página para o seu celular: sem aplicativo para instalar, e as telas dos agentes não saem da sua rede.</p>
+      <p class="note">Longe da mesa, os agentes continuam trabalhando — e você continua acompanhando. <code>tend web</code> serve uma página para o seu celular: sem aplicativo para instalar, e nada sai da sua rede.</p>
       <div class="phones">
         <figure class="phone">
           <img src="../img/phone-list.png" width="780" height="1280" loading="lazy" alt="Todos os agentes, por empresa: quem precisa de você, quem está trabalhando, quem está dormindo.">
@@ -269,11 +275,6 @@
           <p>Só alcança agentes, com uma lista fixa de ações: uma mensagem, as teclas que o agente pede, acordar e adormecer. Nunca um shell. Na rede de casa, ou de qualquer lugar pela sua VPN.</p>
         </div>
       </div>
-    </section>
-
-    <section id="privacy" class="facts">
-      <h2>Nada é coletado</h2>
-      <p class="note">Sem telemetria, sem analytics, sem conta. Por conta própria, o tend só procura uma versão nova — um pedido ao GitHub, que uma configuração desliga — e mais nada. O resto acontece quando você pede: um painel, uma atualização, um aviso no celular, criptografado de ponta a ponta. <a href="https://github.com/auth-com-br/tend/blob/master/docs/PRIVACY.md">Todas as conexões, listadas.</a></p>
     </section>
 
     <section id="clients" class="clients" aria-labelledby="clients-heading">
