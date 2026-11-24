@@ -52,7 +52,9 @@ LANGS = {
         "stage_alt": "tend in a terminal: the spaces and agents down the left, one Claude Code working, another waiting for approval, and the files panel",
         "stage_cap": "A real session: one agent working, one waiting for you to approve a command, a third asleep, and the project's files beside them. The server is still there when nobody is looking.",
         "phone_h": "On your phone",
-        "phone_p": "Away from the desk, the agents keep working — and you keep following them. <code>tend web</code> serves a page for your phone: no app to install, nothing leaves your network.",
+        "phone_p": "Away from the desk, the agents keep working — and you keep following them. <code>tend web</code> serves a page for your phone: no app to install, and the agents' screens never leave your network.",
+        "privacy_h": "Nothing collected",
+        "privacy_p": "No telemetry, no analytics, no account. On its own tend checks for a new release — one request to GitHub, which a setting turns off — and nothing else. Everything else happens when you ask: a panel, an update, a push to your phone, encrypted end to end. <a href=\"https://github.com/auth-com-br/tend/blob/master/docs/PRIVACY.md\">Every connection, listed.</a>",
         "phone_cap1": "Every agent, by company: who needs you, who is working, who is asleep.",
         "phone_cap2": "One agent's screen, live. Answer its question with a tap, or write to it.",
         "phone_how": "Run it on the computer and open the address it prints on the phone — once, to pair it — or set a login and password with <code>tend web -set-password</code>. The phone buzzes when an agent needs you or finishes. Add it to the home screen and it opens like an app.",
@@ -168,7 +170,9 @@ LANGS = {
         "stage_alt": "tend num terminal: os spaces e os agentes à esquerda, um Claude Code trabalhando, outro esperando aprovação, e o painel de arquivos",
         "stage_cap": "Uma sessão de verdade: um agente trabalhando, um esperando você aprovar um comando, um terceiro adormecido, e os arquivos do projeto ao lado. O servidor continua quando ninguém está olhando.",
         "phone_h": "No celular",
-        "phone_p": "Longe da mesa, os agentes continuam trabalhando — e você continua acompanhando. <code>tend web</code> serve uma página para o seu celular: sem aplicativo para instalar, e nada sai da sua rede.",
+        "phone_p": "Longe da mesa, os agentes continuam trabalhando — e você continua acompanhando. <code>tend web</code> serve uma página para o seu celular: sem aplicativo para instalar, e as telas dos agentes não saem da sua rede.",
+        "privacy_h": "Nada é coletado",
+        "privacy_p": "Sem telemetria, sem analytics, sem conta. Por conta própria, o tend só procura uma versão nova — um pedido ao GitHub, que uma configuração desliga — e mais nada. O resto acontece quando você pede: um painel, uma atualização, um aviso no celular, criptografado de ponta a ponta. <a href=\"https://github.com/auth-com-br/tend/blob/master/docs/PRIVACY.md\">Todas as conexões, listadas.</a>",
         "phone_cap1": "Todos os agentes, por empresa: quem precisa de você, quem está trabalhando, quem está dormindo.",
         "phone_cap2": "A tela de um agente, ao vivo. Responda à pergunta dele com um toque, ou escreva para ele.",
         "phone_how": "Rode no computador e abra no celular o endereço que ele mostra — uma vez, para parear — ou crie um login e senha com <code>tend web -set-password</code>. O celular vibra quando um agente precisa de você ou termina. Adicione à tela inicial e ele abre como um aplicativo.",
@@ -284,7 +288,9 @@ LANGS = {
         "stage_alt": "tend en una terminal: los spaces y los agentes a la izquierda, un Claude Code trabajando, otro esperando aprobación, y el panel de archivos",
         "stage_cap": "Una sesión real: un agente trabajando, otro esperando que apruebes un comando, un tercero dormido, y los archivos del proyecto al lado. El servidor sigue ahí cuando nadie mira.",
         "phone_h": "En tu teléfono",
-        "phone_p": "Lejos del escritorio, los agentes siguen trabajando — y tú sigues al tanto. <code>tend web</code> sirve una página para tu teléfono: sin aplicación que instalar, y nada sale de tu red.",
+        "phone_p": "Lejos del escritorio, los agentes siguen trabajando — y tú sigues al tanto. <code>tend web</code> sirve una página para tu teléfono: sin aplicación que instalar, y las pantallas de los agentes no salen de tu red.",
+        "privacy_h": "Nada se recopila",
+        "privacy_p": "Sin telemetría, sin analítica, sin cuenta. Por su cuenta, tend solo busca una versión nueva — una petición a GitHub, que un ajuste desactiva — y nada más. Lo demás ocurre cuando lo pides: un panel, una actualización, un aviso en tu teléfono, cifrado de extremo a extremo. <a href=\"https://github.com/auth-com-br/tend/blob/master/docs/PRIVACY.md\">Todas las conexiones, en una lista.</a>",
         "phone_cap1": "Todos los agentes, por empresa: quién te necesita, quién trabaja, quién duerme.",
         "phone_cap2": "La pantalla de un agente, en vivo. Responde a su pregunta con un toque, o escríbele.",
         "phone_how": "Ejecútalo en el ordenador y abre en el teléfono la dirección que muestra — una vez, para emparejarlo — o crea un usuario y contraseña con <code>tend web -set-password</code>. El teléfono vibra cuando un agente te necesita o termina. Añádelo a la pantalla de inicio y se abre como una aplicación.",
@@ -400,7 +406,9 @@ LANGS = {
         "stage_alt": "ターミナル上の tend：左に space とエージェントの一覧、作業中の Claude Code、承認待ちの Claude Code、そしてファイルパネル",
         "stage_cap": "実際のセッション：作業中のエージェント、コマンドの承認を待つエージェント、スリープ中のエージェント、そして横にプロジェクトのファイル。誰も見ていなくてもサーバーは動き続けます。",
         "phone_h": "スマートフォンから",
-        "phone_p": "机を離れてもエージェントは作業を続け、あなたはそれを見守れます。<code>tend web</code> がスマートフォン向けのページを提供します。アプリのインストールは不要で、データはネットワークの外に出ません。",
+        "phone_p": "机を離れてもエージェントは作業を続け、あなたはそれを見守れます。<code>tend web</code> がスマートフォン向けのページを提供します。アプリのインストールは不要で、エージェントの画面がネットワークの外に出ることはありません。",
+        "privacy_h": "何も収集しません",
+        "privacy_p": "テレメトリーも分析もアカウントもありません。tend が自分から行うのは新しいリリースの確認だけです — GitHub への 1 回のリクエストで、設定で止められます。それ以外はすべて、あなたが求めたときだけ:パネル、アップデート、エンドツーエンドで暗号化されたスマートフォンへの通知。<a href=\"https://github.com/auth-com-br/tend/blob/master/docs/PRIVACY.md\">すべての接続の一覧。</a>",
         "phone_cap1": "会社ごとのすべてのエージェント：あなたを待っているもの、作業中のもの、スリープ中のもの。",
         "phone_cap2": "エージェントの画面をライブで。質問にはタップで答えるか、メッセージを送れます。",
         "phone_how": "コンピューターで実行し、表示されたアドレスをスマートフォンで一度開いてペアリングします。または <code>tend web -set-password</code> でログイン名とパスワードを設定します。エージェントがあなたを必要としたとき、あるいは完了したときにスマートフォンが振動します。ホーム画面に追加すればアプリのように開けます。",
@@ -516,7 +524,9 @@ LANGS = {
         "stage_alt": "终端里的 tend：左侧是 space 和智能体列表，一个 Claude Code 正在工作，另一个等待批准，旁边是文件面板",
         "stage_cap": "一次真实的会话：一个智能体在工作，一个在等你批准命令，第三个在休眠，旁边是项目文件。没人看着的时候，服务器也还在。",
         "phone_h": "在手机上",
-        "phone_p": "离开书桌，智能体仍在工作——你也能继续关注。<code>tend web</code> 为你的手机提供一个页面：无需安装应用，数据不会离开你的网络。",
+        "phone_p": "离开书桌，智能体仍在工作——你也能继续关注。<code>tend web</code> 为你的手机提供一个页面：无需安装应用，智能体的屏幕不会离开你的网络。",
+        "privacy_h": "不收集任何数据",
+        "privacy_p": "没有遥测,没有分析,不需要账号。tend 自己只会检查新版本——向 GitHub 发一次请求,可以在设置中关闭——除此之外什么也不做。其余的都只在你要求时发生:一个面板、一次更新、一条端到端加密的手机通知。<a href=\"https://github.com/auth-com-br/tend/blob/master/docs/PRIVACY.md\">所有连接的清单。</a>",
         "phone_cap1": "按公司列出所有智能体：谁需要你、谁在工作、谁在休眠。",
         "phone_cap2": "实时查看某个智能体的屏幕。轻点即可回答它的提问，或给它发消息。",
         "phone_how": "在电脑上运行它，然后在手机上打开它显示的地址——只需一次，用于配对——或用 <code>tend web -set-password</code> 设置登录名和密码。智能体需要你或完成任务时，手机会振动。添加到主屏幕后，它就像应用一样打开。",
@@ -1012,6 +1022,11 @@ def page(code: str, t: dict) -> str:
           <p>{t["phone_safe"]}</p>
         </div>
       </div>
+    </section>
+
+    <section id="privacy" class="facts">
+      <h2>{t["privacy_h"]}</h2>
+      <p class="note">{t["privacy_p"]}</p>
     </section>
 
     <section id="clients" class="clients" aria-labelledby="clients-heading">
