@@ -250,6 +250,10 @@ func startSessionConfigured(t *testing.T, cols, rows int, cfg server.Config) *at
 		Size: pty.Size{Cols: uint16(cols), Rows: uint16(rows)},
 		Env: append(append(os.Environ(),
 			"PATH="+clipDir+string(os.PathListSeparator)+os.Getenv("PATH"),
+			// The client uses a clipboard tool only with a display to copy
+			// on (internal/clipboard): a CI runner has none, and the copy
+			// went only to the terminal (OSC 52), the stand-ins unused.
+			"WAYLAND_DISPLAY=tend-test",
 			"TEND_RUNTIME_DIR="+runtimeDir,
 			"TEND_CONFIG="+configPath,
 			// A predictable shell, so what a new pane runs does not depend on

@@ -60,6 +60,16 @@ func openTest(t *testing.T) *Session {
 	t.Setenv("XDG_STATE_HOME", t.TempDir())
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	t.Setenv("SHELL", "/bin/sh")
+	// The prompt the tests wait for: /bin/sh's own is "# " for root, which
+	// a CI container runs as.
+	t.Setenv("PS1", "$ ")
+	// Commits made by the tests, by a person nobody configured on CI.
+	for k, v := range map[string]string{
+		"GIT_AUTHOR_NAME": "tend test", "GIT_AUTHOR_EMAIL": "test@tend.invalid",
+		"GIT_COMMITTER_NAME": "tend test", "GIT_COMMITTER_EMAIL": "test@tend.invalid",
+	} {
+		t.Setenv(k, v)
+	}
 	t.Setenv(skipOnboardingEnv, "1")
 	name := fmt.Sprintf("t%d", sessionCount.Add(1))
 	s, err := Open(name, tendBin, config.Defaults())

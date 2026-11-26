@@ -19,6 +19,11 @@ jobs:
         with:
           go-version-file: go.mod
       - name: make check
+        # The runner's Chromium and Edge never attach to tend in the
+        # real-browser test, while its Chrome does (cmd/tend/browserbridge_test.go):
+        # that test runs on a developer's machine, not here.
+        env:
+          TEND_TEST_NO_BROWSERS: "1"
         run: make check
 
   desktop:

@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -27,6 +28,7 @@ func TestMain(m *testing.M) {
 		panic(err)
 	}
 	os.Setenv("TEND_CONFIG", path)
+	pinGoCaches()
 	code := m.Run()
 	os.RemoveAll(dir)
 	os.Exit(code)
@@ -77,5 +79,25 @@ func TestTheFirstRunWelcomesAndThenOffersTheIntegrations(t *testing.T) {
 	})
 	if s := a.text(); strings.Contains(s, "TYPED") || strings.Contains(s, "tab 2") {
 		t.Errorf("keys pressed during the welcome reached the session:\n%s", s)
+	}
+}
+
+// pinGoCaches fixes where go keeps its modules and builds to where they are
+// now, for the go build the tests run (buildBinary). Tests that point HOME
+// at a folder of their own — so the person's agent settings are not read —
+// otherwise had that build download every module into it, read-only as the
+// module cache is: on CI, where nothing had set GOMODCACHE, the test's
+// directory could then not be removed ("unlinkat …/go/pkg/mod/…:
+// permission denied").
+func pinGoCaches() {
+	out, err := exec.Command("go", "env", "GOMODCACHE", "GOCACHE", "GOPATH").Output()
+	if err != nil {
+		return
+	}
+	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+	for i, name := range []string{"GOMODCACHE", "GOCACHE", "GOPATH"} {
+		if i < len(lines) && lines[i] != "" {
+			os.Setenv(name, lines[i])
+		}
 	}
 }
