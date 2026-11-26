@@ -638,6 +638,7 @@ func (t *tui) refresh() error {
 	// there is nothing to re-read yet, and run reads it next anyway.
 	t.mu.Lock()
 	c := t.client
+	asked := t.viewLocked()
 	t.mu.Unlock()
 	if c == nil {
 		return nil
@@ -646,8 +647,16 @@ func (t *tui) refresh() error {
 	if err != nil {
 		return err
 	}
+	if snapshotRead != nil {
+		snapshotRead()
+	}
 
 	t.mu.Lock()
+	if t.viewLocked() != asked {
+		// Read before the view moved: see viewLocked.
+		t.mu.Unlock()
+		return t.refresh()
+	}
 	t.snap = snap
 	t.syncCompaniesLocked()
 	t.resolveViewLocked()
@@ -974,12 +983,20 @@ func (t *tui) askResync() {
 // every one of them would be work for nothing — and there is one per agent
 // per change of what it is doing.
 func (t *tui) refreshSnapshot() error {
+	t.mu.Lock()
+	asked := t.viewLocked()
+	t.mu.Unlock()
 	snap, err := t.client.Snapshot()
 	if err != nil {
 		return err
 	}
 
 	t.mu.Lock()
+	if t.viewLocked() != asked {
+		// Read before the view moved: see viewLocked.
+		t.mu.Unlock()
+		return t.refresh()
+	}
 	before := t.tab
 	t.snap = snap
 	t.syncCompaniesLocked()
@@ -2262,3 +2279,25 @@ func (t *tui) syncTargets(focus uint64) []uint64 {
 
 // sidebarRight is whether the settings put the sidebar on the right.
 func (t *tui) sidebarRight() bool { return t.config.UI.SidebarSide == "right" }
+
+// viewLocked is the space and tab the client shows, for telling whether
+// the view moved while a snapshot was being read.
+//
+// A snapshot read before the view moved is not applied, and the session is
+// read again. The view moves to a tab before this client has read a
+// snapshot with it — an agent started on an issue goes to the new tab as
+// soon as the server says it is made — and a snapshot asked for a moment
+// earlier, by an event or an agent's change of state, would arrive without
+// the tab: resolveViewLocked, finding no such tab, put the view back on
+// the space's first. On CI's runner the agent's tab opened and the screen
+// stayed on tab 1 (TestAnIssueIsCommentedClosedAndWorkedOn); it was the
+// same for an error, a ticket, a resumed session, a task continued, the
+// update and the agent manager's install.
+func (t *tui) viewLocked() [2]uint64 {
+	return [2]uint64{t.workspace, t.tab}
+}
+
+// snapshotRead, when a test sets it, runs between refresh reading a
+// snapshot and applying it: where the view moving is the race viewLocked
+// is about.
+var snapshotRead func()
