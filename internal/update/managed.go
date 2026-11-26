@@ -14,7 +14,7 @@ import (
 
 // Manager is the package manager that installed a tend, when one did.
 type Manager struct {
-	// Name is "Homebrew", "mise" or "Nix".
+	// Name is "Homebrew", "mise", "Nix" or ".deb".
 	Name string
 	// Command is how that manager updates tend, as a person types it.
 	Command string
@@ -24,7 +24,32 @@ var (
 	homebrew = Manager{Name: "Homebrew", Command: "brew update && brew upgrade tend"}
 	mise     = Manager{Name: "mise", Command: "mise upgrade tend"}
 	nix      = Manager{Name: "Nix", Command: "nix profile upgrade, or update the flake input that provides tend"}
+	// There is no apt repository: the .deb is a file of the release's
+	// (`make deb`), installed over the old one.
+	dpkg = Manager{Name: ".deb", Command: "sudo apt install ./tend_<version>_<arch>.deb"}
 )
+
+// dpkgInfo is where dpkg records the files of each installed package; a
+// variable so a test can stand one up.
+var dpkgInfo = "/var/lib/dpkg/info"
+
+// fromDeb is a tend that the tend .deb put at p: listed in the package's
+// file list. herdr has no .deb, so this is tend's own. Without it `tend
+// update` on /usr/bin/tend fails for want of root, and as root replaces a
+// file dpkg believes is the package's, which the next upgrade or `dpkg
+// --verify` then contradicts.
+func fromDeb(p string) bool {
+	list, err := os.ReadFile(filepath.Join(dpkgInfo, "tend.list"))
+	if err != nil {
+		return false
+	}
+	for _, line := range strings.Split(string(list), "\n") {
+		if line == p {
+			return true
+		}
+	}
+	return false
+}
 
 // ManagerOf is the package manager that put exe where it is, following its
 // links: Homebrew's bin/tend is a link into its Cellar.
@@ -41,6 +66,8 @@ func ManagerOf(exe string) (Manager, bool) {
 			return homebrew, true
 		case inMise(p):
 			return mise, true
+		case fromDeb(p):
+			return dpkg, true
 		}
 	}
 	return Manager{}, false

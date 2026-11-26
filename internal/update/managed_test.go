@@ -45,3 +45,28 @@ func TestATendAPackageManagerInstalledIsUpdatedByIt(t *testing.T) {
 		}
 	}
 }
+
+// TestATendTheDebInstalledIsUpdatedWithTheDeb: the tend in the tend
+// package's file list is dpkg's; one elsewhere on the same machine, or any
+// tend on a machine without the package, is tend's own. If it regresses,
+// `tend update` fails on /usr/bin/tend for want of root, or, run as root,
+// replaces a file dpkg records as the package's.
+func TestATendTheDebInstalledIsUpdatedWithTheDeb(t *testing.T) {
+	info := t.TempDir()
+	old := dpkgInfo
+	dpkgInfo = info
+	t.Cleanup(func() { dpkgInfo = old })
+	if _, ok := ManagerOf("/usr/bin/tend"); ok {
+		t.Fatal("managed with no package installed")
+	}
+	list := "/.\n/usr\n/usr/bin\n/usr/bin/tend\n/usr/share/applications/tend.desktop\n"
+	if err := os.WriteFile(filepath.Join(info, "tend.list"), []byte(list), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if m, ok := ManagerOf("/usr/bin/tend"); !ok || m.Name != ".deb" {
+		t.Fatalf("the package's tend: %+v %v", m, ok)
+	}
+	if m, ok := ManagerOf("/home/me/.local/bin/tend"); ok {
+		t.Fatalf("a tend of its own beside the package's is %s's", m.Name)
+	}
+}
