@@ -76,14 +76,52 @@ type response struct {
 	Error   *rpcError       `json:"error,omitempty"`
 }
 
+// Tools is what an MCP server over stdio is made of: the tools it lists and
+// the one call that runs them. tend's own server is one; tend-whatsapp, in a
+// module of its own so that its dependencies stay out of this binary, is
+// another, and both share the framing below rather than each keeping a copy
+// of the JSON-RPC.
+type Tools interface {
+	// Info is the server's name and the instructions an MCP client hands
+	// its model on initialize.
+	Info() (name, instructions string)
+	// List is the tools/list answer: each tool's name, description and
+	// inputSchema.
+	List() []map[string]any
+	// Call runs one tool. An error wrapping ErrUnknownTool is a protocol
+	// error; any other is the tool's own failure, which the agent reads.
+	Call(name string, args map[string]any) (string, error)
+}
+
+// ErrUnknownTool is a tools/call naming a tool the server does not have.
+var ErrUnknownTool = errors.New("unknown tool")
+
+// Info is tend's server's name and instructions.
+func (s *Server) Info() (string, string) {
+	return "tend", "These tools drive the tend session you run in: start another coding agent " +
+		"beside you, give it a task, wait for it and read what it says. An agent is named by its " +
+		"pane id (p_7) or the name it was started with."
+}
+
+// List is tend's tools.
+func (s *Server) List() []map[string]any { return tools }
+
+// Call runs one of tend's tools.
+func (s *Server) Call(name string, args map[string]any) (string, error) { return s.call(name, args) }
+
 // Serve reads requests from in and answers on out until in ends.
 func (s *Server) Serve(in io.Reader, out io.Writer) error {
+	return ServeTools(s, s.Version, in, out)
+}
+
+// ServeTools answers one MCP client with t's tools until in ends.
+func ServeTools(t Tools, version string, in io.Reader, out io.Writer) error {
 	r := bufio.NewReaderSize(in, 1<<20)
 	enc := json.NewEncoder(out)
 	for {
 		line, err := r.ReadBytes('\n')
 		if len(strings.TrimSpace(string(line))) > 0 {
-			if resp, ok := s.handle(line); ok {
+			if resp, ok := handle(t, version, line); ok {
 				if err := enc.Encode(resp); err != nil {
 					return err
 				}
@@ -99,7 +137,7 @@ func (s *Server) Serve(in io.Reader, out io.Writer) error {
 }
 
 // handle answers one message; a notification gets no answer.
-func (s *Server) handle(line []byte) (response, bool) {
+func handle(t Tools, version string, line []byte) (response, bool) {
 	var req request
 	if err := json.Unmarshal(line, &req); err != nil {
 		return response{JSONRPC: "2.0", ID: json.RawMessage("null"), Error: &rpcError{-32700, "parse error"}}, true
@@ -114,22 +152,21 @@ func (s *Server) handle(line []byte) (response, bool) {
 			ProtocolVersion string `json:"protocolVersion"`
 		}
 		_ = json.Unmarshal(req.Params, &p)
-		version := ProtocolVersion
+		answer := ProtocolVersion
 		if known[p.ProtocolVersion] {
-			version = p.ProtocolVersion
+			answer = p.ProtocolVersion
 		}
+		name, instructions := t.Info()
 		resp.Result = map[string]any{
-			"protocolVersion": version,
+			"protocolVersion": answer,
 			"capabilities":    map[string]any{"tools": map[string]any{}},
-			"serverInfo":      map[string]any{"name": "tend", "version": s.Version},
-			"instructions": "These tools drive the tend session you run in: start another coding agent " +
-				"beside you, give it a task, wait for it and read what it says. An agent is named by its " +
-				"pane id (p_7) or the name it was started with.",
+			"serverInfo":      map[string]any{"name": name, "version": version},
+			"instructions":    instructions,
 		}
 	case "ping":
 		resp.Result = map[string]any{}
 	case "tools/list":
-		resp.Result = map[string]any{"tools": tools}
+		resp.Result = map[string]any{"tools": t.List()}
 	case "tools/call":
 		var p struct {
 			Name      string         `json:"name"`
@@ -139,8 +176,8 @@ func (s *Server) handle(line []byte) (response, bool) {
 			resp.Error = &rpcError{-32602, "invalid params"}
 			break
 		}
-		text, err := s.call(p.Name, p.Arguments)
-		if errors.Is(err, errUnknownTool) {
+		text, err := t.Call(p.Name, p.Arguments)
+		if errors.Is(err, ErrUnknownTool) {
 			resp.Error = &rpcError{-32602, err.Error()}
 			break
 		}
@@ -160,7 +197,8 @@ func (s *Server) handle(line []byte) (response, bool) {
 
 func textContent(s string) map[string]any { return map[string]any{"type": "text", "text": s} }
 
-var errUnknownTool = errors.New("unknown tool")
+// errUnknownTool is the name tend's own tools have always wrapped.
+var errUnknownTool = ErrUnknownTool
 
 // --- the tools ---------------------------------------------------------------
 

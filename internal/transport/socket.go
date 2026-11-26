@@ -72,6 +72,16 @@ func SocketPath(name string) (string, error) {
 // ValidSessionName is whether a name can be a session's.
 func ValidSessionName(name string) error { return validSessionName(name) }
 
+// RuntimeDir is the directory the sessions' sockets are in. A program of
+// tend's with a socket of its own (tend-whatsapp) puts it in a directory
+// under this one, never beside the sessions' sockets: sessions are found by
+// listing *.sock here, and another socket would be taken for one.
+func RuntimeDir() (string, error) { return runtimeDir() }
+
+// CheckSocketPath is the length check Listen makes, for a socket path made
+// outside this package, so a too-long one is explained before it is used.
+func CheckSocketPath(path string) error { return checkPathLength(path) }
+
 func validSessionName(name string) error {
 	if len(name) > 64 {
 		return fmt.Errorf("transport: session name is too long")
