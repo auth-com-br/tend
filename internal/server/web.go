@@ -148,15 +148,22 @@ func (s *Server) WebStop() proto.WebStatus {
 }
 
 // webRestore starts the view again when it was left on.
+//
+// Whether it was is read under webMu, with the lock that turning it on and
+// off take. Read before taking it, a view turned on and off again while the
+// restore waited for the lock was started anyway — after it had been
+// turned off: TestAPhoneViewThatCannotStartSaysWhy found its log written
+// into a directory being removed, the restore having started the view the
+// test had just stopped.
 func (s *Server) webRestore() {
 	if len(s.cfg.WebCommand) == 0 || s.cfg.WebStateDir == "" {
 		return
 	}
+	s.webMu.Lock()
+	defer s.webMu.Unlock()
 	if _, err := os.Stat(s.webPath(".on")); err != nil {
 		return
 	}
-	s.webMu.Lock()
-	defer s.webMu.Unlock()
 	if failure := s.webLaunchLocked(); failure != "" {
 		s.logf("phone view: %s", failure)
 	}

@@ -101,3 +101,27 @@ func TestAPhoneViewThatCannotStartSaysWhy(t *testing.T) {
 	}
 	s.WebStop()
 }
+
+// TestAViewTurnedOffIsNotRestartedByTheRestore: the restore at a server's
+// start, waiting for the lock while the view is turned on and off again,
+// finds it off and starts nothing. If it regresses, a phone view the person
+// turned off comes back by itself.
+func TestAViewTurnedOffIsNotRestartedByTheRestore(t *testing.T) {
+	dir := t.TempDir()
+	s := webServer(t, dir, fakeWeb(dir))
+	s.webMu.Lock()
+	if err := os.WriteFile(s.webPath(".on"), []byte("on\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	restored := make(chan struct{})
+	go func() { s.webRestore(); close(restored) }()
+	// Turned off while the restore waits for the lock.
+	if err := os.Remove(s.webPath(".on")); err != nil {
+		t.Fatal(err)
+	}
+	s.webMu.Unlock()
+	<-restored
+	if _, err := os.Stat(s.webPath(".log")); err == nil {
+		t.Error("the restore started a view that had been turned off")
+	}
+}
