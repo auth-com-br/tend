@@ -66,7 +66,14 @@ func (s *Session) apiCaller() workon.Caller { return s.apiCall }
 // goToStarted shows where work was started or found: the worktree's space,
 // and the agent's tab in it (zero is the space's own tab).
 func (s *Session) goToStarted(got workon.Started) error {
-	err := s.refreshWith(func() { s.workspace, s.tab, s.focus, s.zoom = got.Workspace, got.Tab, 0, 0 })
+	err := s.refreshWith(func() {
+		s.workspace, s.tab, s.focus, s.zoom = got.Workspace, got.Tab, 0, 0
+		// The dock took the window there, to a worktree of the project it
+		// shows: it is not a space the person went to, and the dock goes on
+		// showing what it showed — the issue, error or ticket open — rather
+		// than reading the space anew (followSpaceLocked).
+		s.dock.space = got.Workspace
+	})
 	s.status(got.Message)
 	return err
 }
