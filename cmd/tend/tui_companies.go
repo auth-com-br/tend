@@ -9,6 +9,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/auth-com-br/tend/internal/proto"
+	"github.com/auth-com-br/tend/internal/sidebar"
 	"github.com/auth-com-br/tend/internal/transport"
 	"github.com/auth-com-br/tend/internal/ui"
 )
@@ -296,7 +297,7 @@ func (t *tui) fillCompaniesLocked() {
 		at = v.Entries[v.Cursor].ID
 	}
 	waiting := map[uint64]int{}
-	info := paneInfo(&t.snap)
+	info := sidebar.PaneIndex(&t.snap)
 	for _, w := range t.snap.Workspaces {
 		waiting[w.ID] = waitingIn(w, info)
 	}
@@ -374,7 +375,7 @@ func (t *tui) waitingElsewhereLocked() int {
 		return 0
 	}
 	n := 0
-	info := paneInfo(&t.snap)
+	info := sidebar.PaneIndex(&t.snap)
 	for _, w := range t.snap.Workspaces {
 		if !t.shownLocked(w.ID) {
 			n += waitingIn(w, info)

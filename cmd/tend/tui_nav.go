@@ -1,13 +1,12 @@
 package main
 
 import (
-	"fmt"
 	"slices"
 	"sort"
 	"time"
 
-	"github.com/auth-com-br/tend/internal/agentview"
 	"github.com/auth-com-br/tend/internal/proto"
+	"github.com/auth-com-br/tend/internal/sidebar"
 	"github.com/auth-com-br/tend/internal/ui"
 )
 
@@ -613,120 +612,7 @@ func (t *tui) agentsSectionLocked() ui.SidebarSection {
 // made a space expects to find it where they put it, not where an alphabet
 // puts it.
 func (t *tui) spaceRowsLocked() []ui.SidebarRow {
-	return t.spaceRowsFrom(spaceSource{snap: &t.snap, folded: t.folded, current: t.workspace})
-}
-
-// spaceSource is one machine's session as the space list reads it: the one
-// being shown, or another saved machine's, whose rows are laid out the same
-// way and point back at it.
-type spaceSource struct {
-	snap *proto.SessionSnapshot
-	// machine is empty for the session being shown.
-	machine string
-	folded  map[string]bool
-	// current is the space in view, which is none on another machine.
-	current uint64
-	// depth is where the tree starts: under a machine's row, one in.
-	depth int
-	stale bool
-}
-
-// spaceRowsFrom lays one session's spaces out as a tree.
-func (t *tui) spaceRowsFrom(src spaceSource) []ui.SidebarRow {
-	var rows []ui.SidebarRow
-	seen := make(map[string]bool)
-	here := src.machine == ""
-
-	// With a company chosen, the session being shown lists its spaces
-	// only; another machine's list is its own session's, and has none.
-	shown := func(w proto.WorkspaceInfo) bool { return !here || t.shownLocked(w.ID) }
-
-	// A group with no space in the list is still listed when it is the
-	// user's to see: always with no company chosen, and with one when the
-	// group has had a space of it. It is not where a member puts it, having
-	// none here, so it comes before the next group made after it that is
-	// placed by a member, or at the end — which keeps groups in the order
-	// they were made as far as the spaces' order lets them.
-	groups := groupsIn(src.snap)
-	company, chosen := uint64(0), false
-	if here {
-		if c, ok := t.companyLocked(); ok {
-			company, chosen = c.ID, true
-		}
-	}
-	placed := make(map[string]bool)
-	for _, w := range src.snap.Workspaces {
-		if w.Group != "" && shown(w) {
-			placed[w.Group] = true
-		}
-	}
-	unplaced := func(g proto.GroupInfo) bool {
-		return !placed[g.Name] && (!chosen || slices.Contains(g.Companies, company))
-	}
-	var emit func(name string)
-	flushBefore := func(name string) {
-		for _, g := range groups {
-			if g.Name == name {
-				return
-			}
-			if unplaced(g) && !seen[g.Name] {
-				emit(g.Name)
-			}
-		}
-	}
-
-	emit = func(name string) {
-		seen[name] = true
-		members := slices.DeleteFunc(groupMembersIn(src.snap, name), func(m proto.WorkspaceInfo) bool { return !shown(m) })
-		folded := src.folded[name]
-		inGroup := false
-		for _, m := range members {
-			inGroup = inGroup || m.ID == src.current
-		}
-		rows = append(rows, ui.SidebarRow{
-			Kind:     ui.SidebarSpaceGroup,
-			Label:    name,
-			Group:    name,
-			Folded:   folded,
-			DropHere: here && name == t.spaceDropGroup,
-			Action:   ui.ActionToggleGroup,
-			// A folded group still says what is happening inside it. Hiding
-			// that would make folding a way to stop being told an agent is
-			// waiting, which is the opposite of what folding is for.
-			Trailing: groupStateLabel(src.snap, members),
-			Active:   inGroup,
-			Depth:    src.depth,
-			Machine:  src.machine,
-			Stale:    src.stale,
-		})
-		if folded {
-			return
-		}
-		for _, member := range members {
-			rows = append(rows, t.spaceRowFrom(src, member, src.depth+1))
-		}
-	}
-
-	for _, w := range src.snap.Workspaces {
-		if !shown(w) {
-			continue
-		}
-		if w.Group == "" {
-			rows = append(rows, t.spaceRowFrom(src, w, src.depth))
-			continue
-		}
-		if seen[w.Group] {
-			continue
-		}
-		flushBefore(w.Group)
-		emit(w.Group)
-	}
-	for _, g := range groups {
-		if unplaced(g) && !seen[g.Name] {
-			emit(g.Name)
-		}
-	}
-	return rows
+	return t.sidebarViewLocked().SpaceRows(sidebar.SpaceSource{Snap: &t.snap, Folded: t.folded, Current: t.workspace})
 }
 
 // groupDirLocked is the folder a group's new spaces start in, or "".
@@ -739,51 +625,9 @@ func (t *tui) groupDirLocked(group string) string {
 	return ""
 }
 
-// groupsIn is a session's groups in the order they were made: the ones its
-// server keeps, empty ones too, or from a server that keeps no record of
-// them the names its spaces carry, as a group was before.
-func groupsIn(snap *proto.SessionSnapshot) []proto.GroupInfo {
-	if len(snap.Groups) > 0 {
-		return snap.Groups
-	}
-	var out []proto.GroupInfo
-	seen := make(map[string]bool)
-	for _, w := range snap.Workspaces {
-		if w.Group != "" && !seen[w.Group] {
-			seen[w.Group] = true
-			out = append(out, proto.GroupInfo{Name: w.Group})
-		}
-	}
-	return out
-}
-
-// spaceRowFrom is one space, at the given depth.
-func (t *tui) spaceRowFrom(src spaceSource, w proto.WorkspaceInfo, depth int) ui.SidebarRow {
-	state := spaceStateIn(src.snap, w)
-	return ui.SidebarRow{
-		Kind:  ui.SidebarSpace,
-		Label: orDash(w.Name),
-		Lines: ui.ResolveSpaceRows(t.config.UI.Sidebar.SpaceRows(), ui.SpaceTokenValues{
-			StateText: state, Workspace: orDash(w.Name), Branch: w.Branch,
-			Ahead: w.Ahead, Behind: w.Behind, Custom: spaceTokens(w),
-		}),
-		Gap:       t.config.UI.Sidebar.Spaces.RowGap,
-		Symbols:   t.config.UI.StatusIndicators == "symbols",
-		Group:     w.Group,
-		Depth:     depth,
-		Workspace: w.ID,
-		DropHere:  src.machine == "" && w.ID == t.spaceDropTarget,
-		State:     state,
-		Running:   true,
-		Active:    w.ID == src.current,
-		Machine:   src.machine,
-		Stale:     src.stale,
-	}
-}
-
 // hasGroupsLocked reports whether there is a group to move a space to.
 func (t *tui) hasGroupsLocked() bool {
-	return len(groupsIn(&t.snap)) > 0
+	return len(sidebar.GroupsIn(&t.snap)) > 0
 }
 
 // groupOfLocked is the group a space is in, or "".
@@ -798,18 +642,7 @@ func (t *tui) groupOfLocked(workspace uint64) string {
 
 // groupMembersLocked returns a group's spaces in session order.
 func (t *tui) groupMembersLocked(group string) []proto.WorkspaceInfo {
-	return groupMembersIn(&t.snap, group)
-}
-
-// groupMembersIn returns a group's spaces in one session, in its order.
-func groupMembersIn(snap *proto.SessionSnapshot, group string) []proto.WorkspaceInfo {
-	var out []proto.WorkspaceInfo
-	for _, w := range snap.Workspaces {
-		if w.Group == group {
-			out = append(out, w)
-		}
-	}
-	return out
+	return sidebar.GroupMembers(&t.snap, group)
 }
 
 // inGroupLocked reports whether the space being looked at is in a group.
@@ -820,21 +653,6 @@ func (t *tui) inGroupLocked(group string) bool {
 		}
 	}
 	return false
-}
-
-// groupStateLabel is what a group heading says about its members: the number
-// of them that want attention, or nothing when none do.
-func groupStateLabel(snap *proto.SessionSnapshot, members []proto.WorkspaceInfo) string {
-	blocked := 0
-	for _, w := range members {
-		if spaceStateIn(snap, w) == "blocked" {
-			blocked++
-		}
-	}
-	if blocked == 0 {
-		return ""
-	}
-	return itoaInt(blocked) + " waiting"
 }
 
 // agentRowsLocked lists what is running, flat or under its tab.
@@ -848,15 +666,15 @@ func (t *tui) agentRowsLocked() []ui.SidebarRow {
 	if !t.multiMachineLocked() {
 		// The machine is named only when it is another one: every row saying
 		// this laptop's name is a column of noise.
-		rows, seqs := t.agentEntriesFrom(agentSource{snap: &t.snap, label: t.host, here: true})
+		rows, seqs := t.sidebarViewLocked().AgentEntries(sidebar.AgentSource{Snap: &t.snap, Label: t.host, Here: true})
 		if view := t.snap.AgentView; view != nil {
 			// A view a script set replaces the order and decides what is
 			// shown, as herdr's agent_view_override does; tab headings mean
 			// nothing in an order that is not the session's.
-			return t.applyAgentViewLocked(view, rows, paneInfo(&t.snap))
+			return t.sidebarViewLocked().ApplyAgentView(view, rows, sidebar.PaneIndex(&t.snap))
 		}
 		if priority {
-			rows = byAttention(rows, seqs, nil)
+			rows = sidebar.ByAttention(rows, seqs, nil)
 		}
 		return rows
 	}
@@ -865,323 +683,53 @@ func (t *tui) agentRowsLocked() []ui.SidebarRow {
 	var seqs []uint64
 	var stale []bool
 	for _, e := range t.machines.endpoints {
-		src := agentSource{snap: &e.snap, machine: e.id, label: e.label, stale: e.status != ui.MachineOnline}
+		src := sidebar.AgentSource{Snap: &e.snap, Machine: e.id, Label: e.label, Stale: e.status != ui.MachineOnline}
 		if e.id == t.machines.active {
-			src = agentSource{snap: &t.snap, label: e.label, here: true}
+			src = sidebar.AgentSource{Snap: &t.snap, Label: e.label, Here: true}
 		} else if !e.have {
 			continue
 		}
-		r, s := t.agentEntriesFrom(src)
-		if src.here && t.snap.AgentView != nil {
+		r, s := t.sidebarViewLocked().AgentEntries(src)
+		if src.Here && t.snap.AgentView != nil {
 			// The view is the shown session's, and orders only its agents;
 			// the other machines' follow in their own order.
-			r = t.applyAgentViewLocked(t.snap.AgentView, r, paneInfo(&t.snap))
+			r = t.sidebarViewLocked().ApplyAgentView(t.snap.AgentView, r, sidebar.PaneIndex(&t.snap))
 			s = make([]uint64, len(r))
 		}
 		rows, seqs = append(rows, r...), append(seqs, s...)
 		for range r {
-			stale = append(stale, src.stale)
+			stale = append(stale, src.Stale)
 		}
 	}
 	if priority && t.snap.AgentView == nil {
-		rows = byAttention(rows, seqs, stale)
+		rows = sidebar.ByAttention(rows, seqs, stale)
 	}
 	return rows
 }
 
-// agentSource is one machine's session as the agent list reads it.
-type agentSource struct {
-	snap *proto.SessionSnapshot
-	// machine is empty for the session shown; label is what the machine
-	// token says, empty when there is nothing to say.
-	machine, label string
-	here, stale    bool
-}
-
-// paneInfo indexes a session's panes.
-func paneInfo(snap *proto.SessionSnapshot) map[uint64]proto.PaneInfo {
-	info := make(map[uint64]proto.PaneInfo, len(snap.Panes))
-	for _, p := range snap.Panes {
-		info[p.ID] = p
+// sidebarViewLocked is what internal/sidebar needs to know of this client:
+// the company chosen, what is on screen, how the list is laid out, and a
+// space being dragged. The caller holds the lock.
+func (t *tui) sidebarViewLocked() sidebar.View {
+	return sidebar.View{
+		UI:         t.config.UI,
+		Snap:       &t.snap,
+		Company:    t.company,
+		Workspace:  t.workspace,
+		Tab:        t.tab,
+		Focus:      t.focus,
+		Grouped:    t.grouped,
+		Multi:      t.multiMachineLocked(),
+		DropGroup:  t.spaceDropGroup,
+		DropTarget: t.spaceDropTarget,
 	}
-	return info
-}
-
-// agentEntriesFrom is one session's agents in session order, under their
-// tabs when the list is grouped, with each one's state sequence for the
-// attention order.
-func (t *tui) agentEntriesFrom(src agentSource) ([]ui.SidebarRow, []uint64) {
-	info := paneInfo(src.snap)
-	priority := t.config.UI.AgentPanelSort == "priority"
-	symbols := t.config.UI.StatusIndicators == "symbols"
-	multi := t.multiMachineLocked()
-
-	var rows []ui.SidebarRow
-	var seqs []uint64
-	for _, w := range src.snap.Workspaces {
-		if src.here && !t.shownLocked(w.ID) {
-			// A company chosen shows its agents only; the heading above
-			// says when one elsewhere is waiting.
-			continue
-		}
-		for _, tab := range w.Tabs {
-			var entries []ui.SidebarRow
-			var entrySeqs []uint64
-			for _, id := range tab.Panes {
-				p := info[id]
-				if p.Agent == "" {
-					// A shell is not an agent. Listing every pane would make
-					// the list as long as the session and hide what it exists
-					// to show.
-					continue
-				}
-				entries = append(entries, ui.SidebarRow{
-					Kind:      ui.SidebarAgent,
-					Label:     agentLabel(w, tab),
-					Lines:     t.agentLinesLocked(w, tab, p, src.label),
-					Gap:       t.config.UI.Sidebar.Agents.RowGap,
-					Symbols:   symbols,
-					Pane:      id,
-					Tab:       tab.ID,
-					Workspace: w.ID,
-					State:     displayState(p),
-					Running:   p.Running,
-					Active:    src.here && id == t.focus && tab.ID == t.tab && w.ID == t.workspace,
-					Machine:   src.machine,
-					Stale:     src.stale,
-				})
-				entrySeqs = append(entrySeqs, p.StateSeq)
-			}
-			if len(entries) == 0 {
-				continue
-			}
-			if t.grouped && !priority {
-				label := orDash(w.Name) + " · " + orDash(tab.Name)
-				if multi {
-					label = src.label + " · " + label
-				}
-				rows = append(rows, ui.SidebarRow{
-					Kind:      ui.SidebarGroup,
-					Label:     label,
-					Tab:       tab.ID,
-					Workspace: w.ID,
-					Machine:   src.machine,
-				})
-				seqs = append(seqs, 0)
-			}
-			rows = append(rows, entries...)
-			seqs = append(seqs, entrySeqs...)
-		}
-	}
-	return rows, seqs
-}
-
-// byAttention is herdr's attention queue: what needs you first, and within
-// that the most recent change first; across machines, what cannot be reached
-// after what can (sort_aggregate_rows). Tab headings mean nothing in this
-// order, and the list has none in it.
-//
-// A state sequence is counted by each server on its own, so between two
-// machines "more recent" is only a guess; within one it is exact.
-func byAttention(rows []ui.SidebarRow, seqs []uint64, stale []bool) []ui.SidebarRow {
-	order := make([]int, len(rows))
-	for i := range order {
-		order[i] = i
-	}
-	sort.SliceStable(order, func(a, b int) bool {
-		if stale != nil && stale[order[a]] != stale[order[b]] {
-			return !stale[order[a]]
-		}
-		ra, rb := rows[order[a]], rows[order[b]]
-		pa, pb := attentionPriority(ra.State, ra.Running), attentionPriority(rb.State, rb.Running)
-		if pa != pb {
-			return pa > pb
-		}
-		return seqs[order[a]] > seqs[order[b]]
-	})
-	sorted := make([]ui.SidebarRow, 0, len(rows))
-	for _, at := range order {
-		if rows[at].Kind == ui.SidebarGroup {
-			continue
-		}
-		sorted = append(sorted, rows[at])
-	}
-	return sorted
-}
-
-// applyAgentViewLocked filters and orders the agent rows by a view. The
-// caller holds the lock.
-func (t *tui) applyAgentViewLocked(view *agentview.View, rows []ui.SidebarRow, info map[uint64]proto.PaneInfo) []ui.SidebarRow {
-	wsOrder := map[uint64]uint64{}
-	tabOrder := map[uint64]uint64{}
-	paneOrder := map[uint64]uint64{}
-	for i, w := range t.snap.Workspaces {
-		wsOrder[w.ID] = uint64(i + 1)
-		for j, tab := range w.Tabs {
-			tabOrder[tab.ID] = uint64(j + 1)
-			for k, id := range tab.Panes {
-				paneOrder[id] = uint64(k + 1)
-			}
-		}
-	}
-	ctx := agentview.Context{WorkspaceID: fmt.Sprintf("w_%d", t.workspace), TabID: fmt.Sprintf("t_%d", t.tab)}
-	type entry struct {
-		row ui.SidebarRow
-		e   agentview.Entry
-	}
-	var kept []entry
-	for _, r := range rows {
-		if r.Kind != ui.SidebarAgent {
-			continue
-		}
-		p := info[r.Pane]
-		state := displayState(p)
-		if !p.Running || state == "" {
-			state = "unknown"
-		}
-		e := agentview.Entry{
-			Status: state, WorkspaceID: fmt.Sprintf("w_%d", r.Workspace), TabID: fmt.Sprintf("t_%d", r.Tab),
-			PaneID: fmt.Sprintf("p_%d", r.Pane), Agent: p.Agent, Seen: !p.Done, StateChangeSeq: p.StateSeq,
-			WorkspaceOrder: wsOrder[r.Workspace], TabOrder: tabOrder[r.Tab], PaneOrder: paneOrder[r.Pane],
-			Attention: uint64(attentionPriority(state, p.Running)),
-			Tokens:    map[string]string{},
-		}
-		for _, tok := range p.Tokens {
-			e.Tokens[tok.Key] = tok.Value
-		}
-		if view.Filter == nil || view.Filter.Matches(ctx, e) {
-			kept = append(kept, entry{row: r, e: e})
-		}
-	}
-	if len(view.Sort) > 0 {
-		sort.SliceStable(kept, func(i, j int) bool { return view.Less(kept[i].e, kept[j].e) })
-	}
-	out := make([]ui.SidebarRow, 0, len(kept))
-	for _, k := range kept {
-		out = append(out, k.row)
-	}
-	return out
-}
-
-// displayState is the state as the list shows it: herdr's "done" for an
-// agent that finished while nobody was looking.
-func displayState(p proto.PaneInfo) string {
-	if p.Dormant {
-		// A sleeping agent (the server's dormant.go): a shell runs where it
-		// was, and its state is that it sleeps.
-		return "asleep"
-	}
-	if p.Done && p.State == "idle" {
-		return "done"
-	}
-	return p.State
-}
-
-// attentionPriority is herdr's tab_attention_priority.
-func attentionPriority(state string, running bool) int {
-	if !running {
-		return 0
-	}
-	switch state {
-	case "blocked":
-		return 4
-	case "done":
-		return 3
-	case "working":
-		return 2
-	case "idle":
-		return 1
-	}
-	return 0
-}
-
-// spaceTokens are the values reported about a space, for its $name tokens.
-func spaceTokens(w proto.WorkspaceInfo) map[string]string {
-	if len(w.Tokens) == 0 {
-		return nil
-	}
-	out := make(map[string]string, len(w.Tokens))
-	for _, t := range w.Tokens {
-		out[t.Key] = t.Value
-	}
-	return out
-}
-
-// agentLinesLocked lays an agent's entry out as the settings say, herdr's
-// agent_rows: what each token says, from the session. The caller holds the
-// lock.
-func (t *tui) agentLinesLocked(w proto.WorkspaceInfo, tab proto.TabInfo, p proto.PaneInfo, machine string) [][]ui.SidebarToken {
-	v := ui.AgentTokenValues{
-		StateText: displayState(p),
-		// Empty for this machine when it is the only one; with saved
-		// machines, every row names its own, "Local" included, as herdr's
-		// do.
-		Machine:   machine,
-		Workspace: orDash(w.Name),
-		Tab:       tab.Name,
-		Agent:     p.Agent,
-		Custom:    make(map[string]string, len(p.Tokens)),
-	}
-	if label := p.StateLabels[displayState(p)]; label != "" {
-		v.StateText = label // what a hook calls this state for this pane
-	}
-	if p.Display != "" {
-		v.Agent = p.Display
-	}
-	// One title goes over the wire: the user's name when there is one, the
-	// program's own otherwise.
-	if p.Named {
-		v.Pane = p.Title
-	} else {
-		v.TerminalTitle = p.Title
-		v.TerminalTitleStripped = strippedTerminalTitle(p.Title)
-	}
-	for _, token := range p.Tokens {
-		v.Custom[token.Key] = token.Value
-	}
-	u := ui.FormatUsage(p.Usage, time.Now())
-	v.Context, v.Spent, v.Cost, v.Limit = u.Context, u.Spent, u.Cost, u.Limit
-	v.ContextLevel, v.LimitLevel = u.ContextLevel, u.LimitLevel
-	return ui.ResolveAgentRows(t.config.UI.Sidebar.AgentRows(p.Agent), v)
-}
-
-// agentLabel names where an agent is, since what it is goes underneath.
-func agentLabel(w proto.WorkspaceInfo, tab proto.TabInfo) string {
-	name := orDash(w.Name)
-	if tab.Name != "" {
-		name += " · " + tab.Name
-	}
-	return name
 }
 
 // spaceStateLocked is the most urgent thing happening in a space, because a
 // space marked idle while an agent inside it waits for an answer is worse
 // than no mark at all.
 func (t *tui) spaceStateLocked(w proto.WorkspaceInfo) string {
-	return spaceStateIn(&t.snap, w)
-}
-
-// spaceStateIn is spaceStateLocked for any machine's session.
-func spaceStateIn(snap *proto.SessionSnapshot, w proto.WorkspaceInfo) string {
-	panes := make(map[uint64]bool)
-	for _, tab := range w.Tabs {
-		for _, id := range tab.Panes {
-			panes[id] = true
-		}
-	}
-
-	// The most urgent, by herdr's attention order: an agent waiting beats one
-	// that finished unseen, which beats one still working.
-	state, best := "", 0
-	for _, p := range snap.Panes {
-		if !panes[p.ID] || p.Agent == "" || !p.Running {
-			continue
-		}
-		if s := displayState(p); attentionPriority(s, true) > best {
-			state, best = s, attentionPriority(s, true)
-		}
-	}
-	return state
+	return sidebar.SpaceState(&t.snap, w)
 }
 
 // navTarget is where a sidebar row goes, and is how the navigation cursor

@@ -4,6 +4,7 @@ import (
 	"strconv"
 
 	"github.com/auth-com-br/tend/internal/proto"
+	"github.com/auth-com-br/tend/internal/sidebar"
 	"github.com/auth-com-br/tend/internal/ui"
 )
 
@@ -294,7 +295,7 @@ func (t *tui) runMenu(m ui.Menu, item ui.MenuItem) error {
 	case ui.MenuMoveToGroup:
 		t.mu.Lock()
 		current, groups := t.groupOfLocked(m.Workspace), []string(nil)
-		for _, g := range groupsIn(&t.snap) {
+		for _, g := range sidebar.GroupsIn(&t.snap) {
 			groups = append(groups, g.Name)
 		}
 		t.mu.Unlock()

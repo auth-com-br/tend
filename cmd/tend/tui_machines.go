@@ -10,6 +10,7 @@ import (
 	"github.com/auth-com-br/tend/internal/machines"
 	"github.com/auth-com-br/tend/internal/notify"
 	"github.com/auth-com-br/tend/internal/proto"
+	"github.com/auth-com-br/tend/internal/sidebar"
 	"github.com/auth-com-br/tend/internal/transport"
 	"github.com/auth-com-br/tend/internal/ui"
 	"github.com/auth-com-br/tend/internal/vt"
@@ -563,7 +564,7 @@ func (t *tui) machineRowsLocked() []ui.SidebarRow {
 			continue
 		}
 		if shown {
-			rows = append(rows, t.spaceRowsFrom(spaceSource{snap: &t.snap, folded: t.folded, current: t.workspace, depth: 1})...)
+			rows = append(rows, t.sidebarViewLocked().SpaceRows(sidebar.SpaceSource{Snap: &t.snap, Folded: t.folded, Current: t.workspace, Depth: 1})...)
 			continue
 		}
 		if !e.have {
@@ -574,9 +575,9 @@ func (t *tui) machineRowsLocked() []ui.SidebarRow {
 			groups = make(map[string]bool)
 			ms.remoteFolded[e.id] = groups
 		}
-		rows = append(rows, t.spaceRowsFrom(spaceSource{
-			snap: &e.snap, machine: e.id, folded: groups, depth: 1,
-			stale: e.status != ui.MachineOnline,
+		rows = append(rows, t.sidebarViewLocked().SpaceRows(sidebar.SpaceSource{
+			Snap: &e.snap, Machine: e.id, Folded: groups, Depth: 1,
+			Stale: e.status != ui.MachineOnline,
 		})...)
 	}
 	return rows

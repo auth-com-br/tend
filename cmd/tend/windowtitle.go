@@ -5,10 +5,9 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"unicode"
-	"unicode/utf8"
 
 	"github.com/auth-com-br/tend/internal/config"
+	"github.com/auth-com-br/tend/internal/sidebar"
 )
 
 // The outer window's title: herdr's `ui.window_title` (`app/window_title.rs`).
@@ -139,29 +138,6 @@ func (t *tui) restoreWindowTitle() {
 	}
 }
 
-// claudeActivityGlyphs are what Claude Code puts in front of its title while
-// it works, as herdr lists them (`terminal/title.rs`).
-const claudeActivityGlyphs = "·✢✳✶✻✽◐◓◑◒"
-
 // strippedTerminalTitle drops one leading spinner frame from a program's
-// title, as herdr does: a window bar whose text changes ten times a second is
-// a bar nobody can read, and the frame says nothing the sidebar does not.
-//
-// Only a braille frame or one of Claude's glyphs, and only when a space or the
-// end follows it — "★ production" is somebody's name for a window.
-func strippedTerminalTitle(title string) string {
-	title = strings.TrimSpace(title)
-	first, size := utf8.DecodeRuneInString(title)
-	if size == 0 {
-		return ""
-	}
-	recognised := (first >= 0x2800 && first <= 0x28ff) || strings.ContainsRune(claudeActivityGlyphs, first)
-	rest := title[size:]
-	if recognised {
-		next, _ := utf8.DecodeRuneInString(rest)
-		if rest == "" || unicode.IsSpace(next) {
-			return strings.TrimSpace(rest)
-		}
-	}
-	return title
-}
+// title; it is internal/sidebar's, where the agent list uses it too.
+func strippedTerminalTitle(title string) string { return sidebar.StrippedTerminalTitle(title) }

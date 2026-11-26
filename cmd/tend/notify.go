@@ -9,6 +9,7 @@ import (
 	"github.com/auth-com-br/tend/internal/detect"
 	"github.com/auth-com-br/tend/internal/notify"
 	"github.com/auth-com-br/tend/internal/proto"
+	"github.com/auth-com-br/tend/internal/sidebar"
 	"github.com/auth-com-br/tend/internal/ui"
 	"github.com/auth-com-br/tend/internal/worktree"
 )
@@ -80,7 +81,7 @@ func (t *tui) announceFrom(e *endpoint, ev proto.Event) {
 		for _, tab := range w.Tabs {
 			for _, id := range tab.Panes {
 				if id == ev.Pane {
-					where = agentLabel(w, tab)
+					where = sidebar.AgentLabel(w, tab)
 				}
 			}
 		}
