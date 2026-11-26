@@ -77,6 +77,20 @@ profile are not touched.
 A second page for the same session opens as a tab in the browser already
 running on that profile.
 
+## tend-desktop's browser tabs
+
+tend-desktop attaches as a browser too (`tend-desktop` in `browser.status`):
+a page opened through the session — `tend browser open`, an agent's MCP
+tool — opens in a browser tab of the window (QtWebEngine, loaded only when
+one opens); `navigate` sends the tab in front; `select` turns element
+picking on in it, with the extension's selector rules, and a picked
+element goes into the context buffer as the extension's do
+(`browser.context`). It attaches again by itself when the server is
+replaced. With both the window and an outside Chromium attached, both get
+the commands. Checked: a page opened with `tend browser open` arriving in
+the window, and a pick reaching the context buffer; the picking script's
+own click on a page was not exercised.
+
 ## The protocol
 
 Everything is on the session's automation socket (`tend api schema` lists

@@ -119,6 +119,21 @@ Window {
             if (browserModel.get(i).bid === id) browserModel.setProperty(i, "title", title || "New tab")
     }
     ListModel { id: browserModel }
+
+    // What the session asks of its browsers (#74): open a page in a new
+    // browser tab, send the one in front somewhere, pick elements on it.
+    Connections {
+        target: Bridge
+        function onBrowserCommand(action, url, on) {
+            var page = root.browsers[root.activeBrowser]
+            if (action === "open" || (action === "navigate" && !page)) root.openBrowser(url)
+            else if (action === "navigate") page.go(url)
+            else if (action === "select") {
+                if (!page && on) { root.openBrowser("about:blank"); page = root.browsers[root.activeBrowser] }
+                if (page) page.setPicking(on)
+            }
+        }
+    }
     readonly property real cw: Bridge.cellWidth
     readonly property real ch: Bridge.cellHeight
 

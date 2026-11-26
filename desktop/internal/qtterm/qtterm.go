@@ -63,6 +63,19 @@ func SetStartURL(url string) {
 	C.tend_bridge_set_start_url(cs, C.int(len(url)))
 }
 
+// BrowserCommand hands QML a command for the window's browser tabs. Main
+// thread only.
+func BrowserCommand(action, url string, on bool) {
+	ca, cu := C.CString(action), C.CString(url)
+	defer C.free(unsafe.Pointer(ca))
+	defer C.free(unsafe.Pointer(cu))
+	o := C.int(0)
+	if on {
+		o = 1
+	}
+	C.tend_bridge_browser_command(ca, cu, o)
+}
+
 // SetStatus shows a line at the bottom of the window; "" hides it. Main
 // thread only.
 func SetStatus(text string) {

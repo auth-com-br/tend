@@ -223,6 +223,11 @@ func main() {
 	sess.Raise = func() { mainthread.Start(func() { raiseWindow(window) }) }
 	sess.OpenTabWindow = func(tab uint64) error { return openTabWindow(sess, tab) }
 	systemTray = newTray(sess, window, *session)
+	// The window's browser tabs are a browser the session drives (#74).
+	sess.AttachBrowser(func(action, url string, on bool) {
+		logf("browser %s %s %v", action, url, on)
+		mainthread.Start(func() { qtterm.BrowserCommand(action, url, on) })
+	})
 	logf("window loaded, focus on pane %d", sess.Focused())
 	if settingsErr != nil {
 		// Said, as the TUI says it: the window opened with what could be
@@ -342,6 +347,16 @@ func dispatch(sess *core.Session, method string, raw []byte) error {
 		return nil
 	case "tab.window":
 		return openTabWindow(sess, a.Tab)
+	case "browser.picked":
+		var p core.Picked
+		if err := json.Unmarshal(raw, &p); err != nil {
+			return err
+		}
+		if err := sess.SendPicked(p); err != nil {
+			return err
+		}
+		setStatus("picked " + p.Selector + " — in the context buffer")
+		return nil
 	case "pane.paste":
 		return sess.Paste(a.Pane, a.Text)
 	case "pane.zoom":

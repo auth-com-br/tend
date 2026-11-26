@@ -58,6 +58,11 @@ extern "C" void tend_bridge_set_status(const char *text, int len) {
 		g_bridge->setStatus(QString::fromUtf8(text, len));
 }
 
+extern "C" void tend_bridge_browser_command(const char *action, const char *url, int on) {
+	if (g_bridge)
+		g_bridge->sendBrowserCommand(QString::fromUtf8(action), QString::fromUtf8(url), on != 0);
+}
+
 extern "C" void tend_set_clipboard(const char *text, int len) {
 	QString s = QString::fromUtf8(text, len);
 	QClipboard *cb = QGuiApplication::clipboard();

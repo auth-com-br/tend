@@ -39,6 +39,8 @@ int tend_term_grab(const char *path);
 // Tend.Bridge 1.0; tend_bridge_set_state and _set_status give it the
 // window's state (JSON) and a line for the user. Main thread only.
 void tend_bridge_register(void);
+// tend_bridge_browser_command hands QML a command for its browser tabs.
+void tend_bridge_browser_command(const char *action, const char *url, int on);
 // tend_set_clipboard puts text on the clipboard and the primary selection.
 void tend_set_clipboard(const char *text, int len);
 void tend_bridge_set_state(const char *json, int len);

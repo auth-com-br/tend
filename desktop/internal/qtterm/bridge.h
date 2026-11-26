@@ -33,12 +33,16 @@ public:
 	qreal cellHeight() const;
 	void setState(const QString &state);
 	void setStatus(const QString &status);
+	void sendBrowserCommand(const QString &action, const QString &url, bool on) { emit browserCommand(action, url, on); }
 
 	Q_INVOKABLE void call(const QString &method, const QVariantMap &args = QVariantMap());
 
 signals:
 	void stateChanged();
 	void statusChanged();
+	// browserCommand is a command for the window's browser tabs from the
+	// session (open, navigate, select), as tend's extension receives them.
+	void browserCommand(const QString &action, const QString &url, bool on);
 
 private:
 	QString m_state = QStringLiteral("{}");

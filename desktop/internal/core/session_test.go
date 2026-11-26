@@ -1,6 +1,7 @@
 package core
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -589,5 +590,45 @@ func TestATabInAWindowOfItsOwn(t *testing.T) {
 	}
 	if got := s.State(); !got.Tabs[0].Active || got.Tabs[0].ID != first {
 		t.Errorf("the first window stayed on the tab it gave away: %+v", got.Tabs)
+	}
+}
+
+// TestTheWindowIsABrowserTheSessionDrives: the window attaches as a browser
+// (#74); a page an agent or script opens through the session (browser.open)
+// comes to it, and an element picked on a page goes to the context buffer
+// as the extension's do. If it regresses, an agent asking to open a page
+// finds "no browser" with the window open, or a pick goes nowhere.
+func TestTheWindowIsABrowserTheSessionDrives(t *testing.T) {
+	s := openTest(t)
+	got := make(chan string, 4)
+	s.AttachBrowser(func(action, url string, on bool) { got <- action + " " + url })
+	waitFor(t, "the window attached", func() bool {
+		res, err := s.apiCall("browser.status", nil)
+		if err != nil {
+			return false
+		}
+		b, _ := json.Marshal(res)
+		return strings.Contains(string(b), browserName)
+	})
+	if _, err := s.apiCall("browser.open", map[string]any{"url": "https://example.com/"}); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case c := <-got:
+		if c != "open https://example.com/" {
+			t.Errorf("the window was told %q", c)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("the window was not told to open the page")
+	}
+	if err := s.SendPicked(Picked{URL: "https://example.com/", Title: "Example", Selector: "h1", Tag: "h1", Text: "Example Domain"}); err != nil {
+		t.Fatal(err)
+	}
+	res, err := s.apiCall("context.list", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if b, _ := json.Marshal(res); !strings.Contains(string(b), `"selector":"h1"`) {
+		t.Errorf("the context buffer holds %s", b)
 	}
 }
