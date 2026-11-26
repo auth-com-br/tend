@@ -42,6 +42,18 @@ extern "C" void tend_bridge_register(void) {
 	qmlRegisterSingletonInstance("Tend", 1, 0, "Bridge", g_bridge);
 }
 
+extern "C" void tend_bridge_set_browser_qml(const char *qml, int len) {
+	if (!g_bridge)
+		g_bridge = new TendBridge();
+	g_bridge->setBrowserQml(QString::fromUtf8(qml, len));
+}
+
+extern "C" void tend_bridge_set_start_url(const char *url, int len) {
+	if (!g_bridge)
+		g_bridge = new TendBridge();
+	g_bridge->setStartUrl(QString::fromUtf8(url, len));
+}
+
 extern "C" void tend_bridge_set_state(const char *json, int len) {
 	if (g_bridge)
 		g_bridge->setState(QString::fromUtf8(json, len));

@@ -26,6 +26,15 @@ type State struct {
 	Focus     uint64    `json:"focus"`
 	AreaCols  int       `json:"areaCols"`
 	AreaRows  int       `json:"areaRows"`
+	// NewAgents are the agents installed on the server's machine, which
+	// the new-tab menu offers.
+	NewAgents []NewAgent `json:"newAgents"`
+}
+
+// NewAgent is an agent the new-tab menu can start.
+type NewAgent struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
 }
 
 // Row is one sidebar entry, from the same ui.SidebarRow the TUI draws, so
@@ -154,6 +163,13 @@ func (s *Session) State() State {
 	st := State{
 		Session: s.name, Grouped: s.grouped, Workspace: s.workspace, Focus: s.focus,
 		AreaCols: s.areaCols, AreaRows: s.areaRows,
+	}
+	for _, a := range s.catalog {
+		// Installed, and agents rather than the memory tools the catalog
+		// lists with them, as the TUI's installedAgents.
+		if a.Installed && a.Kind != "memory" {
+			st.NewAgents = append(st.NewAgents, NewAgent{ID: a.ID, Name: a.Name})
+		}
 	}
 	for _, r := range view.SpaceRows(sidebar.SpaceSource{Snap: snap, Folded: s.folded, Current: s.workspace}) {
 		st.Spaces = append(st.Spaces, rowOf(r))

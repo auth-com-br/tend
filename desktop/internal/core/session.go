@@ -48,6 +48,11 @@ type Session struct {
 	refreshing bool
 	again      bool
 
+	// catalog is the agents the server's machine has, for the new-tab menu;
+	// read once, after the window opens, since it asks each agent for its
+	// version and takes a moment.
+	catalog []proto.AgentStatus
+
 	// PaneChanged is called, without the lock, when a pane has something
 	// new to paint. StateChanged when what the window lists or lays out
 	// changed: the sidebar, the tabs, the panes shown. Status with a line
@@ -531,6 +536,80 @@ func (s *Session) NewTab() error {
 	tab, _, err := c.NewTab(ws, "", proto.PaneSpec{DirOf: focus})
 	if err != nil {
 		return err
+	}
+	return s.ShowTab(tab)
+}
+
+// LoadAgents reads which agents the server's machine has, for the new-tab
+// menu. It runs once, off the main thread: the catalog asks each agent for
+// its version.
+func (s *Session) LoadAgents() error {
+	s.mu.Lock()
+	c := s.client
+	s.mu.Unlock()
+	if !c.Supports(proto.MethodAgentsCatalog) {
+		return nil
+	}
+	res, err := c.AgentsCatalog()
+	if err != nil {
+		return err
+	}
+	s.mu.Lock()
+	s.catalog = res.Agents
+	s.mu.Unlock()
+	s.stateChanged()
+	return nil
+}
+
+// resumeScript runs an agent and leaves a shell when it exits, so the
+// terminal stays as the TUI's "new agent here" leaves it (cmd/tend's
+// resumeScript, the same two lines).
+const resumeScript = `"$@"
+exec "${SHELL:-/bin/sh}"`
+
+// NewAgentTab opens a tab running an agent, where the pane in focus is
+// working: the TUI's groupAgentSpec — the path the catalog found it at,
+// the arguments it is started with, and its name for its states only when
+// tend has rules for it (one without, Aider, is refused if named). A Codex
+// is started without its shared daemon by the server, as everywhere tend
+// starts one (agent.LaunchArgv).
+func (s *Session) NewAgentTab(id string) error {
+	s.mu.Lock()
+	c, ws, focus := s.client, s.workspace, s.focus
+	var agent proto.AgentStatus
+	for _, a := range s.catalog {
+		if a.ID == id {
+			agent = a
+		}
+	}
+	s.mu.Unlock()
+	if agent.ID == "" {
+		return fmt.Errorf("no agent %q here", id)
+	}
+	if ws == 0 {
+		if err := s.ensurePane(); err != nil {
+			return err
+		}
+		s.mu.Lock()
+		ws = s.workspace
+		s.mu.Unlock()
+	}
+	program := agent.Path
+	if program == "" {
+		program = agent.ID
+	}
+	label := ""
+	if agent.Detects {
+		label = agent.ID
+	}
+	spec := proto.PaneSpec{
+		Command: append([]string{"/bin/sh", "-c", resumeScript, "tend-agent", program}, agent.Args...),
+		DirOf:   focus,
+		Agent:   label,
+	}
+	tab, _, err := c.NewTab(ws, agent.Name, spec)
+	if err != nil {
+		return fmt.Errorf("%s did not start: %w", agent.Name, err)
 	}
 	return s.ShowTab(tab)
 }

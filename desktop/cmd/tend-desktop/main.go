@@ -29,6 +29,9 @@ import (
 //go:embed qml/main.qml
 var mainQML []byte
 
+//go:embed qml/Browser.qml
+var browserQML []byte
+
 // Qt wants its objects made and used on the thread that made the
 // application, and Go moves goroutines between threads; locking main to the
 // first thread keeps Qt's main thread the one main runs on.
@@ -38,6 +41,8 @@ func main() {
 	session := flag.String("s", "default", "the session to open")
 	tendBin := flag.String("tend", "", "the tend binary to start a session's server with (default: beside this one, else on PATH)")
 	shot := flag.String("shot", "", "save the window as a PNG at this path a moment after it opens, and quit (for checking it without looking)")
+	startURL := flag.String("url", "", "open this page in a browser tab when the window opens")
+	shotOpen := flag.String("shot-open", "", "with -shot: the objectName of an item whose open property is set first, to capture a menu")
 	flag.Parse()
 	debug = os.Getenv("TEND_DESKTOP_DEBUG") != ""
 
@@ -53,8 +58,14 @@ func main() {
 		logf("settings: %v", err)
 	}
 
+	// QtWebEngine shares OpenGL contexts with the window, and asks for it
+	// before the application exists (what QtWebEngineQuick::initialize
+	// does); set here, it costs nothing until a browser tab is opened.
+	qt.QCoreApplication_SetAttribute2(qt.AA_ShareOpenGLContexts, true)
 	qt.NewQApplication(os.Args)
 	qtterm.Register()
+	qtterm.SetBrowserQML(browserQML)
+	qtterm.SetStartURL(*startURL)
 
 	sess, err := core.Open(*session, tendPath, cfg.UI)
 	if err != nil {
@@ -152,10 +163,19 @@ func main() {
 	}
 	logf("window loaded, focus on pane %d", sess.Focused())
 	sess.StateChanged()
+	background(sess.LoadAgents)
 
 	if *shot != "" {
 		go func() {
 			time.Sleep(3 * time.Second)
+			mainthread.Start(func() {
+				if *shotOpen != "" {
+					if item := findObject(engine.RootObjects()[0], *shotOpen); item != nil {
+						item.SetProperty("open", qt.NewQVariant8(true))
+					}
+				}
+			})
+			time.Sleep(300 * time.Millisecond)
 			mainthread.Start(func() {
 				if err := qtterm.Grab(*shot); err != nil {
 					fmt.Fprintln(os.Stderr, "tend-desktop:", err)
@@ -178,6 +198,8 @@ func dispatch(sess *core.Session, method string, raw []byte) error {
 		Workspace uint64 `json:"workspace"`
 		Group     string `json:"group"`
 		Direction string `json:"direction"`
+		Agent     string `json:"agent"`
+		Text      string `json:"text"`
 		Cols      int    `json:"cols"`
 		Rows      int    `json:"rows"`
 	}
@@ -199,6 +221,8 @@ func dispatch(sess *core.Session, method string, raw []byte) error {
 		return sess.ShowTab(a.Tab)
 	case "tab.new":
 		return sess.NewTab()
+	case "tab.agent":
+		return sess.NewAgentTab(a.Agent)
 	case "tab.close":
 		return sess.CloseTab(a.Tab)
 	case "workspace.new":
@@ -207,6 +231,9 @@ func dispatch(sess *core.Session, method string, raw []byte) error {
 		return sess.Split(a.Direction)
 	case "pane.close":
 		return sess.ClosePane()
+	case "status":
+		setStatus(a.Text)
+		return nil
 	case "group.toggle":
 		sess.ToggleGroup(a.Group)
 		return nil
@@ -215,6 +242,19 @@ func dispatch(sess *core.Session, method string, raw []byte) error {
 		return nil
 	}
 	return fmt.Errorf("the window asked for %q, which it does not know", method)
+}
+
+// findObject is the object of that name under root, for -shot-open.
+func findObject(root *qt.QObject, name string) *qt.QObject {
+	if root.ObjectName() == name {
+		return root
+	}
+	for _, c := range root.Children() {
+		if found := findObject(c, name); found != nil {
+			return found
+		}
+	}
+	return nil
 }
 
 // background runs an action off the main thread and shows its error.

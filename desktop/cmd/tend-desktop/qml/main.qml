@@ -60,6 +60,49 @@ Window {
     }
 
     property var st: ({})
+
+    // ---- browser tabs ------------------------------------------------------
+    //
+    // A browser tab is this window's, not the session's — like a folded
+    // group, it is what one person is looking at — and belongs to the space
+    // it was opened in. Its page is Browser.qml, made from text when the
+    // first one opens, so the window has no Chromium in it until then.
+
+    property int activeBrowser: 0
+    property int nextBrowser: 1
+    property var browsers: ({})
+
+    function openBrowser(url) {
+        var page
+        try {
+            page = Qt.createQmlObject(Bridge.browserQml, browserLayer, "Browser.qml")
+        } catch (e) {
+            Bridge.call("status", { text: "the browser needs Qt WebEngine: sudo apt install qml6-module-qtwebengine" })
+            return
+        }
+        var id = nextBrowser++
+        page.anchors.fill = browserLayer
+        if (url) page.go(url)
+        browsers[id] = page
+        browserModel.append({ key: "b" + id, bid: id, workspace: st.workspace, title: "New tab" })
+        page.pageTitleChanged.connect(function () { root.setBrowserTitle(id, page.pageTitle) })
+        showBrowser(id)
+    }
+    function showBrowser(id) {
+        activeBrowser = id
+        for (var k in browsers) browsers[k].visible = (Number(k) === id)
+    }
+    function closeBrowser(id) {
+        for (var i = 0; i < browserModel.count; i++)
+            if (browserModel.get(i).bid === id) { browserModel.remove(i); break }
+        if (browsers[id]) { browsers[id].destroy(); delete browsers[id] }
+        if (activeBrowser === id) showBrowser(0)
+    }
+    function setBrowserTitle(id, title) {
+        for (var i = 0; i < browserModel.count; i++)
+            if (browserModel.get(i).bid === id) browserModel.setProperty(i, "title", title || "New tab")
+    }
+    ListModel { id: browserModel }
     readonly property real cw: Bridge.cellWidth
     readonly property real ch: Bridge.cellHeight
 
@@ -114,7 +157,10 @@ Window {
         target: Bridge
         function onStateChanged() { root.applyState() }
     }
-    Component.onCompleted: applyState()
+    Component.onCompleted: {
+        applyState()
+        if (Bridge.startUrl !== "") openBrowser(Bridge.startUrl)
+    }
 
     ListModel { id: spaceModel }
     ListModel { id: agentModel }
@@ -125,7 +171,7 @@ Window {
 
     Rectangle {
         id: sidebar
-        width: 270
+        width: 290
         anchors.top: parent.top
         anchors.bottom: statusBar.top
         anchors.left: parent.left
@@ -207,7 +253,7 @@ Window {
             anchors.leftMargin: 14
             anchors.verticalCenter: parent.verticalCenter
             color: theme.overlay0
-            font.pixelSize: 11
+            font.pixelSize: 12
             font.bold: true
             font.letterSpacing: 1
         }
@@ -249,7 +295,7 @@ Window {
         signal clicked()
 
         readonly property var tokenLines: JSON.parse(lines)
-        height: kind === "tab" ? 22 : Math.max(26, 8 + 18 * Math.max(1, tokenLines.length))
+        height: kind === "tab" ? 24 : Math.max(28, 8 + 20 * Math.max(1, tokenLines.length))
         color: active ? theme.surface0 : (hover.containsMouse ? Qt.rgba(1, 1, 1, 0.04) : "transparent")
         radius: 4
 
@@ -298,7 +344,7 @@ Window {
                                 visible: modelData.kind !== "stateIcon"
                                 text: modelData.text
                                 elide: Text.ElideRight
-                                font.pixelSize: entry.kind === "tab" ? 11 : (tokenRow.index === 0 ? 13 : 11)
+                                font.pixelSize: entry.kind === "tab" ? 12 : (tokenRow.index === 0 ? 14 : 12)
                                 font.bold: entry.kind === "group"
                                 color: {
                                     switch (modelData.kind) {
@@ -341,7 +387,7 @@ Window {
         anchors.left: sidebar.right
         anchors.right: parent.right
         anchors.top: parent.top
-        height: 34
+        height: 38
         color: theme.mantle
 
         Row {
@@ -357,10 +403,10 @@ Window {
                     required property string name
                     required property bool active
                     required property string tstate
-                    height: 26
-                    width: tabRow.width + 22
+                    height: 30
+                    width: tabRow.width + 24
                     radius: 5
-                    color: active ? theme.surface0 : (tabHover.containsMouse ? Qt.rgba(1, 1, 1, 0.05) : "transparent")
+                    color: active && root.activeBrowser === 0 ? theme.surface0 : (tabHover.containsMouse ? Qt.rgba(1, 1, 1, 0.05) : "transparent")
                     Row {
                         id: tabRow
                         anchors.centerIn: parent
@@ -375,7 +421,7 @@ Window {
                         Text {
                             text: tabEntry.name
                             color: tabEntry.active ? theme.text : theme.subtext
-                            font.pixelSize: 13
+                            font.pixelSize: 14
                             anchors.verticalCenter: parent.verticalCenter
                         }
                         Text {
@@ -394,19 +440,79 @@ Window {
                             }
                         }
                     }
+                    // Under the row, not over it: on top it took the click
+                    // meant for the x, and the tab was shown, never closed.
                     MouseArea {
                         id: tabHover
+                        z: -1
                         anchors.fill: parent
                         hoverEnabled: true
                         acceptedButtons: Qt.LeftButton | Qt.MiddleButton
                         onClicked: (mouse) => {
                             if (mouse.button === Qt.MiddleButton) Bridge.call("tab.close", { tab: tabEntry.tabId })
-                            else Bridge.call("tab", { tab: tabEntry.tabId })
+                            else { root.showBrowser(0); Bridge.call("tab", { tab: tabEntry.tabId }) }
                         }
                     }
                 }
             }
-            ToolButton { text: "+"; tip: "new tab"; onClicked: Bridge.call("tab.new", {}) }
+            Repeater {
+                model: browserModel
+                delegate: Rectangle {
+                    id: btab
+                    required property int bid
+                    required property int workspace
+                    required property string title
+                    visible: workspace === st.workspace
+                    height: 30
+                    width: visible ? Math.min(220, btRow.width + 24) : 0
+                    radius: 5
+                    color: root.activeBrowser === bid ? theme.surface0 : (btHover.containsMouse ? Qt.rgba(1, 1, 1, 0.05) : "transparent")
+                    MouseArea {
+                        id: btHover
+                        z: -1
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        acceptedButtons: Qt.LeftButton | Qt.MiddleButton
+                        onClicked: (mouse) => {
+                            if (mouse.button === Qt.MiddleButton) root.closeBrowser(btab.bid)
+                            else root.showBrowser(btab.bid)
+                        }
+                    }
+                    Row {
+                        id: btRow
+                        anchors.centerIn: parent
+                        spacing: 6
+                        Text { text: "◎"; color: theme.accent; font.pixelSize: 12; anchors.verticalCenter: parent.verticalCenter }
+                        Text {
+                            text: btab.title
+                            width: Math.min(implicitWidth, 160)
+                            elide: Text.ElideRight
+                            color: root.activeBrowser === btab.bid ? theme.text : theme.subtext
+                            font.pixelSize: 14
+                            anchors.verticalCenter: parent.verticalCenter
+                        }
+                        Text {
+                            text: "×"
+                            color: btClose.containsMouse ? theme.red : theme.overlay0
+                            font.pixelSize: 13
+                            anchors.verticalCenter: parent.verticalCenter
+                            MouseArea {
+                                id: btClose
+                                anchors.fill: parent
+                                anchors.margins: -4
+                                hoverEnabled: true
+                                onClicked: root.closeBrowser(btab.bid)
+                            }
+                        }
+                    }
+                }
+            }
+            ToolButton {
+                id: newTabButton
+                text: "+"
+                tip: "new tab"
+                onClicked: newMenu.open = !newMenu.open
+            }
         }
 
         Row {
@@ -448,6 +554,7 @@ Window {
 
     Item {
         id: paneArea
+        visible: root.activeBrowser === 0
         anchors.left: sidebar.right
         anchors.right: parent.right
         anchors.top: tabBar.bottom
@@ -527,6 +634,133 @@ Window {
                 onFocusedChanged: if (focused) term.forceActiveFocus()
                 Component.onCompleted: if (focused) term.forceActiveFocus()
             }
+        }
+    }
+
+
+    // ---- the new-tab menu -------------------------------------------------
+    //
+    // What a new tab runs: a terminal, an agent installed on the server's
+    // machine (the agent manager's catalog), or a web page.
+
+    MouseArea {
+        // A press anywhere else puts the menu away.
+        anchors.fill: parent
+        visible: newMenu.open
+        z: 90
+        onPressed: newMenu.open = false
+    }
+
+    Rectangle {
+        id: newMenu
+        objectName: "newMenu"
+        property bool open: false
+        visible: open
+        z: 100
+        x: tabBar.x + newTabButton.mapToItem(tabBar, 0, 0).x
+        y: tabBar.y + tabBar.height - 2
+        width: 230
+        height: menuColumn.height + 12
+        radius: 8
+        color: theme.mantle
+        border.color: theme.surface1
+        border.width: 1
+
+        Column {
+            id: menuColumn
+            x: 6
+            y: 6
+            width: parent.width - 12
+
+            MenuItem {
+                icon: "❯_"
+                text: "Terminal"
+                onActivated: { newMenu.open = false; Bridge.call("tab.new", {}) }
+            }
+            MenuSeparator { visible: (st.newAgents || []).length > 0 }
+            MenuLabel { visible: (st.newAgents || []).length > 0; text: "AGENT" }
+            Repeater {
+                model: st.newAgents || []
+                delegate: MenuItem {
+                    required property var modelData
+                    icon: "✦"
+                    text: modelData.name
+                    onActivated: { newMenu.open = false; Bridge.call("tab.agent", { agent: modelData.id }) }
+                }
+            }
+            MenuSeparator {}
+            MenuItem {
+                icon: "◎"
+                text: "Browser"
+                onActivated: { newMenu.open = false; root.openBrowser("") }
+            }
+        }
+    }
+
+    component MenuItem: Rectangle {
+        id: mi
+        property string icon: ""
+        property alias text: miLabel.text
+        signal activated()
+        width: parent ? parent.width : 0
+        height: 32
+        radius: 5
+        color: miArea.containsMouse ? theme.surface0 : "transparent"
+        Text {
+            x: 10
+            anchors.verticalCenter: parent.verticalCenter
+            width: 22
+            text: mi.icon
+            color: theme.accent
+            font.pixelSize: 13
+        }
+        Text {
+            id: miLabel
+            x: 38
+            anchors.verticalCenter: parent.verticalCenter
+            color: theme.text
+            font.pixelSize: 14
+        }
+        MouseArea {
+            id: miArea
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: mi.activated()
+        }
+    }
+    component MenuSeparator: Rectangle {
+        width: parent ? parent.width : 0
+        height: 9
+        color: "transparent"
+        Rectangle { anchors.centerIn: parent; width: parent.width - 8; height: 1; color: theme.surface0 }
+    }
+    component MenuLabel: Text {
+        leftPadding: 10
+        topPadding: 2
+        bottomPadding: 4
+        color: theme.overlay0
+        font.pixelSize: 11
+        font.bold: true
+        font.letterSpacing: 1
+    }
+
+    Item {
+        id: browserLayer
+        anchors.fill: paneArea
+        visible: root.activeBrowser !== 0
+    }
+
+    // A browser tab belongs to its space: going to another space shows
+    // that space's terminals.
+    Connections {
+        target: root
+        function onStChanged() {
+            var b = root.activeBrowser
+            if (b === 0) return
+            for (var i = 0; i < browserModel.count; i++)
+                if (browserModel.get(i).bid === b && browserModel.get(i).workspace !== root.st.workspace)
+                    root.showBrowser(0)
         }
     }
 

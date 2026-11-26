@@ -55,6 +55,23 @@ func SetState(json []byte) {
 	C.tend_bridge_set_state((*C.char)(unsafe.Pointer(&json[0])), C.int(len(json)))
 }
 
+// SetBrowserQML gives QML the browser page's source, made into a page only
+// when a browser tab is opened. Before the QML is loaded.
+func SetBrowserQML(qml []byte) {
+	if len(qml) == 0 {
+		return
+	}
+	C.tend_bridge_set_browser_qml((*C.char)(unsafe.Pointer(&qml[0])), C.int(len(qml)))
+}
+
+// SetStartURL is a page to open in a browser tab once the window is up.
+// Before the QML is loaded.
+func SetStartURL(url string) {
+	cs := C.CString(url)
+	defer C.free(unsafe.Pointer(cs))
+	C.tend_bridge_set_start_url(cs, C.int(len(url)))
+}
+
 // SetStatus shows a line at the bottom of the window; "" hides it. Main
 // thread only.
 func SetStatus(text string) {

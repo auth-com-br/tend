@@ -47,7 +47,7 @@ TerminalItem::~TerminalItem() { g_items.removeAll(this); }
 
 QFont TerminalItem::defaultFont() {
 	QFont font = QFontDatabase::systemFont(QFontDatabase::FixedFont);
-	font.setPointSizeF(11);
+	font.setPointSizeF(13);
 	font.setStyleHint(QFont::Monospace);
 	return font;
 }
