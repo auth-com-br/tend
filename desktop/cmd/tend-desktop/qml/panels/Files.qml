@@ -407,6 +407,7 @@ Item {
                     if (containsMouse) files.hover(entry.modelData, entry)
                     else files.unhover(entry.modelData)
                 }
+                onPositionChanged: (m) => files.moved(entry.modelData, mapToItem(files, m.x, m.y))
                 onPressed: files.unhover(entry.modelData)
                 onClicked: (m) => {
                     var d = entry.modelData
@@ -818,22 +819,33 @@ Item {
         MouseArea { id: btnArea; anchors.fill: parent; hoverEnabled: true; onClicked: btn.clicked() }
     }
 
-    // What an entry is, said when the pointer rests on it: its name in full,
-    // where it is, what git says of it, and for a repository its branch.
-    // Drawn here rather than QtQuick.Controls' ToolTip, which the package
+    // What an entry is, said when the pointer rests on it, as a desktop's
+    // own tooltips say it: a small box just below and right of the pointer,
+    // its path in full and what git says of it, put up after a moment's
+    // rest and left where it was put while the pointer stays on the row.
+    // The owner chose this over a box beside the panel, which pointed at
+    // the row from over the panes and did not read as a tooltip. Drawn
+    // here rather than with QtQuick.Controls' ToolTip, which the package
     // does not depend on.
     property var tipEntry: null
-    property real tipY: 0
+    property var tipPending: null
+    property point tipAt: Qt.point(0, 0)
+    // The pointer coming onto a row: the box waits for it to rest there
+    // (moved), so it is put up where the pointer is, not where it was.
     function hover(d, item) {
         tipEntry = null
-        tipY = item.mapToItem(files, 0, item.height / 2).y
+        tipPending = d
+    }
+    // The pointer moving on the row: the box comes once it rests.
+    function moved(d, at) {
+        if (tipEntry === d) return
+        tipAt = at
         tipPending = d
         tipTimer.restart()
     }
     function unhover(d) {
         if (tipPending === d || tipEntry === d) { tipTimer.stop(); tipPending = null; tipEntry = null }
     }
-    property var tipPending: null
     Timer {
         id: tipTimer
         interval: 550
@@ -846,8 +858,7 @@ Item {
         case "D": return "deleted"
         case "R": return "renamed"
         case "?": return "untracked"
-        case "U": return "conflict"
-        case "!": return "conflict"
+        case "U": case "!": return "conflict"
         }
         return ""
     }
@@ -855,81 +866,49 @@ Item {
         id: tipBox
         visible: !!files.tipEntry
         z: 100
-        // Beside the panel, not over it: drawn over the list, it hid the
-        // entries under the one pointed at. It stands to the panel's left,
-        // over the panes, level with the row, its arrow pointing at it.
-        x: -width - 24
-        y: Math.max(0, Math.min(files.tipY - height / 2, files.height - height))
-        // As wide as its widest line, measured apart from the lines, which
-        // wrap at the box's width: bound to them, that is a loop.
-        TextMetrics { id: tipNameM; font.pixelSize: 12; font.weight: Font.DemiBold; text: tipBox.e.name || "" }
-        TextMetrics { id: tipRelM; font.pixelSize: 11; text: "folder · " + (tipBox.e.rel || "") }
-        width: Math.min(340, Math.max(200, tipNameM.advanceWidth + 24, tipRelM.advanceWidth + 24))
-        height: tipCol.implicitHeight + 14
-        radius: 7
+        readonly property var e: files.tipEntry || ({})
+        readonly property var repo: e.dir === true ? files.repoByName[e.rel] : undefined
+        readonly property string path: e.rel || e.name || ""
+        readonly property string said: {
+            var parts = []
+            var w = files.statusWord(e.status)
+            if (w) parts.push(w)
+            if (e.ignored === true) parts.push("ignored by git")
+            if (repo) parts.push("⎇ " + (repo.branch || "detached") + (files.syncText(repo) ? " " + files.syncText(repo) : ""))
+            return parts.join(" · ")
+        }
+        // Measured apart from the text, which elides at the box's width.
+        TextMetrics { id: tipPathM; font.pixelSize: 11; text: tipBox.path }
+        TextMetrics { id: tipSaidM; font.pixelSize: 11; text: tipBox.said }
+        width: Math.min(files.width - 8, Math.max(tipPathM.advanceWidth, tipSaidM.advanceWidth) + 16)
+        height: tipSaid.visible ? 40 : 24
+        // Below and right of the pointer; above it, or to its left, where
+        // there is no room.
+        x: files.tipAt.x + 12 + width <= files.width - 4 ? files.tipAt.x + 12 : Math.max(4, files.width - width - 4)
+        y: files.tipAt.y + 18 + height <= files.height - 4 ? files.tipAt.y + 18 : files.tipAt.y - height - 6
+        radius: 5
         color: theme.crust
         border.width: 1
         border.color: theme.surface1
-        opacity: visible ? 1 : 0
-        Behavior on opacity { NumberAnimation { duration: 120 } }
-        readonly property var e: files.tipEntry || ({})
-        // The arrow, pointing right at the row.
-        Rectangle {
-            width: 10
-            height: 10
-            rotation: 45
-            x: parent.width - 6
-            y: Math.max(6, Math.min(parent.height - 16, files.tipY - tipBox.y - 5))
-            color: theme.crust
-            border.width: 1
-            border.color: theme.surface1
-            z: -1
+        Text {
+            x: 8
+            y: 5
+            width: parent.width - 16
+            text: tipBox.path
+            color: theme.text
+            font.pixelSize: 11
+            elide: Text.ElideMiddle
         }
-        readonly property var repo: e.dir === true ? files.repoByName[e.rel] : undefined
-        Column {
-            id: tipCol
-            x: 10
-            y: 7
-            width: tipBox.width - 20
-            spacing: 3
-            Text {
-                width: parent.width
-                text: tipBox.e.name || ""
-                color: theme.text
-                font.pixelSize: 12
-                font.weight: Font.DemiBold
-                wrapMode: Text.WrapAnywhere
-            }
-            Text {
-                width: parent.width
-                text: (tipBox.e.dir === true ? "folder · " : "") + (tipBox.e.rel || "")
-                color: theme.subtext
-                font.pixelSize: 11
-                wrapMode: Text.WrapAnywhere
-            }
-            Text {
-                visible: text !== ""
-                text: {
-                    var parts = []
-                    var w = files.statusWord(tipBox.e.status)
-                    if (w) parts.push(w)
-                    if (tipBox.e.ignored === true) parts.push("ignored by git")
-                    return parts.join(" · ")
-                }
-                color: tipBox.e.status ? files.letterColor(tipBox.e.status) : theme.overlay0
-                font.pixelSize: 11
-            }
-            Text {
-                visible: !!tipBox.repo
-                text: tipBox.repo ? "repository · ⎇ " + (tipBox.repo.branch || "detached") + (files.syncText(tipBox.repo) ? "  " + files.syncText(tipBox.repo) : "") : ""
-                color: theme.peach
-                font.pixelSize: 11
-            }
-            Text {
-                text: "click to open · right click for more"
-                color: theme.overlay0
-                font.pixelSize: 10
-            }
+        Text {
+            id: tipSaid
+            visible: tipBox.said !== ""
+            x: 8
+            y: 21
+            width: parent.width - 16
+            text: tipBox.said
+            color: tipBox.e.status ? files.letterColor(tipBox.e.status) : tipBox.repo ? theme.peach : theme.overlay0
+            font.pixelSize: 11
+            elide: Text.ElideRight
         }
     }
 }
