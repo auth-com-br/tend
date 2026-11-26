@@ -157,11 +157,12 @@ func TestAnAgentsRunIsRecordedFromStartToClose(t *testing.T) {
 	}
 }
 
-// TestARunEndsWhenTheAgentsProcessDoes: a pane opened as `claude` keeps
-// that name after claude exits, and the run used to go on forever — found
+// TestARunEndsWhenTheAgentsProcessDoes: a pane opened as `claude` kept
+// that name after claude exited, and the run used to go on forever — found
 // with the real Claude Code, whose /exit left the record saying it was still
-// running. The run ends when the process does, and an exited agent is not
-// counted against a limit.
+// running. The run ends when the process does, recorded as exited even
+// though the pane then closes with it, and an exited agent is not counted
+// against a limit.
 func TestARunEndsWhenTheAgentsProcessDoes(t *testing.T) {
 	log := filepath.Join(t.TempDir(), "activity.jsonl")
 	s := activityServer(t, log, policy.Policy{MaxAgents: 1}, nil)
@@ -178,9 +179,9 @@ func TestARunEndsWhenTheAgentsProcessDoes(t *testing.T) {
 	if stop := kinds(recs, activity.KindStop)[0]; stop.Reason != activity.ReasonExited {
 		t.Errorf("stop = %+v, want the agent exited", stop)
 	}
-	if st, _ := s.PaneStatus(pane); st.Agent != "claude" {
-		t.Logf("the pane is now %q; the test is about one that keeps its agent's name", st.Agent)
-	}
+	// The pane closes with its program (herdr's way), and the space with
+	// its last pane: the next agent goes in a space of its own.
+	ws, _ = s.NewWorkspace("w2")
 	if _, _, err := s.NewTab(ws, "b", PaneSpec{Command: []string{"/bin/sh", "-c", "sleep 30"}, Dir: t.TempDir(), Agent: "claude"}); err != nil {
 		t.Errorf("an exited agent counted against the limit: %v", err)
 	}

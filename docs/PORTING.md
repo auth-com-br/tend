@@ -69,6 +69,15 @@ protocol has 88, and its automation socket 95.
   than refused.
 - **Session structure**: spaces (herdr: workspaces), tabs, panes; split, close,
   zoom, resize by key and by dragging a divider, directional focus.
+- **A pane whose program ends closes** (herdr's `handle_pane_died`,
+  `app/actions.rs`, and `Workspace::remove_pane`): the pane goes when its
+  shell or agent exits, and the space with it when that was its last pane.
+  tend had kept the pane, dead, until it was closed by hand — a choice made
+  with the server (September 2026) and never recorded as a difference; the
+  owner found two dead shells left in the desktop window after typing exit,
+  and chose herdr's way (November 2026). The exit error still goes out first
+  (EventPaneExited), and the activity record ends the run as exited, not as
+  closed.
 - **Where a new terminal starts** (herdr's `[terminal] new_cwd = "follow"`,
   `app/creation.rs`, `pane.rs` `follow_cwd`): a new tab starts where the
   focused pane's foreground program is working — the agent's directory, the

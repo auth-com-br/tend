@@ -1383,9 +1383,36 @@ func (s *Server) readPane(rt *paneRuntime) {
 		ev.Err = waitErr.Error()
 	}
 	s.publish(ev)
-	if rt.closeOnExit {
-		// It was opened to run one thing, and that thing is done.
-		_ = s.ClosePane(rt.id)
+	s.closeExited(rt.id)
+}
+
+// closeExited is herdr's handle_pane_died (app/actions.rs): a pane whose
+// program ended is removed, and a space left with nothing in it goes with
+// it (Workspace::remove_pane closing the workspace for its last pane).
+//
+// tend used to keep the pane, dead, until it was closed by hand, "so a user
+// can see that something exited rather than having it vanish" — and only a
+// pane opened to run one command closed by itself. Nobody had decided to
+// differ from herdr; the owner, finding two dead shells left on the desktop
+// window after typing exit in them, chose herdr's way (November 2026). A
+// failure is still told: EventPaneExited goes out first, with the error.
+func (s *Server) closeExited(id session.PaneID) {
+	s.mu.Lock()
+	var ws session.WorkspaceID
+	if t, ok := s.session.TabOf(id); ok {
+		ws = s.workspaceOfTabLocked(t.ID)
+	}
+	s.mu.Unlock()
+	s.activityExited(id)
+	if err := s.ClosePane(id); err != nil || ws == 0 {
+		return
+	}
+	s.mu.Lock()
+	w, ok := s.session.Workspace(ws)
+	empty := ok && len(w.Tabs()) == 0
+	s.mu.Unlock()
+	if empty {
+		_ = s.CloseWorkspace(ws)
 	}
 }
 

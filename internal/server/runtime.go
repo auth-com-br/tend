@@ -74,10 +74,10 @@ type paneRuntime struct {
 	kittyKeyboard   uint16
 	modifyOtherKeys uint8
 	running         bool
-	// closeOnExit closes the pane when its program ends, for a pane opened to
-	// run one thing — a user's command, the scrollback editor — whose frame
-	// would otherwise sit there saying "exited" until closed by hand. Set
-	// before the reader starts and never changed.
+	// closeOnExit marked a pane opened to run one thing — a user's command,
+	// the scrollback editor — which closed when it ended while others were
+	// kept. Every pane closes now (Server.closeExited, herdr's way); it is
+	// still carried through a handoff, for a server older than that.
 	closeOnExit bool
 	// clipboard holds copies the program asked for that have not been passed
 	// on yet.

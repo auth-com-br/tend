@@ -302,30 +302,72 @@ func TestCloseTabStopsEveryPane(t *testing.T) {
 	})
 }
 
-// TestPaneRecordSurvivesItsProcess: a pane's identity and place in the layout
-// outlive the process, so a user can see that something exited rather than
-// having it vanish.
-func TestPaneRecordSurvivesItsProcess(t *testing.T) {
+// TestAPaneWhoseProgramEndsIsClosed: herdr's handle_pane_died — the pane
+// goes when its program does, after the exit has been told. If it
+// regresses, typing exit in a shell leaves a dead pane on screen, which is
+// how the owner found tend keeping them.
+func TestAPaneWhoseProgramEndsIsClosed(t *testing.T) {
 	s := newServer(t)
 	sub := s.Subscribe(64)
 	defer sub.Close()
 
-	_, pane := openTab(t, s, "printf bye")
-
-	waitForEvent(t, sub, func(ev Event) bool {
-		return ev.Kind == EventPaneExited && ev.Pane == pane
-	})
-
-	st, err := s.PaneStatus(pane)
+	ws, err := s.NewWorkspace("main")
 	if err != nil {
-		t.Fatalf("the pane record should remain: %v", err)
+		t.Fatal(err)
 	}
-	if st.Running {
-		t.Error("the pane should be marked stopped")
+	_, keep, err := s.NewTab(ws, "shell", shell("sleep 30"))
+	if err != nil {
+		t.Fatal(err)
 	}
+	pane, err := s.SplitPane(keep, session.Columns, shell("printf bye"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	waitForEvent(t, sub, func(ev Event) bool { return ev.Kind == EventPaneExited && ev.Pane == pane })
+	waitForEvent(t, sub, func(ev Event) bool { return ev.Kind == EventPaneClosed && ev.Pane == pane })
 	s.Session(func(sess *session.Session) {
-		if _, ok := sess.Pane(pane); !ok {
-			t.Error("the session should still hold the pane")
+		if _, ok := sess.Pane(pane); ok {
+			t.Error("the session still holds the pane whose program ended")
+		}
+		if _, ok := sess.Pane(keep); !ok {
+			t.Error("the pane beside it went too")
+		}
+		if _, ok := sess.Workspace(ws); !ok {
+			t.Error("the space went though a pane is left in it")
+		}
+	})
+}
+
+// TestTheLastPaneEndingTakesItsSpace: herdr closes a workspace whose last
+// pane died. A space with nothing in it is not left behind for every exit
+// typed in it.
+func TestTheLastPaneEndingTakesItsSpace(t *testing.T) {
+	s := newServer(t)
+	sub := s.Subscribe(64)
+	defer sub.Close()
+
+	if _, err := s.NewWorkspace("other"); err != nil {
+		t.Fatal(err)
+	}
+	ws, err := s.NewWorkspace("main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, pane, err := s.NewTab(ws, "shell", shell("printf bye"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	waitForEvent(t, sub, func(ev Event) bool { return ev.Kind == EventWorkspaceClosed && ev.Workspace == ws })
+	s.Session(func(sess *session.Session) {
+		if _, ok := sess.Workspace(ws); ok {
+			t.Error("the space whose last pane ended is still there")
+		}
+		if _, ok := sess.Pane(pane); ok {
+			t.Error("the pane is still there")
+		}
+		if len(sess.Workspaces()) != 1 {
+			t.Errorf("%d spaces left, want the other one", len(sess.Workspaces()))
 		}
 	})
 }
@@ -340,12 +382,9 @@ func TestExitErrorIsReported(t *testing.T) {
 	ev := waitForEvent(t, sub, func(ev Event) bool {
 		return ev.Kind == EventPaneExited && ev.Pane == pane
 	})
+	// The event is where the failure is told: the pane closes after it.
 	if ev.Err == "" {
 		t.Error("a non-zero exit should be reported")
-	}
-	st, _ := s.PaneStatus(pane)
-	if st.ExitErr == "" {
-		t.Error("the status should carry the exit error")
 	}
 }
 

@@ -355,6 +355,26 @@ func (s *Server) endRun(r *recorder, id session.PaneID, run *openRun, reason str
 	})
 }
 
+// activityExited ends the run of a pane whose program ended, as exited,
+// before the pane is closed for it (closeExited). Left to the next round,
+// the pane would be gone and the run recorded as closed by the user — what
+// tend activity said for every agent that ended once exited panes began
+// to close by themselves.
+func (s *Server) activityExited(id session.PaneID) {
+	r := s.activity
+	if r == nil {
+		return
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.stopped {
+		return
+	}
+	if run := r.open[id]; run != nil {
+		s.endRun(r, id, run, activity.ReasonExited, time.Now())
+	}
+}
+
 // waitForActivityRound returns once no round of the recorder is under way.
 func (s *Server) waitForActivityRound() {
 	if r := s.activity; r != nil {
