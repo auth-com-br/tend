@@ -76,7 +76,10 @@ type Session struct {
 	// items asked for, the panel the global menu opened, the pane zoomed
 	// to fill the tab, and what was last copied from each pane (a menu's
 	// "copy" copies it again).
-	dock     dock
+	dock dock
+	// pinned is the one tab a window of its own shows (tend-desktop -tab):
+	// the view stays on it, and the window shows nothing else.
+	pinned   uint64
 	files    filesTab
 	docs     docs
 	menu     *ui.Menu
@@ -105,6 +108,9 @@ type Session struct {
 	ClipboardText func() string
 	// Raise brings the window to the front: a click on a notification.
 	Raise func()
+	// OpenTabWindow puts a tab in a window of its own, which only the
+	// program can do (it starts itself again).
+	OpenTabWindow func(tab uint64) error
 }
 
 // paneView is one pane the window shows: its terminal, kept at the size the
@@ -310,6 +316,15 @@ func (s *Session) refreshOnce() error {
 		}
 		if !found {
 			s.company = 0
+		}
+	}
+	if s.pinned != 0 {
+		for _, w := range snap.Workspaces {
+			for _, t := range w.Tabs {
+				if t.ID == s.pinned {
+					s.workspace, s.tab = w.ID, t.ID
+				}
+			}
 		}
 	}
 	if s.workspace == 0 {
@@ -727,6 +742,37 @@ func (s *Session) AdjustSplit(pane uint64, side string, cells int) error {
 	}
 	s.stateChanged()
 	return nil
+}
+
+// Pin keeps this window on one tab: a tab in a window of its own.
+func (s *Session) Pin(tab uint64) error {
+	return s.refreshWith(func() { s.pinned, s.tab, s.focus = tab, tab, 0 })
+}
+
+// Pinned is the tab this window is kept on, 0 for none.
+func (s *Session) Pinned() uint64 {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.pinned
+}
+
+// LeaveTab moves this window off a tab another window now shows, to another
+// tab of its space, so the two do not each size the same panes to their
+// own area.
+func (s *Session) LeaveTab(tab uint64) error {
+	return s.refreshWith(func() {
+		if s.tab != tab {
+			return
+		}
+		if ws, ok := workspaceIn(s.snap, s.workspace); ok {
+			for _, t := range ws.Tabs {
+				if t.ID != tab {
+					s.tab, s.focus = t.ID, 0
+					return
+				}
+			}
+		}
+	})
 }
 
 // ToggleZoom makes a pane fill its tab, or the tab whole again.

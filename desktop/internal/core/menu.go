@@ -117,7 +117,11 @@ func (s *Session) menuForLocked(kind string, pane, tab, ws uint64, group string,
 	case "agent":
 		return decorate(ui.AgentMenu(pane, tab, ws, x, y), pane), true
 	case "tab":
-		return ui.TabMenu(tab, x, y), true
+		// The window's own item beside the TUI's: a tab in a window of
+		// its own, which a terminal has no way to be.
+		m := ui.TabMenu(tab, x, y)
+		m.Items = append([]ui.MenuItem{{Label: "open in new window", Action: "desktop-tab-window"}}, m.Items...)
+		return m, true
 	case "pane":
 		// The last pane of a tab has no "close pane": closing it would leave
 		// an empty tab, and "close tab" is the honest name for that.
@@ -320,6 +324,11 @@ func (s *Session) runMenu(m ui.Menu, item ui.MenuItem) error {
 	case ui.MenuRemoveWorktree:
 		_, err := s.apiCall("worktree.remove", map[string]any{"workspace_id": fmt.Sprintf("w_%d", m.Workspace)})
 		return err
+	case "desktop-tab-window":
+		if s.OpenTabWindow != nil {
+			return s.OpenTabWindow(m.Tab)
+		}
+		return nil
 	case "desktop-open-worktree":
 		_, err := s.apiCall("worktree.open", map[string]any{
 			"workspace_id": fmt.Sprintf("w_%d", m.Workspace), "path": item.Arg,

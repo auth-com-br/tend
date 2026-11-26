@@ -9,7 +9,8 @@ Item {
     id: dock
     readonly property string tab: (st.dock && st.dock.tab) || ""
     readonly property bool open: tab !== ""
-    width: rail.width + (open ? panelWidth : 0)
+    // Hidden (a window kept on one tab), it takes no width either.
+    width: visible ? rail.width + (open ? panelWidth : 0) : 0
     property real panelWidth: 380
 
     // The tabs, as a rail of marks along the window's edge.

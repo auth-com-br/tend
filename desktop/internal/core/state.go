@@ -37,6 +37,8 @@ type State struct {
 	Zoomed bool       `json:"zoomed,omitempty"`
 	// Update is a newer release the server found, for the menu's mark.
 	Update string `json:"update,omitempty"`
+	// Pinned is a window kept on one tab: no sidebar, no dock, only its tab.
+	Pinned bool `json:"pinned,omitempty"`
 	// Toasts are the cards up now.
 	Toasts []Toast `json:"toasts,omitempty"`
 	// Theme is the window's colours.
@@ -202,6 +204,7 @@ func (s *Session) State() State {
 	st.Prompt = s.prompt
 	st.Panel = s.panel
 	st.Zoomed = s.zoom != 0
+	st.Pinned = s.pinned != 0
 	st.Theme = s.theme
 	st.Dock = s.dockStateLocked()
 	for _, d := range s.docs.list {
@@ -241,6 +244,9 @@ func (s *Session) State() State {
 	}
 	if ws, ok := workspaceIn(*snap, s.workspace); ok {
 		for _, t := range ws.Tabs {
+			if s.pinned != 0 && t.ID != s.pinned {
+				continue
+			}
 			tr := TabRow{ID: t.ID, Name: t.Name, Active: t.ID == s.tab}
 			if tr.Name == "" {
 				tr.Name = "tab"
@@ -279,4 +285,23 @@ func (s *Session) State() State {
 func (s *Session) StateJSON() []byte {
 	b, _ := json.Marshal(s.State())
 	return b
+}
+
+// Waiting is how many agents wait for an answer, and which has waited
+// longest (the one whose state changed first: the attention queue's last
+// word on equals), for the tray's "go to".
+func (s *Session) Waiting() (count int, oldest uint64) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var seq uint64
+	for _, p := range s.snap.Panes {
+		if p.Agent == "" || !p.Running || sidebar.DisplayState(p) != "blocked" {
+			continue
+		}
+		count++
+		if oldest == 0 || p.StateSeq < seq {
+			oldest, seq = p.ID, p.StateSeq
+		}
+	}
+	return count, oldest
 }

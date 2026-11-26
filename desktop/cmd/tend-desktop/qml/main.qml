@@ -188,7 +188,8 @@ Window {
 
     Rectangle {
         id: sidebar
-        width: 290
+        visible: !st.pinned
+        width: st.pinned ? 0 : 290
         anchors.top: parent.top
         anchors.bottom: statusBar.top
         anchors.left: parent.left
@@ -495,6 +496,19 @@ Window {
                         z: -1
                         anchors.fill: parent
                         hoverEnabled: true
+                        // A tab dragged out of the window opens in a window
+                        // of its own, as a browser's tab does.
+                        property bool dragged: false
+                        onPressed: dragged = false
+                        onPositionChanged: (mouse) => {
+                            if (!pressed) return
+                            var p = mapToItem(root.contentItem, mouse.x, mouse.y)
+                            dragged = p.x < 0 || p.y < 0 || p.x > root.width || p.y > root.height
+                        }
+                        onReleased: {
+                            if (dragged && !st.pinned) Bridge.call("tab.window", { tab: tabEntry.tabId })
+                            dragged = false
+                        }
                         acceptedButtons: Qt.LeftButton | Qt.MiddleButton | Qt.RightButton
                         onClicked: (mouse) => {
                             if (mouse.button === Qt.RightButton) {
@@ -604,6 +618,7 @@ Window {
             }
             ToolButton {
                 id: newTabButton
+                visible: !st.pinned
                 text: "+"
                 tip: "new tab"
                 onClicked: newMenu.open = !newMenu.open
@@ -764,6 +779,36 @@ Window {
                     anchors.left: parent.left
                     anchors.right: parent.right
                     height: 8
+                }
+                // Files dropped on a pane are typed into it as their paths,
+                // quoted where they need it, as a terminal does: an agent
+                // takes a file by its path, Claude Code an image too. Text
+                // dropped is pasted.
+                DropArea {
+                    anchors.fill: parent
+                    onEntered: (drag) => drag.accept(Qt.CopyAction)
+                    onDropped: (drop) => {
+                        var text = ""
+                        if (drop.hasUrls) {
+                            text = drop.urls.map(function (u) {
+                                var p = decodeURIComponent(String(u).replace(/^file:\/\//, ""))
+                                return /[^A-Za-z0-9_\/.,:@%+=-]/.test(p) ? "'" + p.replace(/'/g, "'\\''") + "'" : p
+                            }).join(" ") + " "
+                        } else if (drop.hasText) {
+                            text = drop.text
+                        }
+                        if (text !== "") Bridge.call("pane.paste", { pane: box.pane, text: text })
+                        Bridge.call("focus", { pane: box.pane })
+                        drop.accept(Qt.CopyAction)
+                    }
+                    Rectangle {
+                        anchors.fill: parent
+                        visible: parent.containsDrag
+                        color: Qt.rgba(0.5, 0.7, 1, 0.12)
+                        border.color: theme.accent
+                        border.width: 2
+                        radius: 3
+                    }
                 }
                 // Looking back through the history: how far, of how much. Typing
                 // returns to the present.
@@ -1126,6 +1171,7 @@ Window {
 
     Dock {
         id: dockSide
+        visible: !st.pinned
         anchors.right: parent.right
         anchors.top: parent.top
         anchors.bottom: statusBar.top
@@ -1146,6 +1192,28 @@ Window {
         z: 185
         active: st.panel === "welcome"
         source: "panels/Welcome.qml"
+    }
+
+    // ---- command palette ----------------------------------------------------
+
+    property bool paletteOpen: false
+    Shortcut {
+        sequences: ["Ctrl+Shift+P", "Ctrl+Shift+K"]
+        context: Qt.ApplicationShortcut
+        onActivated: root.paletteOpen = !root.paletteOpen
+    }
+    Loader {
+        id: paletteLoader
+        objectName: "palette"
+        property alias open: root.paletteOpen
+        anchors.fill: parent
+        z: 220
+        active: root.paletteOpen
+        source: "panels/Palette.qml"
+        Connections {
+            target: paletteLoader.item
+            function onDone() { root.paletteOpen = false }
+        }
     }
 
     // ---- status line -----------------------------------------------------

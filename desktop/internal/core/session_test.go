@@ -550,3 +550,44 @@ func TestTheFilesTabIsTheFilesPanel(t *testing.T) {
 		t.Errorf("main.go opened as %s with %d lines, first token %+v", doc.View, len(doc.Lines), doc.Lines[0])
 	}
 }
+
+// TestATabInAWindowOfItsOwn: a window pinned to a tab shows that tab alone
+// and stays on it, and the window it came from moves to another tab, so the
+// two do not each size the same panes. If it regresses, a tab dragged out of
+// the window is shown twice, its panes resized back and forth.
+func TestATabInAWindowOfItsOwn(t *testing.T) {
+	s := openTest(t)
+	if err := s.SetArea(100, 40); err != nil {
+		t.Fatal(err)
+	}
+	first := s.State().Tabs[0].ID
+	if err := s.NewTab(); err != nil {
+		t.Fatal(err)
+	}
+	second := s.State().Tabs[1].ID
+
+	other, err := Open(s.Name(), tendBin, config.Defaults())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer other.Close()
+	if err := other.Pin(second); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.LeaveTab(second); err != nil {
+		t.Fatal(err)
+	}
+	st := other.State()
+	if !st.Pinned || len(st.Tabs) != 1 || st.Tabs[0].ID != second {
+		t.Errorf("the pinned window shows %+v", st.Tabs)
+	}
+	if err := other.ShowTab(first); err != nil {
+		t.Fatal(err)
+	}
+	if got := other.State().Tabs[0].ID; got != second {
+		t.Errorf("the pinned window went to tab %d", got)
+	}
+	if got := s.State(); !got.Tabs[0].Active || got.Tabs[0].ID != first {
+		t.Errorf("the first window stayed on the tab it gave away: %+v", got.Tabs)
+	}
+}

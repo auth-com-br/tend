@@ -11,11 +11,14 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
+	"syscall"
 	"time"
 
 	qt "github.com/mappu/miqt/qt6"
@@ -80,6 +83,7 @@ func main() {
 	tendBin := flag.String("tend", "", "the tend binary to start a session's server with (default: beside this one, else on PATH)")
 	shot := flag.String("shot", "", "save the window as a PNG at this path a moment after it opens, and quit (for checking it without looking)")
 	startURL := flag.String("url", "", "open this page in a browser tab when the window opens")
+	pinTab := flag.Uint64("tab", 0, "a window of its own for this tab of the session: only it, no sidebar")
 	shotCall := flag.String("shot-call", "", "with -shot: Bridge calls made first, as 'method {json args}', several separated by ' ;; ', to capture what they open")
 	shotOpen := flag.String("shot-open", "", "with -shot: the objectName of an item whose open property is set first, to capture a menu")
 	flag.Parse()
@@ -110,6 +114,11 @@ func main() {
 		fail(err)
 	}
 	defer sess.Close()
+	if *pinTab != 0 {
+		if err := sess.Pin(*pinTab); err != nil {
+			fail(err)
+		}
+	}
 
 	// Everything that reports to Go is wired up before the QML is loaded,
 	// not after: on Wayland the items are given their size while the QML
@@ -155,6 +164,8 @@ func main() {
 		pending.Store(false)
 		if stateDue.Swap(false) {
 			qtterm.SetState(sess.StateJSON())
+			count, oldest := sess.Waiting()
+			systemTray.update(*session, count, oldest)
 		}
 		dirtyMu.Lock()
 		panes := make([]uint64, 0, len(dirty))
@@ -209,13 +220,9 @@ func main() {
 	}
 	// A click on a notification brings the window to the front.
 	window := qt.UnsafeNewQWindow(engine.RootObjects()[0].UnsafePointer())
-	sess.Raise = func() {
-		mainthread.Start(func() {
-			window.Show()
-			window.Raise()
-			window.RequestActivate()
-		})
-	}
+	sess.Raise = func() { mainthread.Start(func() { raiseWindow(window) }) }
+	sess.OpenTabWindow = func(tab uint64) error { return openTabWindow(sess, tab) }
+	systemTray = newTray(sess, window, *session)
 	logf("window loaded, focus on pane %d", sess.Focused())
 	if settingsErr != nil {
 		// Said, as the TUI says it: the window opened with what could be
@@ -258,6 +265,10 @@ func main() {
 
 	qt.QApplication_Exec()
 }
+
+// systemTray is the tray icon, nil where the desktop has no tray. Main
+// thread only.
+var systemTray *tray
 
 // dispatch is every action the window can take, by the name QML calls it
 // with (Bridge.call). It runs off the main thread: each one talks to the
@@ -329,6 +340,10 @@ func dispatch(sess *core.Session, method string, raw []byte) error {
 	case "prompt.cancel":
 		sess.CancelPrompt()
 		return nil
+	case "tab.window":
+		return openTabWindow(sess, a.Tab)
+	case "pane.paste":
+		return sess.Paste(a.Pane, a.Text)
 	case "pane.zoom":
 		return sess.ToggleZoom(a.Pane)
 	case "appearance":
@@ -344,6 +359,12 @@ func dispatch(sess *core.Session, method string, raw []byte) error {
 		return sess.JumpToPane(a.Pane)
 	case "panel":
 		sess.OpenPanel(a.Name)
+		return nil
+	case "settings.reload":
+		if err := sess.ReloadSettings(); err != nil {
+			return err
+		}
+		setStatus("settings reloaded")
 		return nil
 	case "welcome.done":
 		return sess.FinishOnboarding()
@@ -401,6 +422,27 @@ func findObject(root *qt.QObject, name string) *qt.QObject {
 		if found := findObject(c, name); found != nil {
 			return found
 		}
+	}
+	return nil
+}
+
+// openTabWindow puts a tab in a window of its own (#71): this program again,
+// a second client of the same session kept on that tab, which can go to
+// another monitor. This window moves to another tab, so the two do not each
+// size the tab's panes to their own area.
+func openTabWindow(sess *core.Session, tab uint64) error {
+	self, err := os.Executable()
+	if err != nil {
+		return err
+	}
+	cmd := exec.Command(self, "-s", sess.Name(), "-tab", strconv.FormatUint(tab, 10))
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("opening a window for the tab: %w", err)
+	}
+	go func() { _ = cmd.Wait() }()
+	if sess.Pinned() == 0 {
+		return sess.LeaveTab(tab)
 	}
 	return nil
 }
