@@ -146,6 +146,7 @@ func Open(name, tendPath string, cfg config.Config) (*Session, error) {
 		return nil, err
 	}
 	go s.runNotices(s.done)
+	s.startOnboarding()
 	s.mu.Lock()
 	empty := len(s.snap.Panes) == 0
 	s.mu.Unlock()

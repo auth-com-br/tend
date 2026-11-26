@@ -339,6 +339,8 @@ func dispatch(sess *core.Session, method string, raw []byte) error {
 	case "panel":
 		sess.OpenPanel(a.Name)
 		return nil
+	case "welcome.done":
+		return sess.FinishOnboarding()
 	case "setting.change":
 		said, err := sess.ChangeSetting(a.Index, a.Delta)
 		if err != nil {

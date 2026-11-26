@@ -194,7 +194,7 @@ status line. Everything is a mouse target as well as a key.
 |---|---|---|
 | 0 | Window on a session: the focused pane, keyboard, resize | done |
 | 1 | The bridge and Go models; sidebar (spaces, groups, agents and state); tabs; splits with dividers; focus; mouse in panes; scrollback; selection and copy; the weight test | done |
-| 2 | Menus (from internal/ui's menu definitions), rename, dialogs, notifications (native), settings, themes from the settings, the kitty keyboard protocol | |
+| 2 | Menus (from internal/ui's menu definitions), rename, dialogs, notifications (native), settings, themes from the settings, the kitty keyboard protocol | done |
 | 3 | The dock: files, search, changes with diff and review, history (internal/explorer's logic without its grid) | |
 | 4 | Issues and PRs, errors, tickets, MCP, permissions, agent manager, sessions, context, worktrees, machines | |
 | 5 | What only a window does: command palette, tray and native notifications, drag and drop into an agent, a tab in its own window, diff and review side by side, spending dashboard, native previews | |
@@ -265,7 +265,3 @@ Chosen by the owner (November 2026); none is started.
 Programs that already run in a pane (`tend files`, `tend view`) still work in
 the window as terminals until their native panels replace them.
 
-Not yet, from phase 0: the kitty keyboard protocol (so Shift+Enter is a plain
-Enter for Claude Code here), the input method (compose, dead keys go through
-Qt's text), and the theme, which is catppuccin mocha until it is read from
-the settings.

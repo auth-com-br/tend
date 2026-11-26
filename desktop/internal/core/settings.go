@@ -2,6 +2,7 @@ package core
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/auth-com-br/tend/internal/config"
 	"github.com/auth-com-br/tend/internal/proto"
@@ -50,6 +51,36 @@ func (s *Session) settingsStateLocked() *SettingsState {
 		st.Rows = append(st.Rows, r)
 	}
 	return st
+}
+
+// skipOnboardingEnv is the TUI's test switch for the welcome, which tests
+// that start windows with no settings file honour too.
+const skipOnboardingEnv = "TEND_TEST_SKIP_ONBOARDING"
+
+// startOnboarding opens the first-run welcome while the settings ask for it
+// (herdr's should_show_onboarding: `onboarding` missing or true), as the
+// TUI does. It is one welcome for both clients: going on in either writes
+// `onboarding = false`.
+func (s *Session) startOnboarding() {
+	s.mu.Lock()
+	if s.cfg.ShowOnboarding() && os.Getenv(skipOnboardingEnv) == "" {
+		s.panel = "welcome"
+	}
+	s.mu.Unlock()
+}
+
+// FinishOnboarding writes `onboarding = false` and opens the settings, at
+// the agents' integrations the welcome offers, as herdr's
+// complete_onboarding.
+func (s *Session) FinishOnboarding() error {
+	if err := config.SetTopLevel("onboarding", "false"); err != nil {
+		return err
+	}
+	if err := s.ReloadSettings(); err != nil {
+		return err
+	}
+	s.OpenPanel("settings")
+	return nil
 }
 
 // OpenPanel shows one of the window's screens ("settings"), or none ("").

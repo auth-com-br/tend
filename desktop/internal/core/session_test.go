@@ -59,6 +59,7 @@ func openTest(t *testing.T) *Session {
 	t.Setenv("XDG_STATE_HOME", t.TempDir())
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	t.Setenv("SHELL", "/bin/sh")
+	t.Setenv(skipOnboardingEnv, "1")
 	name := fmt.Sprintf("t%d", sessionCount.Add(1))
 	s, err := Open(name, tendBin, config.Defaults())
 	if err != nil {
@@ -398,5 +399,28 @@ func TestASettingChangedInTheWindowIsWrittenAndWorn(t *testing.T) {
 	}
 	if after.Settings.Rows[0].Current != 2 {
 		t.Errorf("the screen shows choice %d, want 2", after.Settings.Rows[0].Current)
+	}
+}
+
+// TestTheWelcomeIsShownOnceForBothClients: with no settings file the window
+// opens on herdr's welcome; going on writes onboarding = false — the TUI's
+// switch too — and opens the settings. If it regresses, the welcome comes
+// back every time, or never.
+func TestTheWelcomeIsShownOnceForBothClients(t *testing.T) {
+	s := openTest(t)
+	os.Unsetenv(skipOnboardingEnv)
+	s.startOnboarding()
+	if p := s.State().Panel; p != "welcome" {
+		t.Fatalf("a first window opens on %q, want the welcome", p)
+	}
+	if err := s.FinishOnboarding(); err != nil {
+		t.Fatal(err)
+	}
+	if p := s.State().Panel; p != "settings" {
+		t.Errorf("going on opened %q, want the settings", p)
+	}
+	cfg, err := config.Load()
+	if err != nil || cfg.ShowOnboarding() {
+		t.Errorf("the welcome would show again (%v)", err)
 	}
 }

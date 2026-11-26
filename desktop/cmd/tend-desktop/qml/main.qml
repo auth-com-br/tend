@@ -1083,6 +1083,12 @@ Window {
         active: st.panel === "settings"
         source: "panels/Settings.qml"
     }
+    Loader {
+        anchors.fill: parent
+        z: 185
+        active: st.panel === "welcome"
+        source: "panels/Welcome.qml"
+    }
 
     // ---- status line -----------------------------------------------------
 
