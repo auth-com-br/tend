@@ -385,6 +385,11 @@ func (s *Session) layout(tab uint64, cols, rows int) error {
 			return err
 		}
 		rects = res.Panes
+		if panel := s.tuiFilesPanel(rects); panel != 0 {
+			if rects, err = layoutWithout(c, tab, cols, rows, rects, panel); err != nil {
+				return err
+			}
+		}
 	}
 	s.mu.Lock()
 	if s.tab != tab {
@@ -417,6 +422,11 @@ func (s *Session) layout(tab uint64, cols, rows int) error {
 		if !shown[id] {
 			delete(s.panes, id)
 		}
+	}
+	// The pane in focus is one drawn: the tab's active pane can be the
+	// TUI's files panel, which the window leaves out (tuipanel.go).
+	if len(ids) > 0 && !shown[s.focus] {
+		s.focus = ids[0]
 	}
 	s.mu.Unlock()
 	// Subscribing sends each pane's screen as it is now, which arrives
