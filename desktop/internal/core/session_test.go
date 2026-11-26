@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/auth-com-br/tend/internal/config"
+	"github.com/auth-com-br/tend/internal/proto"
 	"github.com/auth-com-br/tend/internal/ui"
 )
 
@@ -59,7 +60,7 @@ func openTest(t *testing.T) *Session {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	t.Setenv("SHELL", "/bin/sh")
 	name := fmt.Sprintf("t%d", sessionCount.Add(1))
-	s, err := Open(name, tendBin, config.Defaults().UI)
+	s, err := Open(name, tendBin, config.Defaults())
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
@@ -313,4 +314,50 @@ func TestTheMenusDoWhatTheTUIsDo(t *testing.T) {
 		_ = s.refresh()
 		return len(s.State().Tabs) == 1
 	})
+}
+
+// TestAnAgentThatNeedsYouIsAnnounced: an agent in a pane says it is working,
+// then that it waits on a question (OSC 7501, as Claude Code says it); with
+// the window behind another, the window shows a card and raises the system's
+// notification, and a click on it goes to the agent. If it regresses, the
+// agent that needs you is not the one on screen and nothing says so — the
+// reason tend exists.
+func TestAnAgentThatNeedsYouIsAnnounced(t *testing.T) {
+	s := openTest(t)
+	if err := s.SetArea(100, 40); err != nil {
+		t.Fatal(err)
+	}
+	type raised struct{ title, body string }
+	got := make(chan raised, 4)
+	var click func()
+	s.mu.Lock()
+	s.notifyHook = func(title, body string, clicked func()) error {
+		click = clicked
+		got <- raised{title, body}
+		return nil
+	}
+	s.mu.Unlock()
+	if err := s.SetWindowFocused(false); err != nil {
+		t.Fatal(err)
+	}
+	script := `printf '\033]7501;state=working:app=claude-code\007'; sleep 1; ` +
+		`printf '\033]7501;state=blocked:app=claude-code:kind=question\007'; sleep 30`
+	ws := s.State().Workspace
+	_, pane, err := s.client.NewTab(ws, "agent", proto.PaneSpec{Command: []string{"/bin/sh", "-c", script}, Agent: "claude"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case r := <-got:
+		if !strings.Contains(r.title, "claude needs attention") {
+			t.Errorf("the notification says %q", r.title)
+		}
+	case <-time.After(15 * time.Second):
+		t.Fatal("no notification for an agent that needs an answer")
+	}
+	if toasts := s.State().Toasts; len(toasts) == 0 || toasts[0].Pane != pane {
+		t.Errorf("the window's cards: %+v", toasts)
+	}
+	click()
+	waitFor(t, "the click to go to the agent", func() bool { return s.Focused() == pane })
 }

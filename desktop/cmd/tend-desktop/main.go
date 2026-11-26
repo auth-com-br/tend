@@ -69,7 +69,7 @@ func main() {
 	qtterm.SetBrowserQML(browserQML)
 	qtterm.SetStartURL(*startURL)
 
-	sess, err := core.Open(*session, tendPath, cfg.UI)
+	sess, err := core.Open(*session, tendPath, cfg)
 	if err != nil {
 		fail(err)
 	}
@@ -166,6 +166,15 @@ func main() {
 	if len(engine.RootObjects()) == 0 {
 		fail(fmt.Errorf("the window's QML did not load"))
 	}
+	// A click on a notification brings the window to the front.
+	window := qt.UnsafeNewQWindow(engine.RootObjects()[0].UnsafePointer())
+	sess.Raise = func() {
+		mainthread.Start(func() {
+			window.Show()
+			window.Raise()
+			window.RequestActivate()
+		})
+	}
 	logf("window loaded, focus on pane %d", sess.Focused())
 	sess.StateChanged()
 	background(sess.LoadAgents)
@@ -218,6 +227,7 @@ func dispatch(sess *core.Session, method string, raw []byte) error {
 		X         int    `json:"x"`
 		Y         int    `json:"y"`
 		Index     int    `json:"index"`
+		Focused   bool   `json:"focused"`
 		Cols      int    `json:"cols"`
 		Rows      int    `json:"rows"`
 	}
@@ -266,6 +276,14 @@ func dispatch(sess *core.Session, method string, raw []byte) error {
 		return nil
 	case "pane.zoom":
 		return sess.ToggleZoom(a.Pane)
+	case "window.focus":
+		return sess.SetWindowFocused(a.Focused)
+	case "toast.dismiss":
+		sess.DismissToast(a.Index)
+		return nil
+	case "toast.open":
+		sess.DismissToast(a.Index)
+		return sess.JumpToPane(a.Pane)
 	case "status":
 		setStatus(a.Text)
 		return nil

@@ -37,6 +37,8 @@ type State struct {
 	Zoomed bool       `json:"zoomed,omitempty"`
 	// Update is a newer release the server found, for the menu's mark.
 	Update string `json:"update,omitempty"`
+	// Toasts are the cards up now.
+	Toasts []Toast `json:"toasts,omitempty"`
 }
 
 // MenuState is a menu as QML draws it.
@@ -190,6 +192,7 @@ func (s *Session) State() State {
 	st.Prompt = s.prompt
 	st.Panel = s.panel
 	st.Zoomed = s.zoom != 0
+	st.Toasts = append([]Toast(nil), s.notes.shown...)
 	if s.snap.Update != nil {
 		st.Update = s.snap.Update.Ready
 	}

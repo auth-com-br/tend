@@ -31,6 +31,10 @@ type Session struct {
 	client *client.Client
 	name   string
 	ui     config.UI
+	notes  *notifier
+	done   chan struct{}
+	// notifyHook stands in for the system's notifications in tests.
+	notifyHook func(title, body string, clicked func()) error
 
 	snap                  proto.SessionSnapshot
 	workspace, tab, focus uint64
@@ -87,6 +91,8 @@ type Session struct {
 	Copied func(string)
 	// ClipboardText reads the clipboard, which only the Qt side can.
 	ClipboardText func() string
+	// Raise brings the window to the front: a click on a notification.
+	Raise func()
 }
 
 // paneView is one pane the window shows: its terminal, kept at the size the
@@ -104,10 +110,12 @@ type paneView struct {
 
 // Open connects to the named session, starting it with tendPath if it is not
 // running, and settles on what to show.
-func Open(name, tendPath string, ui config.UI) (*Session, error) {
+func Open(name, tendPath string, cfg config.Config) (*Session, error) {
 	s := &Session{
 		name:     name,
-		ui:       ui,
+		ui:       cfg.UI,
+		notes:    newNotifier(cfg),
+		done:     make(chan struct{}),
 		colours:  DefaultColours,
 		folded:   map[string]bool{},
 		panes:    map[uint64]*paneView{},
@@ -124,6 +132,7 @@ func Open(name, tendPath string, ui config.UI) (*Session, error) {
 		_ = c.Close()
 		return nil, err
 	}
+	go s.runNotices(s.done)
 	s.mu.Lock()
 	empty := len(s.snap.Panes) == 0
 	s.mu.Unlock()
@@ -145,6 +154,11 @@ func Open(name, tendPath string, ui config.UI) (*Session, error) {
 func (s *Session) Close() error {
 	s.mu.Lock()
 	c := s.client
+	select {
+	case <-s.done:
+	default:
+		close(s.done)
+	}
 	s.mu.Unlock()
 	if c == nil {
 		return nil
@@ -787,6 +801,8 @@ func (s *Session) Event(ev proto.Event) {
 		return
 	case proto.EventNotify, proto.EventContextArrived:
 		return
+	case proto.EventPaneState:
+		s.announceState(ev)
 	}
 	if !s.eventRefresh.CompareAndSwap(false, true) {
 		return // one is on its way, and will read this change too

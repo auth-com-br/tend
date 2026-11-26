@@ -61,6 +61,11 @@ Window {
 
     property var st: ({})
 
+    // Whether the window is the one in front: the pane in view is not
+    // announced while it is, and the server learns from it when an agent
+    // finished unseen.
+    onActiveChanged: Bridge.call("window.focus", { focused: active })
+
     // ---- browser tabs ------------------------------------------------------
     //
     // A browser tab is this window's, not the session's — like a folded
@@ -974,6 +979,84 @@ Window {
                 promptInput.text = st.prompt ? st.prompt.text : ""
                 promptInput.selectAll()
                 promptInput.forceActiveFocus()
+            }
+        }
+    }
+
+
+    // ---- notices ------------------------------------------------------------
+    //
+    // An agent that needs you, or finished, as a card at the window's foot:
+    // internal/announce decided it was worth saying, as it does for the TUI.
+    // A click goes to the agent.
+
+    Column {
+        anchors.right: parent.right
+        anchors.bottom: statusBar.top
+        anchors.margins: 12
+        spacing: 8
+        z: 150
+        Repeater {
+            model: st.toasts || []
+            delegate: Rectangle {
+                required property var modelData
+                width: 340
+                height: toastText.height + 22
+                radius: 8
+                color: theme.mantle
+                border.width: 1
+                border.color: modelData.kind === "attention" ? theme.red : theme.teal
+                Rectangle {
+                    x: 10
+                    y: 14
+                    width: 8
+                    height: 8
+                    radius: 4
+                    color: modelData.kind === "attention" ? theme.red : theme.teal
+                }
+                Column {
+                    id: toastText
+                    x: 26
+                    y: 10
+                    width: parent.width - 52
+                    spacing: 3
+                    Text {
+                        width: parent.width
+                        text: modelData.title
+                        color: theme.text
+                        font.pixelSize: 13
+                        font.bold: true
+                        elide: Text.ElideRight
+                    }
+                    Text {
+                        visible: !!modelData.body
+                        width: parent.width
+                        text: modelData.body || ""
+                        color: theme.subtext
+                        font.pixelSize: 12
+                        wrapMode: Text.Wrap
+                        maximumLineCount: 3
+                        elide: Text.ElideRight
+                    }
+                }
+                MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: Bridge.call("toast.open", { index: modelData.id, pane: modelData.pane || 0 })
+                }
+                Text {
+                    anchors.right: parent.right
+                    anchors.top: parent.top
+                    anchors.margins: 8
+                    text: "×"
+                    color: theme.overlay0
+                    font.pixelSize: 14
+                    MouseArea {
+                        anchors.fill: parent
+                        anchors.margins: -4
+                        onClicked: Bridge.call("toast.dismiss", { index: modelData.id })
+                    }
+                }
             }
         }
     }
