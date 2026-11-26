@@ -206,7 +206,10 @@ Item {
                 anchors.right: parent.right
                 anchors.rightMargin: 10
                 anchors.verticalCenter: parent.verticalCenter
-                width: visible ? implicitWidth : 0
+                // One letter (or a dot): a fixed width, not the text's own, which
+                // a Text measures from its width — a binding loop.
+                width: visible ? 14 : 0
+                horizontalAlignment: Text.AlignRight
                 visible: !!entry.modelData.status
                 text: entry.modelData.status === "!" ? "●" : (entry.modelData.status === "?" ? "U" : (entry.modelData.status || ""))
                 color: files.letterColor(entry.modelData.status)
