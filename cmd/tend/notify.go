@@ -5,6 +5,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/auth-com-br/tend/internal/announce"
 	"github.com/auth-com-br/tend/internal/asks"
 	"github.com/auth-com-br/tend/internal/detect"
 	"github.com/auth-com-br/tend/internal/notify"
@@ -24,16 +25,8 @@ import (
 // Anything else is a state change nobody asked to hear about. The pane being
 // looked at says nothing, because being told what is on screen is noise.
 
-// notifyCooldown is how long one pane is left alone after it was announced.
-// An agent that flickers between states — and they do, while a tool runs —
-// would otherwise raise a notification a second.
-const notifyCooldown = 10 * time.Second
-
 // paneNotice is what was last said about a pane.
-type paneNotice struct {
-	state detect.State
-	at    time.Time
-}
+type paneNotice = announce.Notice
 
 // announce decides whether a state change is worth telling the user about, and
 // tells them. It runs on the event goroutine, so it does no round trips.
@@ -62,8 +55,8 @@ func (t *tui) announceFrom(e *endpoint, ev proto.Event) {
 		notices, snap, machine, focused = e.notices, &e.snap, e.id, false
 	}
 	previous := notices[ev.Pane]
-	kind, worth := worthAnnouncing(previous, state, time.Now())
-	notices[ev.Pane] = paneNotice{state: state, at: time.Now()}
+	kind, worth := announce.Worth(previous, state, time.Now())
+	notices[ev.Pane] = paneNotice{State: state, At: time.Now()}
 
 	var agent, where string
 	muted := false
@@ -99,7 +92,7 @@ func (t *tui) announceFrom(e *endpoint, ev proto.Event) {
 	t.lastNotice, t.lastNoticeMachine = ev.Pane, machine // for open-notification
 	t.mu.Unlock()
 	switch kind {
-	case announceBlocked:
+	case announce.Blocked:
 		if e != nil {
 			t.raiseOn(machine, ui.ToastAttention, agent+" needs attention", where, ev.Pane, t.soundFor(agent, notify.SoundRequest))
 			return
@@ -117,38 +110,9 @@ func (t *tui) announceFrom(e *endpoint, ev proto.Event) {
 			}
 			t.raiseOn(machine, ui.ToastAttention, title, body, ev.Pane, t.soundFor(agent, notify.SoundRequest))
 		}()
-	case announceFinished:
+	case announce.Finished:
 		t.raiseOn(machine, ui.ToastFinished, agent+" finished", where, ev.Pane, t.soundFor(agent, notify.SoundDone))
 	}
-}
-
-// What an announcement is about.
-const (
-	announceNothing = iota
-	announceBlocked
-	announceFinished
-)
-
-// worthAnnouncing is herdr's rule, and the cooldown tend adds to it: an agent
-// that became blocked needs attention; one that was working and went idle has
-// finished; anything else is a state change nobody asked to hear about.
-//
-// The cooldown is not herdr's. An agent flickers between working and idle
-// while a tool runs — the screen says one thing between two redraws — and
-// without it the same agent finishes a dozen times a minute.
-func worthAnnouncing(previous paneNotice, state detect.State, now time.Time) (kind int, ok bool) {
-	switch {
-	case state == detect.StateBlocked && previous.state != detect.StateBlocked:
-		kind = announceBlocked
-	case state == detect.StateIdle && previous.state == detect.StateWorking:
-		kind = announceFinished
-	default:
-		return announceNothing, false
-	}
-	if !previous.at.IsZero() && now.Sub(previous.at) < notifyCooldown && previous.state == state {
-		return kind, false
-	}
-	return kind, true
 }
 
 // raise says it, a moment from now: herdr's notification policy holds an
@@ -174,19 +138,11 @@ func (t *tui) raiseOn(machine, kind, title, body string, pane uint64, sound noti
 	t.mu.Lock()
 	t.pendingNotices = append(t.pendingNotices, pendingNotice{
 		kind: kind, title: title, body: body, pane: pane, sound: sound, machine: machine,
-		due: now.Add(delay), expires: now.Add(max(delay, completionGrace)),
+		due: now.Add(delay), expires: now.Add(max(delay, announce.Grace)),
 	})
 	t.mu.Unlock()
 	t.deliverDue()
 }
-
-// completionGrace is herdr's COMPLETION_EVIDENCE_GRACE: how long past its
-// moment a notice waits for the session to show its pane in the state it
-// announces, and recheckEvery how often it looks.
-const (
-	completionGrace = time.Second
-	recheckEvery    = 50 * time.Millisecond
-)
 
 // pendingNotice is news held until its moment.
 type pendingNotice struct {
@@ -198,48 +154,14 @@ type pendingNotice struct {
 	due, expires time.Time
 }
 
-// noticeCheck is herdr's NotificationValidation.
-type noticeCheck int
-
-const (
-	noticeCurrent noticeCheck = iota
-	noticeAwaiting
-	noticeStale
-)
-
-// checkNoticeLocked is herdr's notification_validation: attention is
-// current while the pane is still blocked; finished while it is still done,
-// and awaited while it still shows working; anything else is stale. What
-// is not about an agent is always current.
-func (t *tui) checkNoticeLocked(n pendingNotice) noticeCheck {
-	if n.kind == ui.ToastCustom {
-		return noticeCurrent
+// checkNoticeLocked is announce.Validate for a notice held here, against
+// the session of its machine.
+func (t *tui) checkNoticeLocked(n pendingNotice) announce.Check {
+	var snap *proto.SessionSnapshot
+	if n.kind != ui.ToastCustom && n.pane != 0 {
+		snap = t.snapOfLocked(n.machine)
 	}
-	if n.pane == 0 {
-		if n.kind == ui.ToastFinished {
-			return noticeStale
-		}
-		return noticeCurrent
-	}
-	snap := t.snapOfLocked(n.machine)
-	if snap == nil {
-		return noticeAwaiting // its machine has not been read yet
-	}
-	for _, p := range snap.Panes {
-		if p.ID != n.pane {
-			continue
-		}
-		switch {
-		case n.kind == ui.ToastAttention && p.State == "blocked":
-			return noticeCurrent
-		case n.kind == ui.ToastFinished && p.Done:
-			return noticeCurrent
-		case n.kind == ui.ToastFinished && p.State == "working":
-			return noticeAwaiting
-		}
-		return noticeStale
-	}
-	return noticeAwaiting
+	return announce.Validate(n.kind, n.pane, snap)
 }
 
 // deliverDue says whatever held news has come due and is still true.
@@ -254,11 +176,11 @@ func (t *tui) deliverDue() {
 			continue
 		}
 		switch t.checkNoticeLocked(n) {
-		case noticeCurrent:
+		case announce.Current:
 			due = append(due, n)
-		case noticeAwaiting:
+		case announce.Awaiting:
 			if now.Before(n.expires) {
-				n.due = now.Add(recheckEvery)
+				n.due = now.Add(announce.RecheckEvery)
 				kept = append(kept, n)
 			}
 		}

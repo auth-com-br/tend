@@ -92,7 +92,7 @@ func TestAnotherMachinesAgentIsAnnouncedAndItsCardKnowsWhere(t *testing.T) {
 	if !strings.Contains(tu.toast.toast.Title, "claude needs attention") || !strings.Contains(tu.toast.toast.Body, "farbox") {
 		t.Errorf("the card should say who and where: %+v", tu.toast.toast)
 	}
-	if len(tu.notices) != 0 || far.notices[1].state == 0 {
+	if len(tu.notices) != 0 || far.notices[1].State == 0 {
 		t.Errorf("the record belongs to its machine: here %v, there %v", tu.notices, far.notices)
 	}
 	if tu.lastNoticeMachine != far.id || tu.lastNotice != 1 {
