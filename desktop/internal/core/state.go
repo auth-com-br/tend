@@ -43,6 +43,8 @@ type State struct {
 	Theme Theme `json:"theme"`
 	// Settings is the settings screen, while it is open.
 	Settings *SettingsState `json:"settings,omitempty"`
+	// Dock is the right side, while it is open.
+	Dock *DockState `json:"dock,omitempty"`
 }
 
 // MenuState is a menu as QML draws it.
@@ -197,6 +199,7 @@ func (s *Session) State() State {
 	st.Panel = s.panel
 	st.Zoomed = s.zoom != 0
 	st.Theme = s.theme
+	st.Dock = s.dockStateLocked()
 	if s.panel == "settings" {
 		st.Settings = s.settingsStateLocked()
 	}

@@ -433,7 +433,7 @@ Window {
     Rectangle {
         id: tabBar
         anchors.left: sidebar.right
-        anchors.right: parent.right
+        anchors.right: dockSide.left
         anchors.top: parent.top
         height: 38
         color: theme.mantle
@@ -642,7 +642,7 @@ Window {
         id: paneArea
         visible: root.activeBrowser === 0
         anchors.left: sidebar.right
-        anchors.right: parent.right
+        anchors.right: dockSide.left
         anchors.top: tabBar.bottom
         anchors.bottom: statusBar.top
         anchors.margins: 4
@@ -1071,6 +1071,13 @@ Window {
                 }
             }
         }
+    }
+
+    Dock {
+        id: dockSide
+        anchors.right: parent.right
+        anchors.top: parent.top
+        anchors.bottom: statusBar.top
     }
 
     // ---- screens ----------------------------------------------------------

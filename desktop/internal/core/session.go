@@ -76,6 +76,7 @@ type Session struct {
 	// items asked for, the panel the global menu opened, the pane zoomed
 	// to fill the tab, and what was last copied from each pane (a menu's
 	// "copy" copies it again).
+	dock     dock
 	menu     *ui.Menu
 	prompt   *Prompt
 	panel    string
@@ -825,6 +826,9 @@ func (s *Session) Event(ev proto.Event) {
 		return
 	case proto.EventPaneState:
 		s.announceState(ev)
+	case proto.EventTasksChanged:
+		s.reloadDockIf("tasks")
+		return
 	}
 	if !s.eventRefresh.CompareAndSwap(false, true) {
 		return // one is on its way, and will read this change too

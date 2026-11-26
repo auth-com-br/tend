@@ -424,3 +424,40 @@ func TestTheWelcomeIsShownOnceForBothClients(t *testing.T) {
 		t.Errorf("the welcome would show again (%v)", err)
 	}
 }
+
+// TestATaskIsPlannedFromTheDock: the tasks tab lists what the server keeps;
+// a task made in its form, with a time typed as a person types it and an
+// agent, is the server's (so it starts with the window closed), and is
+// marked done and deleted from the same list. If it regresses, the window's
+// plan and the session's disagree.
+func TestATaskIsPlannedFromTheDock(t *testing.T) {
+	s := openTest(t)
+	s.ToggleDock("tasks")
+	waitFor(t, "the tasks tab", func() bool { st := s.State(); return st.Dock != nil && !st.Dock.Loading })
+	if err := s.CreateTask(NewTask{Title: "review the PR", At: "+2h", Agent: "claude", Prompt: "review it", Here: true}); err != nil {
+		t.Fatal(err)
+	}
+	var task TaskRow
+	waitFor(t, "the task listed", func() bool {
+		d := s.State().Dock
+		if d == nil || len(d.Tasks) != 1 {
+			return false
+		}
+		task = d.Tasks[0]
+		return true
+	})
+	if task.Title != "review the PR" || task.StartAt == "" || task.Agent != "claude" || task.Workspace == "" {
+		t.Errorf("the task is %+v", task)
+	}
+	if err := s.SetTaskStatus(task.ID, "done"); err != nil {
+		t.Fatal(err)
+	}
+	waitFor(t, "the task done", func() bool { d := s.State().Dock; return len(d.Tasks) == 1 && d.Tasks[0].Status == "done" })
+	if err := s.DeleteTask(task.ID); err != nil {
+		t.Fatal(err)
+	}
+	waitFor(t, "the task gone", func() bool { return len(s.State().Dock.Tasks) == 0 })
+	if err := s.CreateTask(NewTask{Title: "x", At: "someday"}); err == nil {
+		t.Error("a time nobody can read was taken")
+	}
+}

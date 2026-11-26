@@ -275,6 +275,8 @@ func dispatch(sess *core.Session, method string, raw []byte) error {
 		Index     int    `json:"index"`
 		Delta     int    `json:"delta"`
 		Name      string `json:"name"`
+		ID        uint64 `json:"id"`
+		Status    string `json:"status"`
 		Focused   bool   `json:"focused"`
 		Light     bool   `json:"light"`
 		Cols      int    `json:"cols"`
@@ -348,6 +350,19 @@ func dispatch(sess *core.Session, method string, raw []byte) error {
 		}
 		setStatus(said)
 		return nil
+	case "dock":
+		sess.ToggleDock(a.Name)
+		return nil
+	case "task.create":
+		var n core.NewTask
+		if err := json.Unmarshal(raw, &n); err != nil {
+			return err
+		}
+		return sess.CreateTask(n)
+	case "task.status":
+		return sess.SetTaskStatus(a.ID, a.Status)
+	case "task.delete":
+		return sess.DeleteTask(a.ID)
 	case "status":
 		setStatus(a.Text)
 		return nil
