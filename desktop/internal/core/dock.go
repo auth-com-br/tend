@@ -50,7 +50,10 @@ type TaskRow struct {
 
 // dock is what the session keeps of it.
 type dock struct {
-	tab     string
+	tab string
+	// space is the space the tabs were read for: the files, issues,
+	// errors and tickets are those of the project the space works in.
+	space   uint64
 	loading bool
 	err     string
 	tasks   []proto.TaskInfo
@@ -69,11 +72,42 @@ func (s *Session) ToggleDock(tab string) {
 		s.dock.tab = tab
 	}
 	open := s.dock.tab
+	s.followSpaceLocked()
 	s.mu.Unlock()
 	s.stateChanged()
 	if open != "" {
 		go s.loadDock(open)
 	}
+}
+
+// spaceTabs are the dock's tabs that show the project of the space shown;
+// tasks and WhatsApp are the session's and the owner's, whatever the space.
+var spaceTabs = map[string]bool{"files": true, "issues": true, "errors": true, "tickets": true}
+
+// followSpaceLocked moves the dock to the space shown when it is another
+// than the one its tabs were read for, and says which tab to read again
+// ("" for none). The TUI's panels fix their project when they open and go
+// when they close; the window's dock stays open across spaces, and kept
+// showing the first space's — its files, and its issues looked for on
+// that project's forge, which the owner found from another space. The
+// project each tab fixed is let go, and found again from the pane in focus
+// in the space shown; what was chosen that is not the project's (issues
+// or pull requests, a filter) is kept. The caller holds the lock.
+func (s *Session) followSpaceLocked() string {
+	if s.workspace == s.dock.space {
+		return ""
+	}
+	s.dock.space = s.workspace
+	is := &s.dock.issues
+	*is = issuesTab{prs: is.prs, filter: is.filter, seq: is.seq, detailSeq: is.detailSeq}
+	er := &s.dock.errors
+	er.opened, er.pane, er.want, er.projectOf, er.scope = false, 0, "", "", 0
+	tk := &s.dock.tickets
+	tk.opened, tk.pane, tk.want, tk.scopesOf, tk.scope = false, 0, "", "", 0
+	if spaceTabs[s.dock.tab] {
+		return s.dock.tab
+	}
+	return ""
 }
 
 // loadDock reads what a tab shows, off the main thread.

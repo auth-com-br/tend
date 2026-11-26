@@ -368,6 +368,12 @@ func (s *Session) refreshOnce() error {
 	if err := s.layout(tab, cols, rows); err != nil {
 		return err
 	}
+	s.mu.Lock()
+	reload := s.followSpaceLocked()
+	s.mu.Unlock()
+	if reload != "" {
+		go s.loadDock(reload)
+	}
 	s.stateChanged()
 	return nil
 }
