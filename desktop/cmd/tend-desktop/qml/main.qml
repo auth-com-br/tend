@@ -349,8 +349,12 @@ Window {
                         anchors.centerIn: parent
                         spacing: 6
                         Text {
+                            id: dtTitle
                             text: dtab.modelData.title
-                            width: Math.min(implicitWidth, 170)
+                            // Measured apart: a Text's own implicitWidth
+                            // moves with its width when it elides — a loop.
+                            TextMetrics { id: dtTitleM; font: dtTitle.font; text: dtTitle.text }
+                            width: Math.min(dtTitleM.advanceWidth + 2, 170)
                             elide: Text.ElideMiddle
                             color: dtab.shown ? theme.text : theme.subtext
                             font.pixelSize: 14
@@ -395,8 +399,10 @@ Window {
                         spacing: 6
                         Text { text: "◎"; color: theme.accent; font.pixelSize: 12; anchors.verticalCenter: parent.verticalCenter }
                         Text {
+                            id: btTitle
                             text: btab.title
-                            width: Math.min(implicitWidth, 160)
+                            TextMetrics { id: btTitleM; font: btTitle.font; text: btTitle.text }
+                            width: Math.min(btTitleM.advanceWidth + 2, 160)
                             elide: Text.ElideRight
                             color: root.activeBrowser === btab.bid ? theme.text : theme.subtext
                             font.pixelSize: 14

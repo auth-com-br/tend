@@ -3,6 +3,7 @@ package core
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/auth-com-br/tend/internal/config"
 	"github.com/auth-com-br/tend/internal/proto"
@@ -32,7 +33,39 @@ type SettingRow struct {
 // settingRowsLocked is the screen's rows for this window: a session on
 // this machine has the hooks rows too. The caller holds the lock.
 func (s *Session) settingRowsLocked() []settings.Row {
-	return settings.Rows(false)
+	rows := settings.Rows(false)
+	for i := range rows {
+		if rows[i].Section == "ui.theme" && rows[i].Key == "name" {
+			// In the window, the TUI's theme is the terminal's: the
+			// window's own is the row above it.
+			rows[i].Label = "terminal theme"
+		}
+	}
+	return append([]settings.Row{windowThemeRow}, rows...)
+}
+
+// windowThemeRow is the window's own theme, [desktop] theme: tend's, the
+// terminal's, or one by name.
+var windowThemeRow = settings.Row{
+	Label: "window theme", Section: "desktop", Key: "theme",
+	Choices: func() []settings.Choice {
+		out := []settings.Choice{{Label: "tend", TOML: config.Quote("tend")}, {Label: "as the TUI", TOML: config.Quote("tui")}}
+		for _, name := range config.ThemeNames {
+			out = append(out, settings.Choice{Label: name, TOML: config.Quote(name)})
+		}
+		return out
+	}(),
+	Value: func(c config.Config) string {
+		switch t := strings.TrimSpace(c.Desktop.Theme); t {
+		case "", "tend":
+			return config.Quote("tend")
+		case "tui":
+			return config.Quote("tui")
+		default:
+			name, _ := config.CanonicalTheme(t)
+			return config.Quote(name)
+		}
+	},
 }
 
 // settingsStateLocked is the screen now. The caller holds the lock.

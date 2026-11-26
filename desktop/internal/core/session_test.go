@@ -384,15 +384,16 @@ func TestAnAgentThatNeedsYouIsAnnounced(t *testing.T) {
 	waitFor(t, "the click to go to the agent", func() bool { return s.Focused() == pane })
 }
 
-// TestASettingChangedInTheWindowIsWrittenAndWorn: stepping the theme in the
-// settings screen writes it to the settings file, as the TUI's screen does,
-// and the window wears it at once. If it regresses, the window's screen
+// TestASettingChangedInTheWindowIsWrittenAndWorn: stepping the window's
+// theme in the settings screen writes it to the settings file ([desktop]
+// theme), as the TUI's screen writes its settings, and the window wears it
+// at once. If it regresses, the window's screen
 // changes something only it can see, or nothing at all.
 func TestASettingChangedInTheWindowIsWrittenAndWorn(t *testing.T) {
 	s := openTest(t)
 	s.OpenPanel("settings")
 	st := s.State()
-	if st.Settings == nil || len(st.Settings.Rows) == 0 || st.Settings.Rows[0].Label != "theme" {
+	if st.Settings == nil || len(st.Settings.Rows) == 0 || st.Settings.Rows[0].Label != "window theme" {
 		t.Fatalf("the screen is %+v", st.Settings)
 	}
 	before := st.Theme.Base
@@ -401,7 +402,7 @@ func TestASettingChangedInTheWindowIsWrittenAndWorn(t *testing.T) {
 	}
 	path, _ := config.Path()
 	raw, err := os.ReadFile(path)
-	if err != nil || !strings.Contains(string(raw), "[ui.theme]") {
+	if err != nil || !strings.Contains(string(raw), "[desktop]") {
 		t.Fatalf("the settings file is %q (%v)", raw, err)
 	}
 	after := s.State()

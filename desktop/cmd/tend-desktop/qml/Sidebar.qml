@@ -312,7 +312,10 @@ Rectangle {
                             color: theme.subtext
                             font.pixelSize: 11
                             elide: Text.ElideRight
-                            width: Math.min(implicitWidth, parent.width - (sync.visible ? sync.width + 6 : 0))
+                            // Measured apart: a Text's own implicitWidth moves
+                            // with its width when it elides — a loop.
+                            TextMetrics { id: branchM; font: branchText.font; text: branchText.text }
+                            width: Math.min(branchM.advanceWidth + 2, parent.width - (sync.visible ? sync.width + 6 : 0))
                         }
                         Chip {
                             id: sync

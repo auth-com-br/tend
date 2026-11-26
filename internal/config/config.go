@@ -37,12 +37,14 @@ type Config struct {
 	Update     Update    `toml:"update"`
 	Browser    Browser   `toml:"browser"`
 	Sound      Sound     `toml:"sound"`
-	Files      Files     `toml:"files"`
-	Issues     Issues    `toml:"issues"`
-	Errors     Errors    `toml:"errors"`
-	GitLab     GitLab    `toml:"gitlab"`
-	Tickets    Tickets   `toml:"tickets"`
-	Activity   Activity  `toml:"activity"`
+	// Desktop is tend-desktop's own: what only the window reads.
+	Desktop  Desktop  `toml:"desktop"`
+	Files    Files    `toml:"files"`
+	Issues   Issues   `toml:"issues"`
+	Errors   Errors   `toml:"errors"`
+	GitLab   GitLab   `toml:"gitlab"`
+	Tickets  Tickets  `toml:"tickets"`
+	Activity Activity `toml:"activity"`
 	// Policy is what agents may and may not do (internal/policy). The
 	// server reads it again each time it checks, so a rule written here
 	// applies from the next agent on, with no restart.
@@ -496,6 +498,17 @@ type Notify struct {
 	Position string `toml:"position"`
 }
 
+// Desktop is tend-desktop's settings: what only the window reads.
+type Desktop struct {
+	// Theme is the window's: "tend" (or empty), its own, light or dark as
+	// the desktop is; "tui", the TUI's ([ui] theme), as the window wore
+	// before; or a theme by name — "terminal" among them, the terminal's
+	// own colours, which is why the TUI's is not called that (catppuccin, tokyo-night…). A
+	// terminal's theme — matrix's green on black — made for a grid of
+	// cells sat badly on a window's panels, so the window has its own.
+	Theme string `toml:"theme"`
+}
+
 // Sound configures the noise made when an agent finishes or needs answering.
 type Sound struct {
 	Enabled bool `toml:"enabled"`
@@ -819,6 +832,13 @@ func parse(data, path string) (Config, error) {
 func (c Config) validate() error {
 	if _, err := c.PrefixKey(); err != nil {
 		return err
+	}
+	switch t := strings.TrimSpace(c.Desktop.Theme); t {
+	case "", "tend", "tui":
+	default:
+		if _, ok := CanonicalTheme(t); !ok {
+			return fmt.Errorf("desktop.theme: %q is not tend, tui or a theme's name", t)
+		}
 	}
 	if _, err := c.SleepAfter(); err != nil {
 		return err

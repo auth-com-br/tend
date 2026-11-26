@@ -2,15 +2,17 @@ package core
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/auth-com-br/tend/internal/config"
 	"github.com/auth-com-br/tend/internal/ui"
 	"github.com/auth-com-br/tend/internal/vt"
 )
 
-// The window wears the theme the settings name ([ui] theme, auto_switch and
-// [ui.theme.custom]), resolved as the TUI resolves it (ui.PaletteFor), so
-// the two clients of a session look alike. The TUI's default with no theme
+// The window wears its own theme by default (tendTheme), and the TUI's
+// when [desktop] theme says "tui": then the theme the settings name
+// ([ui] theme, auto_switch and [ui.theme.custom]), resolved as the TUI
+// resolves it (ui.PaletteFor). The TUI's default with no theme
 // is the terminal's own colours; a window has no terminal, and takes
 // catppuccin, tend's default family.
 
@@ -135,7 +137,58 @@ func (s *Session) SetAppearance(light bool) {
 // applyThemeLocked resolves the theme for the settings and the desktop's
 // appearance. The caller holds the lock.
 func (s *Session) applyThemeLocked() {
-	p := paletteFor(s.ui.Theme, s.light)
-	s.colours = coloursFrom(p)
-	s.theme = themeFrom(p, s.light)
+	switch name := strings.TrimSpace(s.cfg.Desktop.Theme); name {
+	case "tui":
+		// The TUI's, as the window wore before it had its own.
+		p := paletteFor(s.ui.Theme, s.light)
+		s.colours, s.theme = coloursFrom(p), themeFrom(p, s.light)
+	case "", "tend":
+		s.theme, s.colours = tendTheme(s.light)
+	default:
+		p, ok := ui.PaletteNamed(name)
+		if !ok {
+			s.theme, s.colours = tendTheme(s.light)
+			return
+		}
+		s.colours, s.theme = coloursFrom(p), themeFrom(p, s.light)
+	}
+}
+
+// tendTheme is the window's own theme ([desktop] theme = "tend", the
+// default): neutral greys a window's panels sit well on, one blue for what
+// is chosen, and state colours a step softer than a terminal's — light or
+// dark as the desktop is. The window wore the TUI's theme before, which
+// for the owner was matrix: green on black, made for a terminal's grid,
+// and garish over a window's cards and menus. The panes' terminals take
+// the same colours, so a pane reads as part of the window.
+func tendTheme(light bool) (Theme, Colours) {
+	if light {
+		t := Theme{
+			Base: "#ffffff", Mantle: "#f4f5f7", Crust: "#e8eaee",
+			Surface0: "#e9ebf0", Surface1: "#d7dae2", Overlay0: "#8b90a0",
+			Subtext: "#575d6e", Text: "#1c2030", Accent: "#4b67e8",
+			Green: "#22915a", Yellow: "#b07d0a", Red: "#d23f4c", Teal: "#1a8aa0", Peach: "#cf6d22",
+			Light: true,
+		}
+		return t, Colours{
+			FG: 0x1c2030, BG: 0xffffff,
+			ANSI: [16]uint32{
+				0x3b4050, 0xd23f4c, 0x22915a, 0xa87508, 0x4b67e8, 0x9b4fd1, 0x1a8aa0, 0x8b90a0,
+				0x6b7080, 0xe0505d, 0x2ba468, 0xc08a12, 0x6680f0, 0xae66e0, 0x23a0b8, 0x1c2030,
+			},
+		}
+	}
+	t := Theme{
+		Base: "#16171c", Mantle: "#1b1d23", Crust: "#111216",
+		Surface0: "#262932", Surface1: "#333743", Overlay0: "#6e7486",
+		Subtext: "#a4aabb", Text: "#e4e7ef", Accent: "#7d9bff",
+		Green: "#5fcf8b", Yellow: "#e6c06e", Red: "#f2777f", Teal: "#58c4d6", Peach: "#f0a06a",
+	}
+	return t, Colours{
+		FG: 0xd9dce5, BG: 0x16171c,
+		ANSI: [16]uint32{
+			0x2b2e37, 0xf2777f, 0x5fcf8b, 0xe6c06e, 0x7d9bff, 0xc792ea, 0x58c4d6, 0xc5c9d4,
+			0x5c6273, 0xff8a92, 0x7ae0a0, 0xf2d084, 0x9bb2ff, 0xd8a8f5, 0x74d6e6, 0xf2f4f8,
+		},
+	}
 }

@@ -577,3 +577,21 @@ func TestLoadLenientKeepsWhatItKnows(t *testing.T) {
 		t.Error("a file that is not TOML is still an error, to be said")
 	}
 }
+
+// TestTheWindowsThemeIsItsOwnSetting: [desktop] theme takes tend, tui or a
+// theme's name and refuses anything else; with none, the window wears
+// its own. If it regresses, a settings file with the window's theme in it
+// is refused by every tend, or a typo goes unsaid.
+func TestTheWindowsThemeIsItsOwnSetting(t *testing.T) {
+	for _, ok := range []string{"tend", "tui", "terminal", "catppuccin", "tokyo-night"} {
+		if _, err := parse("[desktop]\ntheme = \""+ok+"\"\n", "t.toml"); err != nil {
+			t.Errorf("%s refused: %v", ok, err)
+		}
+	}
+	if _, err := parse("[desktop]\ntheme = \"neon\"\n", "t.toml"); err == nil {
+		t.Error("an unknown theme was taken")
+	}
+	if Defaults().Desktop.Theme != "" {
+		t.Error("the default is not the window's own theme")
+	}
+}

@@ -278,7 +278,7 @@ Item {
             Rectangle {
                 id: bubble
                 x: m.fromMe ? parent.width - width : 0
-                width: Math.min(parent.width * 0.85, Math.max(body.implicitWidth, meta.implicitWidth) + 18)
+                width: Math.min(parent.width * 0.85, Math.max(bodyM.advanceWidth + 2, meta.implicitWidth) + 18)
                 height: body.height + meta.height + 12
                 radius: 8
                 color: m.fromMe ? Qt.darker(theme.accent, 2.2) : theme.surface0
@@ -299,7 +299,10 @@ Item {
                     x: 9
                     anchors.top: meta.bottom
                     anchors.topMargin: 2
-                    width: Math.min(implicitWidth, bubble.parent.width * 0.85 - 18)
+                    // Measured apart: a wrapping Text's implicitWidth moves
+                    // with its width — a loop.
+                    TextMetrics { id: bodyM; font: body.font; text: body.text }
+                    width: Math.min(bodyM.advanceWidth + 2, bubble.parent.width * 0.85 - 18)
                     text: m.text
                     textFormat: Text.PlainText
                     color: theme.text

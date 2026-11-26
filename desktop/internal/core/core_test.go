@@ -255,3 +255,36 @@ func TestShiftEnterIsANewLineForAProgramThatAsked(t *testing.T) {
 		}
 	}
 }
+
+// TestTheWindowWearsItsOwnThemeUnlessToldOtherwise: with no [desktop]
+// theme the window wears its own, light or dark as the desktop is, whatever
+// the TUI's theme is; "tui" gives it the TUI's, and a theme's name
+// that theme. If it regresses, the window is matrix-green because the TUI
+// is, which is what the owner did not want.
+func TestTheWindowWearsItsOwnThemeUnlessToldOtherwise(t *testing.T) {
+	s := &Session{}
+	s.ui.Theme = config.Theme{Name: "matrix"}
+	s.applyThemeLocked()
+	dark, _ := tendTheme(false)
+	if s.theme != dark {
+		t.Errorf("with matrix in [ui] the window wears %+v, not its own", s.theme)
+	}
+	s.light = true
+	s.applyThemeLocked()
+	if !s.theme.Light || s.theme.Base != "#ffffff" {
+		t.Errorf("on a light desktop: %+v", s.theme)
+	}
+
+	s.light = false
+	s.cfg.Desktop.Theme = "tui"
+	s.applyThemeLocked()
+	if want := themeFrom(paletteFor(s.ui.Theme, false), false); s.theme != want {
+		t.Errorf("tui: %+v, not the TUI's %+v", s.theme, want)
+	}
+	s.cfg.Desktop.Theme = "gruvbox"
+	s.applyThemeLocked()
+	gruvbox, _ := ui.PaletteNamed("gruvbox")
+	if s.theme != themeFrom(gruvbox, false) {
+		t.Errorf("gruvbox: %+v", s.theme)
+	}
+}
