@@ -3,6 +3,7 @@ package core
 import (
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/auth-com-br/tend/internal/client"
@@ -46,8 +47,17 @@ type Session struct {
 	panes              map[uint64]*paneView
 	colours            Colours
 
-	refreshing bool
-	again      bool
+	// refreshMu makes refreshes one at a time, and a change of view (the
+	// tab, the space, the focus) part of the refresh that shows it.
+	// Coalescing them instead — a refresh asked for during another
+	// returning at once — lost changes: "+" opened a tab, the refresh
+	// already running read a snapshot from before it, found no such tab
+	// and put the view back on the first, and the caller's refresh had
+	// returned without running. The race detector's slowness showed it.
+	refreshMu sync.Mutex
+	// eventRefresh is a refresh for events already on its way, so a burst
+	// of them is one snapshot.
+	eventRefresh atomic.Bool
 
 	// The window's own, never sent: the menu open and the prompt one of its
 	// items asked for, the panel the global menu opened, the pane zoomed
@@ -96,9 +106,9 @@ type paneView struct {
 // running, and settles on what to show.
 func Open(name, tendPath string, ui config.UI) (*Session, error) {
 	s := &Session{
-		name:    name,
-		ui:      ui,
-		colours: DefaultColours,
+		name:     name,
+		ui:       ui,
+		colours:  DefaultColours,
 		folded:   map[string]bool{},
 		panes:    map[uint64]*paneView{},
 		lastCopy: map[uint64]string{},
@@ -233,32 +243,20 @@ func hasPane(tab proto.TabInfo, pane uint64) bool {
 // refresh reads the session and settles the view on something that exists:
 // the space, tab and pane shown, if they still do, else what the session
 // has active. Then the tab is laid out and its panes subscribed to.
-//
-// Refreshes do not overlap: one asked for while another runs is run once
-// more after it, so a burst of events is two snapshots, not one per event.
-func (s *Session) refresh() error {
-	s.mu.Lock()
-	if s.refreshing {
-		s.again = true
-		s.mu.Unlock()
-		return nil
-	}
-	s.refreshing = true
-	s.mu.Unlock()
+func (s *Session) refresh() error { return s.refreshWith(nil) }
 
-	var err error
-	for {
-		err = s.refreshOnce()
+// refreshWith changes the view, then refreshes, as one step no other
+// refresh can come between: the change is made against the snapshot the
+// refresh then reads, never undone by one read before it.
+func (s *Session) refreshWith(change func()) error {
+	s.refreshMu.Lock()
+	defer s.refreshMu.Unlock()
+	if change != nil {
 		s.mu.Lock()
-		if !s.again || err != nil {
-			s.refreshing, s.again = false, false
-			s.mu.Unlock()
-			break
-		}
-		s.again = false
+		change()
 		s.mu.Unlock()
 	}
-	return err
+	return s.refreshOnce()
 }
 
 func (s *Session) refreshOnce() error {
@@ -506,43 +504,34 @@ func (s *Session) Focus(pane uint64) error {
 
 // ShowWorkspace shows a space, on the tab it is on.
 func (s *Session) ShowWorkspace(id uint64) error {
-	s.mu.Lock()
-	ws, ok := workspaceIn(s.snap, id)
-	if !ok || ws.ID != id {
-		s.mu.Unlock()
-		return nil
-	}
-	s.workspace, s.tab, s.focus = id, ws.ActiveTab, 0
-	s.mu.Unlock()
-	return s.refresh()
+	return s.refreshWith(func() {
+		if ws, ok := workspaceIn(s.snap, id); ok && ws.ID == id {
+			s.workspace, s.tab, s.focus = id, ws.ActiveTab, 0
+		}
+	})
 }
 
 // ShowTab shows a tab of the space shown.
 func (s *Session) ShowTab(id uint64) error {
-	s.mu.Lock()
-	s.tab, s.focus = id, 0
-	s.mu.Unlock()
-	return s.refresh()
+	return s.refreshWith(func() { s.tab, s.focus = id, 0 })
 }
 
 // JumpToPane shows the space and tab a pane is in, with the keyboard on it:
 // what a click on an agent does.
 func (s *Session) JumpToPane(pane uint64) error {
-	s.mu.Lock()
 	found := false
-	for _, w := range s.snap.Workspaces {
-		for _, t := range w.Tabs {
-			if hasPane(t, pane) {
-				s.workspace, s.tab, s.focus, found = w.ID, t.ID, pane, true
+	var prev uint64
+	err := s.refreshWith(func() {
+		prev = s.focus
+		for _, w := range s.snap.Workspaces {
+			for _, t := range w.Tabs {
+				if hasPane(t, pane) {
+					s.workspace, s.tab, s.focus, found = w.ID, t.ID, pane, true
+				}
 			}
 		}
-	}
-	prev := s.focus
-	s.mu.Unlock()
-	if !found {
-		return nil
-	}
-	if err := s.refresh(); err != nil {
+	})
+	if err != nil || !found {
 		return err
 	}
 	s.mu.Lock()
@@ -643,10 +632,7 @@ func (s *Session) NewWorkspace() error {
 	if err != nil {
 		return err
 	}
-	s.mu.Lock()
-	s.workspace, s.tab, s.focus = ws, tab, 0
-	s.mu.Unlock()
-	return s.refresh()
+	return s.refreshWith(func() { s.workspace, s.tab, s.focus = ws, tab, 0 })
 }
 
 // Split splits the pane in focus, "columns" side by side or "rows" one over
@@ -662,10 +648,7 @@ func (s *Session) Split(direction string) error {
 	if err != nil {
 		return err
 	}
-	s.mu.Lock()
-	s.focus = pane
-	s.mu.Unlock()
-	return s.refresh()
+	return s.refreshWith(func() { s.focus = pane })
 }
 
 // ClosePane closes the pane in focus.
@@ -805,10 +788,14 @@ func (s *Session) Event(ev proto.Event) {
 	case proto.EventNotify, proto.EventContextArrived:
 		return
 	}
+	if !s.eventRefresh.CompareAndSwap(false, true) {
+		return // one is on its way, and will read this change too
+	}
 	go func() {
 		// A moment's wait gathers the events of one change (a split is an
 		// opened pane, a focus and a layout) into one snapshot.
 		time.Sleep(20 * time.Millisecond)
+		s.eventRefresh.Store(false)
 		if err := s.refresh(); err != nil {
 			s.status(err.Error())
 		}

@@ -486,14 +486,13 @@ func (s *Session) closeFor(m ui.Menu) error {
 		if err := c.CloseWorkspace(m.Workspace); err != nil {
 			return err
 		}
-		s.mu.Lock()
-		if s.workspace == m.Workspace {
-			// The space looked at went, so nothing about the view still
-			// resolves; the refresh lands somewhere real.
-			s.workspace, s.tab, s.focus = 0, 0, 0
-		}
-		s.mu.Unlock()
-		return s.refresh()
+		return s.refreshWith(func() {
+			if s.workspace == m.Workspace {
+				// The space looked at went, so nothing about the view still
+				// resolves; the refresh lands somewhere real.
+				s.workspace, s.tab, s.focus = 0, 0, 0
+			}
+		})
 	}
 	return nil
 }
@@ -569,10 +568,7 @@ func (s *Session) newWorkspaceIn(group string) error {
 	if err != nil {
 		return err
 	}
-	s.mu.Lock()
-	s.workspace, s.tab, s.focus = ws, tab, 0
-	s.mu.Unlock()
-	return s.refresh()
+	return s.refreshWith(func() { s.workspace, s.tab, s.focus = ws, tab, 0 })
 }
 
 // startAgentInGroup starts an agent in a new space of a group, named after
@@ -609,10 +605,7 @@ func (s *Session) startAgentInGroup(group, id string) error {
 	if err != nil {
 		return fmt.Errorf("%s did not start: %w", agent.Name, err)
 	}
-	s.mu.Lock()
-	s.workspace, s.tab, s.focus = ws, tab, 0
-	s.mu.Unlock()
-	return s.refresh()
+	return s.refreshWith(func() { s.workspace, s.tab, s.focus = ws, tab, 0 })
 }
 
 // agentSpec is the pane an agent starts in: cmd/tend's groupAgentSpec.
