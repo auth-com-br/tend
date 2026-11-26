@@ -870,7 +870,10 @@ func (s *Session) Event(ev proto.Event) {
 			}
 		}
 		return
-	case proto.EventNotify, proto.EventContextArrived:
+	case proto.EventNotify:
+		s.announceCustom(ev.Title, ev.Body, ev.Pane)
+		return
+	case proto.EventContextArrived:
 		return
 	case proto.EventPaneState:
 		s.announceState(ev)

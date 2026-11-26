@@ -662,3 +662,35 @@ func TestTheWindowIsABrowserTheSessionDrives(t *testing.T) {
 		t.Errorf("the context buffer holds %s", b)
 	}
 }
+
+// TestWhatAScriptSaysIsShown: tend notify — a script, a hook, a task's
+// reminder — is shown on the window as a card, and raised by the system
+// with the window behind others, as the TUI shows it. If it regresses, the
+// window says nothing of what the TUI says.
+func TestWhatAScriptSaysIsShown(t *testing.T) {
+	s := openTest(t)
+	raised := make(chan string, 2)
+	s.mu.Lock()
+	s.notifyHook = func(title, body string, clicked func()) error { raised <- title; return nil }
+	s.mu.Unlock()
+	if err := s.SetWindowFocused(false); err != nil {
+		t.Fatal(err)
+	}
+	out, err := exec.Command(tendBin, "notify", "-s", s.Name(), "deploy finished").CombinedOutput()
+	if err != nil {
+		t.Fatalf("tend notify: %v\n%s", err, out)
+	}
+	waitFor(t, "the card", func() bool {
+		for _, c := range s.State().Toasts {
+			if strings.Contains(c.Title+" "+c.Body, "deploy finished") {
+				return true
+			}
+		}
+		return false
+	})
+	select {
+	case <-raised:
+	case <-time.After(5 * time.Second):
+		t.Error("the system's notification was not raised")
+	}
+}

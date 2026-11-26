@@ -155,6 +155,21 @@ func (s *Session) announceState(ev proto.Event) {
 	}
 }
 
+// announceCustom says what somebody asked the user told — a script's tend
+// notify, a hook, a policy broken, a task's reminder (EventNotify) — at
+// once, as the TUI raises a ToastCustom: it is not an agent's state, so
+// there is nothing to hold it for and check again.
+func (s *Session) announceCustom(title, body string, pane uint64) {
+	s.mu.Lock()
+	mode, player := s.notes.toasts, s.notes.player
+	s.mu.Unlock()
+	if mode == "off" && !player.Enabled {
+		return
+	}
+	s.deliver(mode, player, heldNotice{kind: ui.ToastCustom, title: title, body: body, pane: pane, sound: notify.SoundRequest})
+	s.stateChanged()
+}
+
 // hold keeps news for the delay the settings ask, then says it if it is
 // still true (deliverDue).
 func (s *Session) hold(kind, title, body string, pane uint64, sound notify.Sound) {
@@ -234,18 +249,16 @@ func (s *Session) deliver(mode string, player *notify.Player, h heldNotice) {
 	s.mu.Unlock()
 	if mode == "system" || (mode == "tend" && behind) {
 		go func() {
+			var clicked func()
 			if h.pane != 0 {
-				err := s.systemNotify(h.title, h.body, func() {
+				clicked = func() {
 					if s.Raise != nil {
 						s.Raise()
 					}
 					_ = s.JumpToPane(h.pane)
-				})
-				if err == nil {
-					return
 				}
 			}
-			_ = notify.System(h.title, h.body)
+			_ = s.systemNotify(h.title, h.body, clicked)
 		}()
 	}
 	player.Play(h.sound)
@@ -253,6 +266,11 @@ func (s *Session) deliver(mode string, player *notify.Player, h heldNotice) {
 
 // systemNotify raises the system's notification; a test replaces it, so it
 // does not raise real ones on the desktop it runs on.
+//
+// Everything the window raises goes through here — with a click to go to a
+// pane or without — so a test that replaces it raises nothing real: the
+// first version raised a plain one past it, and a test's notice appeared on
+// the desktop it ran on.
 func (s *Session) systemNotify(title, body string, clicked func()) error {
 	s.mu.Lock()
 	hook := s.notifyHook
@@ -260,7 +278,12 @@ func (s *Session) systemNotify(title, body string, clicked func()) error {
 	if hook != nil {
 		return hook(title, body, clicked)
 	}
-	return notify.SystemWithClick(title, body, clicked)
+	if clicked != nil {
+		if err := notify.SystemWithClick(title, body, clicked); err == nil {
+			return nil
+		}
+	}
+	return notify.System(title, body)
 }
 
 // DismissToast puts a card away before its time.
