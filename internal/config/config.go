@@ -334,6 +334,42 @@ func (c Config) TicketSourceFor(dirs ...string) (NamedTicketSource, string, bool
 	return best, scope, depth >= 0
 }
 
+// ErrorSourceShown is the GlitchTip server an errors panel shows, with its
+// place among ErrorSources: the one named chosen — the panel's own choice
+// while it is up, or the one the project folder is tied to — else the one
+// last chosen ([errors] source), else the first kept. Both clients' panels
+// ask this, so they open on the same server.
+func (c Config) ErrorSourceShown(chosen string) (NamedErrorSource, int, bool) {
+	sources := c.ErrorSources()
+	for _, name := range []string{chosen, c.Errors.Source} {
+		for i, s := range sources {
+			if name != "" && s.Name == name {
+				return s, i, true
+			}
+		}
+	}
+	if len(sources) > 0 {
+		return sources[0], 0, true
+	}
+	return NamedErrorSource{}, 0, false
+}
+
+// TicketSourceShown is ErrorSourceShown for the tickets panel's accounts.
+func (c Config) TicketSourceShown(chosen string) (NamedTicketSource, int, bool) {
+	sources := c.TicketSources()
+	for _, name := range []string{chosen, c.Tickets.Source} {
+		for i, s := range sources {
+			if name != "" && s.Name == name {
+				return s, i, true
+			}
+		}
+	}
+	if len(sources) > 0 {
+		return sources[0], 0, true
+	}
+	return NamedTicketSource{}, 0, false
+}
+
 // GitLab is the tokens `tend gitlab login` keeps, by host: the token itself,
 // or where the keyring keeps it ("keyring:gitlab:<host>").
 type GitLab struct {

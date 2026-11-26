@@ -350,38 +350,6 @@ func TestAProjectFolderOpensOnItsServerAndProject(t *testing.T) {
 	}
 }
 
-// TestAWorktreeIsItsRepositorysProject: a directory in a worktree belongs
-// to the repository the worktree was made from, and one in no repository
-// is its own project. If it regresses, an error fixed in its worktree
-// opens on no server, or the wrong one.
-func TestAWorktreeIsItsRepositorysProject(t *testing.T) {
-	repo := t.TempDir()
-	git := func(args ...string) {
-		t.Helper()
-		cmd := exec.Command("git", append([]string{"-C", repo}, args...)...)
-		cmd.Env = append(os.Environ(), "GIT_AUTHOR_NAME=t", "GIT_AUTHOR_EMAIL=t@t", "GIT_COMMITTER_NAME=t", "GIT_COMMITTER_EMAIL=t@t")
-		if out, err := cmd.CombinedOutput(); err != nil {
-			t.Skipf("needs git: %v %s", err, out)
-		}
-	}
-	git("init", "-q")
-	git("commit", "-q", "--allow-empty", "-m", "one")
-	tree := filepath.Join(t.TempDir(), "fix-1")
-	git("worktree", "add", "-q", "-b", "fix-1", tree)
-	sub := filepath.Join(tree, "src")
-	if err := os.MkdirAll(sub, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	real, _ := filepath.EvalSymlinks(repo)
-	if got, _ := filepath.EvalSymlinks(projectRoot(sub)); got != real {
-		t.Errorf("worktree dir's project is %q, want %q", got, real)
-	}
-	plain := t.TempDir()
-	if got := projectRoot(plain); got != plain {
-		t.Errorf("a folder in no repository is %q, want itself", got)
-	}
-}
-
 // TestATokenGoesToTheKeyringWhenThereIsOne: with a keyring tool on the
 // machine — here a stand-in secret-tool keeping secrets in a folder — the
 // token given in the connect box goes to the keyring and the settings file

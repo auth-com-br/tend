@@ -11,6 +11,7 @@ import (
 	"github.com/auth-com-br/tend/internal/keyring"
 	"github.com/auth-com-br/tend/internal/tickets"
 	"github.com/auth-com-br/tend/internal/ui"
+	"github.com/auth-com-br/tend/internal/workon"
 	"github.com/auth-com-br/tend/internal/worktree"
 )
 
@@ -45,18 +46,7 @@ func (t *tui) ticketsUp() bool {
 
 // ticketSourceLocked is the account shown, and its place among them.
 func (t *tui) ticketSourceLocked() (config.NamedTicketSource, int, bool) {
-	sources := t.config.TicketSources()
-	for _, name := range []string{t.ticketState.source, t.config.Tickets.Source} {
-		for i, s := range sources {
-			if name != "" && s.Name == name {
-				return s, i, true
-			}
-		}
-	}
-	if len(sources) > 0 {
-		return sources[0], 0, true
-	}
-	return config.NamedTicketSource{}, 0, false
+	return t.config.TicketSourceShown(t.ticketState.source)
 }
 
 // ticketClientLocked is a client for the account shown, or nil.
@@ -421,7 +411,7 @@ func (t *tui) fixTicket() {
 			t.ticketsSay(err.Error())
 			return
 		}
-		item, err := t.client.ContextAdd(errorItemText("ticket", d.Key+" "+d.Title, d.URL, tickets.FixPrompt(d)))
+		item, err := t.client.ContextAdd(workon.ContextItem("ticket", d.Key+" "+d.Title, d.URL, tickets.FixPrompt(d)))
 		if err == nil {
 			err = t.client.ContextSend(pane, []uint64{item.ID})
 		}

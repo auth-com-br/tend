@@ -2,6 +2,7 @@ package tools
 
 import (
 	"fmt"
+	"github.com/auth-com-br/tend/internal/workon"
 	"sort"
 	"strings"
 
@@ -16,18 +17,10 @@ import (
 // the conversation was held, and puts the note in the context, where it is
 // looked over and sent to the new agent once that is ready.
 
-// AgentArgv is how each agent is started with a prompt of its own: as the
-// first argument for most, behind -i for Gemini and Antigravity, whose
-// bare prompt runs once and exits (agy's -i is --prompt-interactive: the
-// prompt, then the session goes on). An agent not here is started with
-// nothing. It is also the agents a task can be handed to.
-var AgentArgv = map[string][]string{
-	"agy":    {"agy", "-i"},
-	"claude": {"claude"},
-	"codex":  {"codex"},
-	"cursor": {"cursor-agent"},
-	"gemini": {"gemini", "-i"},
-}
+// AgentArgv is how each agent is started with a prompt of its own, and the
+// agents a task can be handed to: workon.Agents, the one table of it — two
+// panels moved it out of cmd/tend at once, each into its own package.
+var AgentArgv = workon.Agents
 
 // ContinueAgents are the agents a task can be handed to, by name.
 func ContinueAgents() []string {

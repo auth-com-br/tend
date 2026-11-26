@@ -1,18 +1,16 @@
 package main
 
 import (
-	"errors"
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
 
-	"github.com/auth-com-br/tend/internal/api"
 	"github.com/auth-com-br/tend/internal/github"
 	"github.com/auth-com-br/tend/internal/proto"
 	"github.com/auth-com-br/tend/internal/tools"
 	"github.com/auth-com-br/tend/internal/ui"
+	"github.com/auth-com-br/tend/internal/workon"
 )
 
 // The GitHub issues panel (internal/ui/issues.go, internal/github): tend's
@@ -97,7 +95,7 @@ func (t *tui) issuesUp() bool {
 func (t *tui) openIssues() error {
 	t.mu.Lock()
 	if t.issues == nil {
-		t.issues = &ui.IssuesView{Filters: issueFilterNames(false), Now: time.Now()}
+		t.issues = &ui.IssuesView{Filters: github.FilterNames(false), Now: time.Now()}
 		t.issueState.pane = t.focus
 	}
 	seq := t.askIssuesLocked()
@@ -106,23 +104,6 @@ func (t *tui) openIssues() error {
 	t.wakeUp()
 	go t.loadIssues(seq)
 	return nil
-}
-
-// issueFilterNames are the presets of the issues' list, or the pull
-// requests'.
-func issueFilterNames(pullRequests bool) []string {
-	if pullRequests {
-		names := make([]string, len(github.PRFilters))
-		for i, f := range github.PRFilters {
-			names[i] = github.PRFilterName(f)
-		}
-		return names
-	}
-	names := make([]string, len(github.Filters))
-	for i, f := range github.Filters {
-		names[i] = f.String()
-	}
-	return names
 }
 
 // askIssuesLocked marks the list as being asked for, and numbers the ask.
@@ -591,7 +572,7 @@ func (t *tui) showIssue(e ui.IssueEntry, reload bool) {
 		}
 		v.Detail.Loading = false
 		if err != nil {
-			v.Detail.Body = "could not read the issue: " + ghError(err)
+			v.Detail.Body = "could not read the issue: " + github.ErrorText(err)
 			return
 		}
 		v.Detail.IssueEntry = issueEntry(d.GitHubIssue)
@@ -672,26 +653,6 @@ func (t *tui) issueButton(id string) bool {
 		return t.startIssueWork()
 	}
 	return false
-}
-
-// ghError is what GitHub said, without the method it was said to.
-// forgeSaid is what GitHub or a GitLab answered, for a line under the
-// panel. A GitLab's answers name it already ("gitlab.com answered…", or the
-// token it wants); what gh said is said to be GitHub's.
-func forgeSaid(err error) string {
-	msg := ghError(err)
-	if strings.Contains(msg, "GitLab") || strings.Contains(msg, "gitlab") {
-		return msg
-	}
-	return "GitHub said: " + msg
-}
-
-func ghError(err error) string {
-	msg := err.Error()
-	if i := strings.Index(msg, ": "); i > 0 && strings.HasPrefix(msg, "github.") {
-		msg = msg[i+2:]
-	}
-	return msg
 }
 
 // startIssueCompose starts writing: a comment on the issue open, or a new
@@ -840,7 +801,7 @@ func (t *tui) sendIssueCompose() {
 			if v.Compose != nil {
 				v.Compose.Sending = false
 			}
-			v.Message = forgeSaid(err)
+			v.Message = github.Said(err)
 			t.dirty = true
 			t.mu.Unlock()
 			t.wakeUp()
@@ -939,7 +900,7 @@ func (t *tui) issueConfirmKey(key string) {
 		t.mu.Lock()
 		if v := t.issues; v != nil {
 			if err != nil {
-				v.Message = forgeSaid(err)
+				v.Message = github.Said(err)
 			} else if state == "closed" {
 				v.Message = fmt.Sprintf("closed #%d as %s", number, reason)
 			} else {
@@ -982,25 +943,15 @@ var issueAgents = tools.AgentArgv
 func (t *tui) issueAgentLocked() string { return t.agentForLocked(t.issueState.pane) }
 
 // agentForLocked is the agent work is started in, from a panel opened from
-// pane: the one the settings name, else pane's, else claude.
+// pane: the one the settings name, else pane's, else claude (workon.AgentFor).
 func (t *tui) agentForLocked(pane uint64) string {
-	name := strings.TrimSpace(t.config.Issues.Agent)
-	if name == "cursor-agent" {
-		name = "cursor"
-	}
-	if name == "" {
-		for _, p := range t.snap.Panes {
-			if p.ID == pane {
-				if _, ok := issueAgents[p.Agent]; ok {
-					name = p.Agent
-				}
-			}
+	paneAgent := ""
+	for _, p := range t.snap.Panes {
+		if p.ID == pane {
+			paneAgent = p.Agent
 		}
 	}
-	if name == "" {
-		name = "claude"
-	}
-	return name
+	return workon.AgentFor(t.config.Issues.Agent, paneAgent)
 }
 
 // startIssueWork is Orca's "start workspace from issue": a worktree on a
@@ -1061,59 +1012,20 @@ func (t *tui) startIssueWork() bool {
 }
 
 // issueWorktree makes, or finds, the issue's worktree and its space, and
-// starts the agent in a new tab there when the worktree is new. The
-// worktree methods are the automation socket's, as prefix+G's are.
+// starts the agent in a new tab there when the worktree is new
+// (workon.Issue). The worktree methods are the automation socket's, as
+// prefix+G's are.
 func (t *tui) issueWorktree(session, dir string, e ui.IssueEntry, agentName, prompt string) (ws, tab uint64, message string, err error) {
-	list, err := apiCall(session, api.MethodWorktreeList, map[string]any{"cwd": dir}, true)
-	if err != nil {
-		return 0, 0, "", err
-	}
-	trees, _ := list["worktrees"].([]any)
-	for _, raw := range trees {
-		wt, _ := raw.(map[string]any)
-		branch, _ := wt["branch"].(string)
-		if !github.IsIssueBranch(branch, e.Number) {
-			continue
-		}
-		path, _ := wt["path"].(string)
-		opened, err := apiCall(session, api.MethodWorktreeOpen, map[string]any{"cwd": dir, "path": path}, true)
-		if err != nil {
-			return 0, 0, "", err
-		}
-		return workspaceOf(opened), 0, fmt.Sprintf("#%d already has a worktree: %s", e.Number, branch), nil
-	}
-
-	branch := github.IssueBranch(e.Number, e.Title)
-	created, err := apiCall(session, api.MethodWorktreeCreate, map[string]any{
-		"cwd": dir, "branch": branch, "label": fmt.Sprintf("#%d %s", e.Number, e.Title),
-	}, true)
-	if err != nil {
-		return 0, 0, "", err
-	}
-	ws = workspaceOf(created)
-	wt, _ := created["worktree"].(map[string]any)
-	path, _ := wt["path"].(string)
-	if ws == 0 || path == "" {
-		return 0, 0, "", errors.New("the worktree was made, but tend could not tell where")
-	}
-	argv := append(append([]string{}, issueAgents[agentName]...), prompt)
-	tab, _, err = t.client.NewTab(ws, fmt.Sprintf("#%d %s", e.Number, agentName), proto.PaneSpec{
-		Command: append([]string{"/bin/sh", "-c", resumeScript, "tend-issue"}, argv...),
-		Dir:     path,
-		Agent:   agentName,
-	})
-	if err != nil {
-		return ws, 0, "", fmt.Errorf("the worktree %s is made, but %s did not start: %w", branch, agentName, err)
-	}
-	return ws, tab, fmt.Sprintf("#%d: %s on %s", e.Number, agentName, branch), nil
+	got, err := workon.Issue(t.apiCaller(session), t.client, dir, e.Number, e.Title, agentName, prompt)
+	return got.Workspace, got.Tab, got.Message, err
 }
 
-// workspaceOf is the space a worktree method answered with.
-func workspaceOf(result map[string]any) uint64 {
-	w, _ := result["workspace"].(map[string]any)
-	id, _ := w["workspace_id"].(string)
-	n, _ := strconv.ParseUint(strings.TrimPrefix(id, "w_"), 10, 64)
-	return n
+// apiCaller is the session's automation socket as workon calls it: waiting
+// as long as a worktree add takes.
+func (t *tui) apiCaller(session string) workon.Caller {
+	return func(method string, params map[string]any) (map[string]any, error) {
+		return apiCall(session, method, params, true)
+	}
 }
 
 // startTitleEdit opens the box on the open issue's title, to change it.
@@ -1169,7 +1081,7 @@ func (t *tui) editIssue(p proto.GitHubIssueEditParams, done string) {
 		if v.Picker != nil {
 			v.Picker.Saving = false
 		}
-		v.Message = forgeSaid(err)
+		v.Message = github.Said(err)
 		t.dirty = true
 		t.mu.Unlock()
 		t.wakeUp()
@@ -1221,7 +1133,7 @@ func (t *tui) openIssuePicker(kind string) {
 		p.Loading = false
 		if err != nil {
 			v.Picker = nil
-			v.Message = forgeSaid(err)
+			v.Message = github.Said(err)
 			return
 		}
 		// What the issue has comes first, and stays offered even when the
@@ -1370,7 +1282,7 @@ func (t *tui) setIssueScopeTo(n int) {
 // server from before them says a folder has no GitHub remote, which the
 // owner read as tend not working.
 func (t *tui) issueListError(err error) string {
-	msg := ghError(err)
+	msg := github.ErrorText(err)
 	if !t.serverHas(proto.FeatureGitHubFolders) {
 		msg += " — this server is older than lists of several repositories; run " + handoffCommand(t.session)
 	}

@@ -2,20 +2,19 @@ package main
 
 import (
 	"fmt"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
 	"unicode/utf8"
 
 	"github.com/auth-com-br/tend/internal/api"
-	"github.com/auth-com-br/tend/internal/capture"
 	"github.com/auth-com-br/tend/internal/config"
 	"github.com/auth-com-br/tend/internal/glitchtip"
 	"github.com/auth-com-br/tend/internal/keyring"
 	"github.com/auth-com-br/tend/internal/proto"
 	sessionpkg "github.com/auth-com-br/tend/internal/session"
 	"github.com/auth-com-br/tend/internal/ui"
+	"github.com/auth-com-br/tend/internal/workon"
 	"github.com/auth-com-br/tend/internal/worktree"
 )
 
@@ -64,18 +63,7 @@ func (t *tui) errorsUp() bool {
 // errorSourceLocked is the server the panel shows: the one last chosen,
 // else the first kept, with its place among them.
 func (t *tui) errorSourceLocked() (config.NamedErrorSource, int, bool) {
-	sources := t.config.ErrorSources()
-	for _, name := range []string{t.errorState.source, t.config.Errors.Source} {
-		for i, s := range sources {
-			if name != "" && s.Name == name {
-				return s, i, true
-			}
-		}
-	}
-	if len(sources) > 0 {
-		return sources[0], 0, true
-	}
-	return config.NamedErrorSource{}, 0, false
+	return t.config.ErrorSourceShown(t.errorState.source)
 }
 
 // errorsClientLocked is a client for the server shown, or nil.
@@ -206,22 +194,7 @@ func (t *tui) projectFolder(session string, pane uint64) (string, string) {
 	if dir == "" {
 		return "", ""
 	}
-	return dir, projectRoot(dir)
-}
-
-// projectRoot is the repository a directory is in, through its common git
-// directory; a directory in no repository — a folder of several, say — is
-// its own project.
-func projectRoot(dir string) string {
-	out, err := exec.Command("git", "-C", dir, "rev-parse", "--path-format=absolute", "--git-common-dir").Output()
-	if err != nil {
-		return dir
-	}
-	common := strings.TrimSpace(string(out))
-	if filepath.Base(common) == ".git" {
-		return filepath.Dir(common)
-	}
-	return dir
+	return dir, workon.ProjectRoot(dir)
 }
 
 // findErrorsFolder learns the project folder of the pane the panel was
@@ -974,13 +947,7 @@ func (t *tui) errorSay(message string) {
 
 // errorItem is the context item an error goes as.
 func errorItem(issue glitchtip.Issue, prompt string) proto.ContextItem {
-	return errorItemText("glitchtip", issue.ShortID+" "+issue.Title, issue.URL, prompt)
-}
-
-// errorItemText is the context item for what an agent is handed to fix, an
-// error or a ticket.
-func errorItemText(source, title, url, prompt string) proto.ContextItem {
-	return proto.ContextItem{Kind: capture.KindText, Source: source, Title: title, URL: url, Text: prompt}
+	return workon.ContextItem("glitchtip", issue.ShortID+" "+issue.Title, issue.URL, prompt)
 }
 
 // fixError types the error, with its stack and what to do, into the pane
@@ -1067,47 +1034,10 @@ func (t *tui) fixErrorInWorktree() bool {
 
 // errorWorktree makes, or finds, the worktree for an error — or a ticket,
 // named by label — in the space's repository, and starts the agent there
-// when it is new.
+// when it is new (workon.Fix).
 func (t *tui) errorWorktree(session string, ws uint64, branch, label, agentName, prompt string) (uint64, uint64, string, error) {
-	where := map[string]any{"workspace_id": api.WorkspaceID(sessionpkg.WorkspaceID(ws))}
-	list, err := apiCall(session, api.MethodWorktreeList, where, true)
-	if err != nil {
-		return 0, 0, "", fmt.Errorf("this space is not a repository to fix it in: %w", err)
-	}
-	trees, _ := list["worktrees"].([]any)
-	for _, raw := range trees {
-		wt, _ := raw.(map[string]any)
-		if b, _ := wt["branch"].(string); b == branch {
-			path, _ := wt["path"].(string)
-			opened, err := apiCall(session, api.MethodWorktreeOpen, map[string]any{"workspace_id": where["workspace_id"], "path": path}, true)
-			if err != nil {
-				return 0, 0, "", err
-			}
-			return workspaceOf(opened), 0, label + " already has a worktree: " + branch, nil
-		}
-	}
-	created, err := apiCall(session, api.MethodWorktreeCreate, map[string]any{
-		"workspace_id": where["workspace_id"], "branch": branch, "label": label,
-	}, true)
-	if err != nil {
-		return 0, 0, "", err
-	}
-	wsID := workspaceOf(created)
-	wt, _ := created["worktree"].(map[string]any)
-	path, _ := wt["path"].(string)
-	if wsID == 0 || path == "" {
-		return 0, 0, "", fmt.Errorf("the worktree was made, but tend could not tell where")
-	}
-	argv := append(append([]string{}, issueAgents[agentName]...), prompt)
-	tab, _, err := t.client.NewTab(wsID, label+" "+agentName, proto.PaneSpec{
-		Command: append([]string{"/bin/sh", "-c", resumeScript, "tend-fix"}, argv...),
-		Dir:     path,
-		Agent:   agentName,
-	})
-	if err != nil {
-		return wsID, 0, "", fmt.Errorf("the worktree %s is made, but %s did not start: %w", branch, agentName, err)
-	}
-	return wsID, tab, fmt.Sprintf("%s: %s on %s", label, agentName, branch), nil
+	got, err := workon.Fix(t.apiCaller(session), t.client, ws, branch, label, agentName, prompt)
+	return got.Workspace, got.Tab, got.Message, err
 }
 
 // setErrorStatus marks the current error on the server, and reads the list

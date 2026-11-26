@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/auth-com-br/tend/internal/api"
 	"github.com/auth-com-br/tend/internal/github"
 	"github.com/auth-com-br/tend/internal/proto"
 	"github.com/auth-com-br/tend/internal/ui"
+	"github.com/auth-com-br/tend/internal/workon"
 )
 
 // Pull requests in the issues panel (internal/ui/pulls.go): the other of
@@ -25,7 +25,7 @@ func (t *tui) setIssueMode(pullRequests bool) {
 		return
 	}
 	v.PullRequests = pullRequests
-	v.Filters = issueFilterNames(pullRequests)
+	v.Filters = github.FilterNames(pullRequests)
 	v.Filter, v.Cursor, v.Scroll = 0, 0, 0
 	v.Message = ""
 	seq := t.askIssuesLocked()
@@ -152,7 +152,7 @@ func (t *tui) showPR(p ui.PREntry, reload bool) {
 		pr := v.PR
 		pr.Loading = false
 		if err != nil {
-			pr.Body = "could not read the pull request: " + ghError(err)
+			pr.Body = "could not read the pull request: " + github.ErrorText(err)
 			return
 		}
 		pr.PREntry = prEntry(d.GitHubPR)
@@ -299,7 +299,7 @@ func (t *tui) prAction(action, method string) {
 		if v := t.issues; v != nil {
 			switch {
 			case err != nil:
-				v.Message = forgeSaid(err)
+				v.Message = github.Said(err)
 			case action == "merge":
 				v.Message = fmt.Sprintf("merged #%d (%s)", number, method)
 			case action == "ready":
@@ -381,33 +381,21 @@ func (t *tui) goToPRWorktree() {
 	t.mu.Unlock()
 	go func() {
 		message := "no worktree here is on " + head
-		list, err := apiCall(session, api.MethodWorktreeList, map[string]any{"cwd": dir}, true)
-		if err == nil {
-			trees, _ := list["worktrees"].([]any)
-			for _, raw := range trees {
-				wt, _ := raw.(map[string]any)
-				if branch, _ := wt["branch"].(string); branch != head {
-					continue
-				}
-				path, _ := wt["path"].(string)
-				opened, err := apiCall(session, api.MethodWorktreeOpen, map[string]any{"cwd": dir, "path": path}, true)
-				if err != nil {
-					message = err.Error()
-					break
-				}
-				t.closeIssues()
-				t.mu.Lock()
-				t.rememberFocusLocked()
-				t.workspace, t.tab, t.focus, t.zoom = workspaceOf(opened), 0, 0, false
-				t.mu.Unlock()
-				t.setMessage("worktree of "+head, false)
-				if err := t.refresh(); err != nil {
-					t.setMessage(err.Error(), true)
-				}
-				return
-			}
-		} else {
+		ws, found, err := workon.GoToBranch(t.apiCaller(session), dir, head)
+		switch {
+		case err != nil:
 			message = err.Error()
+		case found:
+			t.closeIssues()
+			t.mu.Lock()
+			t.rememberFocusLocked()
+			t.workspace, t.tab, t.focus, t.zoom = ws, 0, 0, false
+			t.mu.Unlock()
+			t.setMessage("worktree of "+head, false)
+			if err := t.refresh(); err != nil {
+				t.setMessage(err.Error(), true)
+			}
+			return
 		}
 		t.mu.Lock()
 		if v := t.issues; v != nil {

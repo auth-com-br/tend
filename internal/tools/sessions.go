@@ -2,6 +2,7 @@ package tools
 
 import (
 	"fmt"
+	"github.com/auth-com-br/tend/internal/workon"
 	"sort"
 	"strings"
 	"time"
@@ -22,10 +23,8 @@ import (
 const SessionsOld = 30 * 24 * time.Hour
 
 // ResumeScript runs an agent — resumed, continued, started — and leaves a
-// shell in the pane when it ends, as a tab somebody had opened and typed
-// the command into would.
-const ResumeScript = `"$@"
-exec "${SHELL:-/bin/sh}"`
+// shell in the pane when it ends: workon.ResumeScript, the one copy.
+const ResumeScript = workon.ResumeScript
 
 // SessionEntries are the server's sessions as the list shows them.
 func SessionEntries(list []proto.AgentSessionInfo) []ui.SessionEntry {
