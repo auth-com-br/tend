@@ -54,31 +54,35 @@ func FindTend(given string) (string, error) {
 // binary. The behaviour is the same: dial, start a server only when nothing
 // is listening, and wait for it, since two clients starting one at once is
 // resolved by the second server failing to take the socket.
-func OpenSession(name, tendPath string, handler client.Handler) (*client.Client, error) {
+//
+// started is closed when a server this call started has exited, and nil
+// when it found one already running.
+func OpenSession(name, tendPath string, handler client.Handler) (c *client.Client, started <-chan struct{}, err error) {
 	path, err := transport.SocketPath(name)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	c, err := client.Dial(path, handler)
+	c, err = client.Dial(path, handler)
 	if err == nil {
-		return c, nil
+		return c, nil, nil
 	}
 	if !notRunning(err) {
-		return nil, err
+		return nil, nil, err
 	}
-	if err := startServer(tendPath, name, path); err != nil {
-		return nil, err
+	exited, err := startServer(tendPath, name, path)
+	if err != nil {
+		return nil, nil, err
 	}
 	deadline := time.Now().Add(10 * time.Second)
 	for time.Now().Before(deadline) {
 		if c, err := client.Dial(path, handler); err == nil {
-			return c, nil
+			return c, exited, nil
 		} else if !notRunning(err) {
-			return nil, err
+			return nil, nil, err
 		}
 		time.Sleep(25 * time.Millisecond)
 	}
-	return nil, fmt.Errorf("started a server for %q but it never came up; see %s", name, serverLog(path))
+	return nil, nil, fmt.Errorf("started a server for %q but it never came up; see %s", name, serverLog(path))
 }
 
 // serverLog is cmd/tend's serverLog: the socket's name with .log for .sock.
@@ -94,20 +98,30 @@ func notRunning(err error) bool {
 // the desktop window does not take the server, and with it every pane, along.
 // Its output goes to the same log file cmd/tend's server writes, which is
 // the only record of why a session failed to start.
-func startServer(tendPath, name, socket string) error {
+//
+// The server is this process's child until it exits, and is waited for:
+// released instead, a server that stopped while the window was open stayed
+// a zombie until the window closed. The channel returned is closed when it
+// has exited.
+func startServer(tendPath, name, socket string) (<-chan struct{}, error) {
 	if err := os.MkdirAll(filepath.Dir(socket), 0o700); err != nil {
-		return fmt.Errorf("creating the runtime directory: %w", err)
+		return nil, fmt.Errorf("creating the runtime directory: %w", err)
 	}
 	log, err := os.OpenFile(serverLog(socket), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
 	if err != nil {
-		return fmt.Errorf("opening the server log: %w", err)
+		return nil, fmt.Errorf("opening the server log: %w", err)
 	}
 	defer log.Close()
 	cmd := exec.Command(tendPath, "serve", "-s", name)
 	cmd.Stdout, cmd.Stderr = log, log
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
 	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("starting a server for %q with %s: %w", name, tendPath, err)
+		return nil, fmt.Errorf("starting a server for %q with %s: %w", name, tendPath, err)
 	}
-	return cmd.Process.Release()
+	exited := make(chan struct{})
+	go func() {
+		_ = cmd.Wait()
+		close(exited)
+	}()
+	return exited, nil
 }

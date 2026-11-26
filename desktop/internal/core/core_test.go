@@ -3,7 +3,9 @@ package core
 import (
 	"testing"
 
+	"github.com/auth-com-br/tend/internal/config"
 	"github.com/auth-com-br/tend/internal/proto"
+	"github.com/auth-com-br/tend/internal/ui"
 	"github.com/auth-com-br/tend/internal/vt"
 )
 
@@ -192,5 +194,28 @@ func TestTheWheelAsKeysFollowsDECCKM(t *testing.T) {
 	}
 	if got := string(arrowKey(false, true)); got != "\x1bOB" {
 		t.Errorf("down under DECCKM %q", got)
+	}
+}
+
+// TestTheWindowWearsTheThemeTheSettingsName: a theme named in the settings
+// colours the window and the terminals, from the palette the TUI uses; with
+// none, catppuccin. If it regresses, the window and the TUI of one session
+// wear different colours.
+func TestTheWindowWearsTheThemeTheSettingsName(t *testing.T) {
+	gruvbox, _ := ui.PaletteNamed("gruvbox")
+	p := paletteFor(config.Theme{Name: "gruvbox"}, false)
+	if p != gruvbox {
+		t.Fatalf("gruvbox resolved to %+v", p)
+	}
+	c := coloursFrom(p)
+	if c.BG != rgbOf(gruvbox.ActiveRowBG, 0) || c.ANSI[1] != rgbOf(gruvbox.Red, 0) {
+		t.Errorf("terminal colours %+v not gruvbox's", c)
+	}
+	if th := themeFrom(p, false); th.Accent != hex(rgbOf(gruvbox.Accent, 0)) {
+		t.Errorf("window accent %s", th.Accent)
+	}
+	cat, _ := ui.PaletteNamed("catppuccin")
+	if paletteFor(config.Theme{}, false) != cat {
+		t.Error("no theme did not give catppuccin")
 	}
 }

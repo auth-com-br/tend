@@ -33,6 +33,9 @@ type Session struct {
 	ui     config.UI
 	notes  *notifier
 	done   chan struct{}
+	// serverExited is closed when a server this window started has exited;
+	// nil when the window found one running.
+	serverExited <-chan struct{}
 	// notifyHook stands in for the system's notifications in tests.
 	notifyHook func(title, body string, clicked func()) error
 
@@ -50,6 +53,11 @@ type Session struct {
 	rects              []proto.PaneRect
 	panes              map[uint64]*paneView
 	colours            Colours
+	// theme is the window's colours, and light whether the desktop is
+	// light, which a theme with auto_switch follows.
+	theme      Theme
+	light      bool
+	themeReady bool
 
 	// refreshMu makes refreshes one at a time, and a change of view (the
 	// tab, the space, the focus) part of the refresh that shows it.
@@ -121,10 +129,12 @@ func Open(name, tendPath string, cfg config.Config) (*Session, error) {
 		panes:    map[uint64]*paneView{},
 		lastCopy: map[uint64]string{},
 	}
-	c, err := OpenSession(name, tendPath, s)
+	s.applyThemeLocked()
+	c, started, err := OpenSession(name, tendPath, s)
 	if err != nil {
 		return nil, err
 	}
+	s.serverExited = started
 	s.mu.Lock()
 	s.client = c
 	s.mu.Unlock()

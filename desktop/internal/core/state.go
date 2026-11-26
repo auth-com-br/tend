@@ -39,6 +39,8 @@ type State struct {
 	Update string `json:"update,omitempty"`
 	// Toasts are the cards up now.
 	Toasts []Toast `json:"toasts,omitempty"`
+	// Theme is the window's colours.
+	Theme Theme `json:"theme"`
 }
 
 // MenuState is a menu as QML draws it.
@@ -192,6 +194,7 @@ func (s *Session) State() State {
 	st.Prompt = s.prompt
 	st.Panel = s.panel
 	st.Zoomed = s.zoom != 0
+	st.Theme = s.theme
 	st.Toasts = append([]Toast(nil), s.notes.shown...)
 	if s.snap.Update != nil {
 		st.Update = s.snap.Update.Ready

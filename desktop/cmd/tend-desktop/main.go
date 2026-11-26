@@ -55,9 +55,9 @@ func main() {
 	// The terminal tend's settings: the same sidebar rows, sort and
 	// indicators. A file with a mistake in it still opens the window, with
 	// what could be read, as the TUI does.
-	cfg, err := config.LoadLenient()
-	if err != nil {
-		logf("settings: %v", err)
+	cfg, settingsErr := config.LoadLenient()
+	if settingsErr != nil {
+		logf("settings: %v", settingsErr)
 	}
 
 	// QtWebEngine shares OpenGL contexts with the window, and asks for it
@@ -176,6 +176,11 @@ func main() {
 		})
 	}
 	logf("window loaded, focus on pane %d", sess.Focused())
+	if settingsErr != nil {
+		// Said, as the TUI says it: the window opened with what could be
+		// read, and the rest is the file's to fix.
+		setStatus("settings: " + settingsErr.Error())
+	}
 	sess.StateChanged()
 	background(sess.LoadAgents)
 
@@ -228,6 +233,7 @@ func dispatch(sess *core.Session, method string, raw []byte) error {
 		Y         int    `json:"y"`
 		Index     int    `json:"index"`
 		Focused   bool   `json:"focused"`
+		Light     bool   `json:"light"`
 		Cols      int    `json:"cols"`
 		Rows      int    `json:"rows"`
 	}
@@ -276,6 +282,9 @@ func dispatch(sess *core.Session, method string, raw []byte) error {
 		return nil
 	case "pane.zoom":
 		return sess.ToggleZoom(a.Pane)
+	case "appearance":
+		sess.SetAppearance(a.Light)
+		return nil
 	case "window.focus":
 		return sess.SetWindowFocused(a.Focused)
 	case "toast.dismiss":

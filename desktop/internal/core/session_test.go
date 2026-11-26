@@ -67,6 +67,16 @@ func openTest(t *testing.T) *Session {
 	t.Cleanup(func() {
 		_ = s.Close()
 		_ = exec.Command(tendBin, "kill", "-s", name, "-server").Run()
+		// The server writes the session's history as it stops, after it
+		// has answered the shutdown: its state directory is removed only
+		// once it has gone, or the removal races the write.
+		if s.serverExited != nil {
+			select {
+			case <-s.serverExited:
+			case <-time.After(10 * time.Second):
+				t.Error("the server did not stop")
+			}
+		}
 		_ = os.RemoveAll(run)
 	})
 	return s
