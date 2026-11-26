@@ -33,7 +33,7 @@ func TestTheSettingsScreenInstallsAnAgentsHooks(t *testing.T) {
 
 	var row *settingRow
 	for _, r := range integrationRows(false) {
-		if strings.HasSuffix(r.label, "claude") {
+		if strings.HasSuffix(r.Label, "claude") {
 			r := r
 			row = &r
 		}
@@ -45,16 +45,16 @@ func TestTheSettingsScreenInstallsAnAgentsHooks(t *testing.T) {
 		t.Error("a client on another machine must not offer to install here")
 	}
 
-	if _, err := row.apply(row.choices[1]); err != nil {
+	if _, err := row.Apply(row.Choices[1]); err != nil {
 		t.Fatalf("install: %v", err)
 	}
-	if got := row.value(config.Defaults()); got != string(integration.StatusCurrent) {
+	if got := row.Value(config.Defaults()); got != string(integration.StatusCurrent) {
 		t.Errorf("after installing, the row says %q", got)
 	}
-	if _, err := row.apply(row.choices[0]); err != nil {
+	if _, err := row.Apply(row.Choices[0]); err != nil {
 		t.Fatalf("uninstall: %v", err)
 	}
-	if got := row.value(config.Defaults()); got != string(integration.StatusNotInstalled) {
+	if got := row.Value(config.Defaults()); got != string(integration.StatusNotInstalled) {
 		t.Errorf("after removing, the row says %q", got)
 	}
 }
