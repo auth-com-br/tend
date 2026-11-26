@@ -281,6 +281,9 @@ func (a *API) handle(conn net.Conn) {
 			continue
 		}
 		if err := enc.Encode(successResponse{ID: req.ID, Result: result}); err != nil {
+			if pending.drop != nil {
+				pending.drop()
+			}
 			return
 		}
 		if pending.stream != nil {
@@ -396,6 +399,9 @@ type pending struct {
 	// stream turns the connection into an event stream once the reply has
 	// been written. Nothing else can be asked on it afterwards.
 	stream func(net.Conn) error
+	// drop lets go of what was taken for the stream when it never starts:
+	// the reply could not be written.
+	drop func()
 }
 
 func (a *API) call(req Request, p *pending) (any, error) {

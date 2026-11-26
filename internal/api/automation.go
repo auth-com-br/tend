@@ -816,7 +816,11 @@ func (a *API) callMore(req Request, pend *pending) (any, error) {
 				return nil, err
 			}
 		}
-		pend.stream = func(conn net.Conn) error { return a.subscribe(conn, p.Kinds, p.PaneID) }
+		// Subscribed before the reply, so the stream misses nothing that
+		// happens once the caller has it (subscribe.go).
+		sub := a.srv.Subscribe(subscribeBuffer)
+		pend.stream = func(conn net.Conn) error { return a.subscribe(conn, sub, p.Kinds, p.PaneID) }
+		pend.drop = sub.Close
 		return map[string]any{"type": "subscribed"}, nil
 
 	case MethodLayoutExport:
@@ -1112,7 +1116,11 @@ func (a *API) callMore(req Request, pend *pending) (any, error) {
 		if err := decode(req.Params, &p); err != nil {
 			return nil, err
 		}
-		pend.stream = func(conn net.Conn) error { return a.followBrowser(conn, p.Name) }
+		// Attached before the reply, so a command sent once the browser
+		// has its answer reaches it (browser.go).
+		cmds, detach := a.srv.AttachBrowser(p.Name)
+		pend.stream = func(conn net.Conn) error { return a.followBrowser(conn, cmds, detach) }
+		pend.drop = detach
 		// What the server can do goes with it, as it does in a client's
 		// handshake: the bridge is started by the browser from whatever
 		// tend is installed, and a server not yet handed over to it would

@@ -24,8 +24,12 @@ func browserErr(err error) error {
 
 // followBrowser turns the connection into the commands an attached browser
 // follows, one line each, until it hangs up or the server stops.
-func (a *API) followBrowser(conn net.Conn, name string) error {
-	cmds, detach := a.srv.AttachBrowser(name)
+//
+// The browser was attached when the request was answered (cmds, detach),
+// not here: attached after the reply, a page sent the moment the browser
+// had its answer found no browser — the gap events.subscribe had
+// (subscribe.go).
+func (a *API) followBrowser(conn net.Conn, cmds <-chan server.BrowserCommand, detach func()) error {
 	defer detach()
 	// The browser says nothing on this connection once attached; a read
 	// that ends is it gone, which lets it go at once rather than at the

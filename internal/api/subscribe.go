@@ -34,12 +34,19 @@ const subscribeBuffer = 256
 // cannot hold the goroutine that feeds it for ever.
 const streamWrite = 10 * time.Second
 
-// subscribe turns the connection into a stream of events.
+// subscribe turns the connection into a stream of events, from sub.
 //
 // It returns when the caller hangs up or the server stops. The reply to the
 // request itself has already been written by the caller; from here the
 // connection carries events and nothing else.
-func (a *API) subscribe(conn net.Conn, kinds []string, pane string) error {
+//
+// sub was made when the request was answered, not here: made after the
+// reply, every event between the caller reading "subscribed" and this
+// starting was lost — panes a caller made at once never came down the
+// stream, which CI's runner found (TestSubscribingFollowsTheSessionWithout-
+// Gaps). The stream is the session from the reply on, with no gap.
+func (a *API) subscribe(conn net.Conn, sub *server.Subscription, kinds []string, pane string) error {
+	defer sub.Close()
 	var only session.PaneID
 	if pane != "" {
 		id, err := a.pane(pane)
@@ -49,9 +56,6 @@ func (a *API) subscribe(conn net.Conn, kinds []string, pane string) error {
 		only = id
 	}
 	want := wantedEvents(kinds)
-
-	sub := a.srv.Subscribe(subscribeBuffer)
-	defer sub.Close()
 
 	enc := json.NewEncoder(conn)
 	for ev := range sub.C {
