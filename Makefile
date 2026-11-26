@@ -102,7 +102,12 @@ fmt:
 		echo "gofmt not found at $(GOFMT)"; \
 		echo "override with: make GOFMT=/path/to/gofmt"; \
 		exit 1; }
-	@out="$$($(GOFMT) -l .)"; \
+	@# Hidden directories are skipped, as go vet and go test skip them: a git
+	@# worktree under .claude/ (an agent's work in progress) made the gate red
+	@# for a file that is not this tree's. gofmt walks the directories that
+	@# are not hidden (ls -d */ lists no hidden one) and the top's own Go
+	@# files; what it cannot parse fails the gate too.
+	@out="$$($(GOFMT) -l $$(ls -d */) $$(ls *.go 2>/dev/null) 2>&1)"; \
 	if [ -n "$$out" ]; then echo "gofmt needed:"; echo "$$out"; exit 1; fi
 
 vet: toolchain
