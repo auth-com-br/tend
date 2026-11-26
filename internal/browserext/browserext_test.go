@@ -88,6 +88,9 @@ func TestTheProfileHasTheExtensionAndItsHost(t *testing.T) {
 // If it regresses, a machine with only Chrome opens the desktop's browser
 // without the extension, as the owner's second machine did.
 func TestTheBrowserFoundIsOneThatLoadsTheExtension(t *testing.T) {
+	// Not this machine's packaging: the paths below are made up.
+	defer func(f func(string) bool) { snapPackaged = f }(snapPackaged)
+	snapPackaged = func(string) bool { return false }
 	have := func(names ...string) func(string) (string, error) {
 		return func(n string) (string, error) {
 			for _, h := range names {
@@ -119,5 +122,57 @@ func TestTheBrowserFoundIsOneThatLoadsTheExtension(t *testing.T) {
 	args := strings.Join(Args(Profile{UserData: "/p", Extension: "/e"}, "https://x.test"), " ")
 	if args != "--user-data-dir=/p --remote-debugging-pipe --enable-unsafe-extension-debugging --no-first-run --no-default-browser-check https://x.test" {
 		t.Errorf("args: %s", args)
+	}
+}
+
+// TestASnapBrowserIsPassedOver: a browser from a snap loads the extension
+// but its confinement refuses the extension's host a connection to tend's
+// socket, so it is skipped for one that can, and when a snap is all there
+// is, the reason is given. If it regresses, tend opens Ubuntu's snap
+// Chromium, status says no browser is attached, and nothing says why.
+func TestASnapBrowserIsPassedOver(t *testing.T) {
+	defer func(f func(string) bool) { snapPackaged = f }(snapPackaged)
+	snapPackaged = func(p string) bool { return strings.HasPrefix(p, "/snap/") }
+	look := func(found map[string]string) func(string) (string, error) {
+		return func(n string) (string, error) {
+			if p, ok := found[n]; ok {
+				return p, nil
+			}
+			return "", errors.New("not found")
+		}
+	}
+	both := look(map[string]string{"chromium": "/snap/bin/chromium", "google-chrome": "/usr/bin/google-chrome"})
+	if got, err := Find("", both); err != nil || got != "/usr/bin/google-chrome" {
+		t.Errorf("a snap chromium and a .deb chrome: got %q, %v; want the chrome", got, err)
+	}
+	only := look(map[string]string{"chromium": "/snap/bin/chromium"})
+	if _, err := Find("", only); !errors.Is(err, ErrSnapBrowser) {
+		t.Errorf("only a snap: %v, want ErrSnapBrowser", err)
+	}
+	if _, err := Find("chromium", only); !errors.Is(err, ErrSnapBrowser) {
+		t.Errorf("a snap named: %v, want ErrSnapBrowser", err)
+	}
+}
+
+// TestUbuntusChromiumScriptIsKnownForASnap: /usr/bin/chromium-browser on
+// Ubuntu is a shell script that runs the snap, so it has the snap's problem.
+func TestUbuntusChromiumScriptIsKnownForASnap(t *testing.T) {
+	dir := t.TempDir()
+	script := filepath.Join(dir, "chromium-browser")
+	if err := os.WriteFile(script, []byte("#!/bin/sh\nexec /snap/bin/chromium \"$@\"\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	plain := filepath.Join(dir, "chromium")
+	if err := os.WriteFile(plain, []byte("\x7fELF not a script"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if !IsSnapPackaged(script) {
+		t.Error("the script that runs /snap/bin/chromium was not known for a snap")
+	}
+	if IsSnapPackaged(plain) {
+		t.Error("a binary was taken for a snap")
+	}
+	if !IsSnapPackaged("/snap/bin/chromium") {
+		t.Error("/snap/bin/chromium was not known for a snap")
 	}
 }

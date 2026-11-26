@@ -232,6 +232,13 @@ func TestEachBrowserComesUpWithTheExtensionWorking(t *testing.T) {
 			if err != nil {
 				t.Skip("needs " + name)
 			}
+			// Ubuntu's chromium is a snap, and tend does not choose one:
+			// its confinement refuses the extension's host the connection
+			// to tend (browserext.ErrSnapBrowser). This failed every run
+			// once the machine had only the snap.
+			if browserext.IsSnapPackaged(browser) {
+				t.Skip(name + " is a snap, which tend does not use (browserext.ErrSnapBrowser)")
+			}
 			session := strings.ReplaceAll(name, "-", "")
 			bin, env := startRealSession(t, session)
 			hits := make(chan string, 32)

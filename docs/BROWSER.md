@@ -63,7 +63,14 @@ profile are not touched.
   browser ends if it closes); no port is opened. Tried on 2026-09-24,
   headless, through the keeper, with the bridge attaching: Chromium 153,
   Google Chrome 154, Edge 153. Brave 153 loads the extension but never
-  starts the bridge, so it is not tried. With none of them, the page opens
+  starts the bridge, so it is not tried. A browser installed as a **snap**
+  — Ubuntu's only Chromium, and `/usr/bin/chromium-browser` there is a
+  script that runs it — is passed over too: it loads the extension, but its
+  confinement runs the bridge with `XDG_RUNTIME_DIR` moved into the snap's
+  own directory, and AppArmor refuses it the connection to tend's socket
+  even when pointed at the right one ("connect: permission denied",
+  Chromium 157 from the snap, November 2026). With only a snap, tend says
+  that is why. With none of them, the page opens
   in the desktop's browser without the extension, and tend says so.
   `[browser] command` opens a browser of your own instead, also without it.
 

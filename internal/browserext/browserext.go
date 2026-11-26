@@ -13,6 +13,7 @@
 package browserext
 
 import (
+	"bytes"
 	"embed"
 	"encoding/json"
 	"errors"
@@ -137,6 +138,39 @@ var candidates = []string{
 // extension.
 var ErrNoBrowser = errors.New("no browser that can load tend's extension (chromium, google-chrome, microsoft-edge)")
 
+// ErrSnapBrowser is a browser installed as a snap, which is Ubuntu's only
+// Chromium. The snap's confinement runs the extension's native host inside
+// it, with XDG_RUNTIME_DIR moved to /run/user/<uid>/snap.chromium, and its
+// AppArmor profile refuses the connection to tend's socket even when the
+// host is pointed at the right one ("connect: permission denied", seen with
+// Chromium 157 from the snap, November 2026). The extension loads and never
+// reaches tend: status says no browser is attached, and open fails.
+var ErrSnapBrowser = errors.New("the browser is installed as a snap, whose confinement keeps tend's extension from reaching tend; install Chromium, Chrome or Edge from a .deb or another package instead")
+
+// IsSnapPackaged reports whether the program at path runs from a snap: a
+// path under /snap/, or Ubuntu's /usr/bin/chromium-browser, a small script
+// that runs /snap/bin/chromium.
+func IsSnapPackaged(path string) bool {
+	if strings.HasPrefix(path, "/snap/") {
+		return true
+	}
+	if resolved, err := filepath.EvalSymlinks(path); err == nil && strings.HasPrefix(resolved, "/snap/") {
+		return true
+	}
+	info, err := os.Stat(path)
+	if err != nil || info.Size() > 64<<10 {
+		return false
+	}
+	raw, err := os.ReadFile(path)
+	if err != nil || !bytes.HasPrefix(raw, []byte("#!")) {
+		return false
+	}
+	return bytes.Contains(raw, []byte("/snap/bin/"))
+}
+
+// snapPackaged is IsSnapPackaged, replaced in tests.
+var snapPackaged = IsSnapPackaged
+
 // Find is the browser to run: the program given, else the first candidate on
 // the PATH.
 func Find(program string, lookPath func(string) (string, error)) (string, error) {
@@ -148,12 +182,28 @@ func Find(program string, lookPath func(string) (string, error)) (string, error)
 		if err != nil {
 			return "", fmt.Errorf("browser %q: %w", program, err)
 		}
+		if snapPackaged(path) {
+			return "", fmt.Errorf("browser %q: %w", program, ErrSnapBrowser)
+		}
 		return path, nil
 	}
+	// A snap is passed over for the next candidate: a machine with a snap
+	// Chromium and a Chrome from Google's .deb gets the Chrome. Only when
+	// a snap is all there is, is the reason given rather than "none".
+	sawSnap := false
 	for _, c := range candidates {
-		if path, err := lookPath(c); err == nil {
-			return path, nil
+		path, err := lookPath(c)
+		if err != nil {
+			continue
 		}
+		if snapPackaged(path) {
+			sawSnap = true
+			continue
+		}
+		return path, nil
+	}
+	if sawSnap {
+		return "", ErrSnapBrowser
 	}
 	return "", ErrNoBrowser
 }

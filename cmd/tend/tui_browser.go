@@ -57,14 +57,21 @@ func (t *tui) openInBrowser(url string) {
 			t.setMessage("opening "+url+" in tend's browser ("+used+", with the extension)", false)
 			return
 		}
-		if !errors.Is(err, browserext.ErrNoBrowser) {
+		snap := errors.Is(err, browserext.ErrSnapBrowser)
+		if !errors.Is(err, browserext.ErrNoBrowser) && !snap {
 			t.setMessage("tend's browser: "+err.Error(), true)
 			return
 		}
-		// No browser here can load the extension: the desktop's own, then,
-		// which opens the page and picks nothing.
+		// No browser here can load the extension and reach tend: the
+		// desktop's own, then, which opens the page and picks nothing. A
+		// snap Chromium is said by name, since "none here" would be false
+		// on a machine that has one.
 		if err := openURL(url); err == nil {
-			t.setMessage("opening "+url+" (no Chromium or Edge here, so without tend's extension)", false)
+			why := "no Chromium or Edge here"
+			if snap {
+				why = "the Chromium here is a snap, which cannot reach tend"
+			}
+			t.setMessage("opening "+url+" ("+why+", so without tend's extension)", false)
 			return
 		}
 	}
