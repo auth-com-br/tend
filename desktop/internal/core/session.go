@@ -3,45 +3,87 @@ package core
 import (
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/auth-com-br/tend/internal/client"
+	"github.com/auth-com-br/tend/internal/config"
 	"github.com/auth-com-br/tend/internal/proto"
 	"github.com/auth-com-br/tend/internal/vt"
 )
 
-// Session is the desktop's connection to one tend session and what it shows
-// of it. For now that is one pane, the one the session has in focus; the
-// sidebar, tabs and splits come next (docs/DESKTOP.md).
+// Session is the desktop's connection to one tend session and what this
+// window shows of it: which space, which tab, which pane has the keyboard,
+// and the tab's panes laid out as the server lays them out.
+//
+// What the window looks at is its own and never sent, as in the TUI
+// (AGENTS.md, "Shared fact or client state?"): two windows on one session
+// can show different spaces. The server is told only where the focus is
+// (pane.focus), which it needs for "done" and unread.
 //
 // It is the client.Handler, so PaneOutput and Event run on the connection's
 // reader goroutine. They do nothing slow there: a call to the server from
 // inside its own reply handler deadlocks, as the TUI learned (tui.go,
-// Event), so anything that needs a round trip is sent off to a goroutine.
+// Event), so anything that needs a round trip goes to a goroutine.
 type Session struct {
 	mu     sync.Mutex
 	client *client.Client
-	pane   uint64
-	screen *vt.Screen
-	// cols and rows are the size the window is drawing the pane at, which
-	// the pane's terminal on the server is kept to.
-	cols, rows int
-	subscribed bool
-	colours    Colours
+	name   string
+	ui     config.UI
 
-	// Changed is called, without the lock held, when there is something new
-	// to paint or a different pane to show. It must not block: it runs on
-	// the connection's reader. The Qt side sets it to post a repaint to the
-	// main thread.
-	Changed func()
-	// Status is called with a line for the user when something goes wrong
-	// that the window should say: the session ending, a pane failing.
-	Status func(string)
+	snap                  proto.SessionSnapshot
+	workspace, tab, focus uint64
+	// The viewer's own: groups folded, agents grouped under tabs, the
+	// company chosen.
+	folded  map[string]bool
+	grouped bool
+	company uint64
+
+	// areaCols and areaRows are the panes' area in cells, which the tab is
+	// laid out in; rects is that layout.
+	areaCols, areaRows int
+	rects              []proto.PaneRect
+	panes              map[uint64]*paneView
+	colours            Colours
+
+	refreshing bool
+	again      bool
+
+	// PaneChanged is called, without the lock, when a pane has something
+	// new to paint. StateChanged when what the window lists or lays out
+	// changed: the sidebar, the tabs, the panes shown. Status with a line
+	// for the user. None of them may block: they can run on the
+	// connection's reader. The Qt side posts each to the main thread.
+	PaneChanged  func(pane uint64)
+	StateChanged func()
+	Status       func(string)
+	// Copied is text for the clipboard: a selection made in a pane, or
+	// what a pane's program copied (OSC 52).
+	Copied func(string)
+}
+
+// paneView is one pane the window shows: its terminal, kept at the size the
+// window draws it at.
+type paneView struct {
+	screen     *vt.Screen
+	cols, rows int
+	// scroll is the pane looked at offset lines back, from the server's
+	// history (pane.screen), nil while it shows live; history is how far
+	// back there is to go.
+	scroll          *vt.Screen
+	offset, history int
+	sel             selection
 }
 
 // Open connects to the named session, starting it with tendPath if it is not
-// running, and settles on the pane to show.
-func Open(name, tendPath string) (*Session, error) {
-	s := &Session{colours: DefaultColours}
+// running, and settles on what to show.
+func Open(name, tendPath string, ui config.UI) (*Session, error) {
+	s := &Session{
+		name:    name,
+		ui:      ui,
+		colours: DefaultColours,
+		folded:  map[string]bool{},
+		panes:   map[uint64]*paneView{},
+	}
 	c, err := OpenSession(name, tendPath, s)
 	if err != nil {
 		return nil, err
@@ -49,9 +91,23 @@ func Open(name, tendPath string) (*Session, error) {
 	s.mu.Lock()
 	s.client = c
 	s.mu.Unlock()
-	if err := s.refocus(); err != nil {
+	if err := s.refresh(); err != nil {
 		_ = c.Close()
 		return nil, err
+	}
+	s.mu.Lock()
+	empty := len(s.snap.Panes) == 0
+	s.mu.Unlock()
+	if empty {
+		// A session with no pane at all: open one, so the window has a
+		// terminal to show. Only then, as the TUI's ensureSession: a space
+		// shown with no tab in it is a real state, not a reason to make
+		// another space — the first version did, and a restored session
+		// opened with an extra empty space beside it.
+		if err := s.ensurePane(); err != nil {
+			_ = c.Close()
+			return nil, err
+		}
 	}
 	return s, nil
 }
@@ -67,37 +123,76 @@ func (s *Session) Close() error {
 	return c.Close()
 }
 
-// Pane is the pane being shown.
-func (s *Session) Pane() uint64 {
+// Name is the session's name.
+func (s *Session) Name() string { return s.name }
+
+// Focused is the pane with the keyboard.
+func (s *Session) Focused() uint64 {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.pane
+	return s.focus
+}
+
+func (s *Session) ensurePane() error {
+	s.mu.Lock()
+	c, snap := s.client, s.snap
+	s.mu.Unlock()
+	// As the TUI's ensureSession: in the active space, or a new "main".
+	ws := snap.ActiveWorkspace
+	if ws == 0 {
+		var err error
+		if ws, err = c.NewWorkspace("main"); err != nil {
+			return fmt.Errorf("opening a space: %w", err)
+		}
+	}
+	if _, _, err := c.NewTab(ws, "tab 1", proto.PaneSpec{}); err != nil {
+		return fmt.Errorf("opening a tab: %w", err)
+	}
+	return s.refresh()
 }
 
 // FocusedPane is the pane a session has in focus: the active space's active
 // tab's active pane, falling back to the first of each, which is where the
 // TUI lands too when the active one no longer resolves (resolveViewLocked).
 func FocusedPane(snap proto.SessionSnapshot) uint64 {
+	ws, ok := workspaceIn(snap, snap.ActiveWorkspace)
+	if !ok {
+		return 0
+	}
+	tab, ok := tabIn(ws, ws.ActiveTab)
+	if !ok {
+		return 0
+	}
+	return activePane(tab)
+}
+
+// workspaceIn is the space with that id, or the first, or none.
+func workspaceIn(snap proto.SessionSnapshot, id uint64) (proto.WorkspaceInfo, bool) {
 	if len(snap.Workspaces) == 0 {
-		return 0
+		return proto.WorkspaceInfo{}, false
 	}
-	ws := snap.Workspaces[0]
 	for _, w := range snap.Workspaces {
-		if w.ID == snap.ActiveWorkspace {
-			ws = w
-			break
+		if w.ID == id {
+			return w, true
 		}
 	}
+	return snap.Workspaces[0], true
+}
+
+// tabIn is the tab with that id in a space, or its first, or none.
+func tabIn(ws proto.WorkspaceInfo, id uint64) (proto.TabInfo, bool) {
 	if len(ws.Tabs) == 0 {
-		return 0
+		return proto.TabInfo{}, false
 	}
-	tab := ws.Tabs[0]
 	for _, t := range ws.Tabs {
-		if t.ID == ws.ActiveTab {
-			tab = t
-			break
+		if t.ID == id {
+			return t, true
 		}
 	}
+	return ws.Tabs[0], true
+}
+
+func activePane(tab proto.TabInfo) uint64 {
 	if tab.ActivePane != 0 {
 		return tab.ActivePane
 	}
@@ -107,10 +202,47 @@ func FocusedPane(snap proto.SessionSnapshot) uint64 {
 	return 0
 }
 
-// refocus reads the session and switches to the pane it has in focus,
-// opening a space with a shell when it has none, so the window always has a
-// terminal in it.
-func (s *Session) refocus() error {
+func hasPane(tab proto.TabInfo, pane uint64) bool {
+	for _, p := range tab.Panes {
+		if p == pane {
+			return true
+		}
+	}
+	return false
+}
+
+// refresh reads the session and settles the view on something that exists:
+// the space, tab and pane shown, if they still do, else what the session
+// has active. Then the tab is laid out and its panes subscribed to.
+//
+// Refreshes do not overlap: one asked for while another runs is run once
+// more after it, so a burst of events is two snapshots, not one per event.
+func (s *Session) refresh() error {
+	s.mu.Lock()
+	if s.refreshing {
+		s.again = true
+		s.mu.Unlock()
+		return nil
+	}
+	s.refreshing = true
+	s.mu.Unlock()
+
+	var err error
+	for {
+		err = s.refreshOnce()
+		s.mu.Lock()
+		if !s.again || err != nil {
+			s.refreshing, s.again = false, false
+			s.mu.Unlock()
+			break
+		}
+		s.again = false
+		s.mu.Unlock()
+	}
+	return err
+}
+
+func (s *Session) refreshOnce() error {
 	s.mu.Lock()
 	c := s.client
 	s.mu.Unlock()
@@ -118,91 +250,167 @@ func (s *Session) refocus() error {
 	if err != nil {
 		return err
 	}
-	pane := FocusedPane(snap)
-	if pane == 0 {
-		ws := snap.ActiveWorkspace
-		if len(snap.Workspaces) == 0 {
-			if ws, err = c.NewWorkspace(""); err != nil {
-				return fmt.Errorf("opening a space: %w", err)
-			}
-		}
-		if _, pane, err = c.NewTab(ws, "", proto.PaneSpec{}); err != nil {
-			return fmt.Errorf("opening a tab: %w", err)
-		}
-	}
 
 	s.mu.Lock()
-	if pane == s.pane {
-		s.mu.Unlock()
-		return nil
-	}
-	s.pane, s.screen, s.subscribed = pane, nil, false
-	// Drawn at a size already: the new pane is given that size and
-	// subscribed to, which Resize does once it no longer matches.
-	cols, rows := s.cols, s.rows
-	s.cols, s.rows = 0, 0
-	s.mu.Unlock()
-	if cols > 0 && rows > 0 {
-		if err := s.Resize(cols, rows); err != nil {
-			return err
+	s.snap = snap
+	prevFocus := s.focus
+	if s.company != 0 {
+		// A company deleted, here or by another client, stops being chosen.
+		found := false
+		for _, co := range snap.Companies {
+			found = found || co.ID == s.company
+		}
+		if !found {
+			s.company = 0
 		}
 	}
-	s.changed()
+	if s.workspace == 0 {
+		s.workspace = snap.ActiveWorkspace
+	}
+	ws, ok := workspaceIn(snap, s.workspace)
+	if !ok {
+		s.workspace, s.tab, s.focus = 0, 0, 0
+	} else {
+		s.workspace = ws.ID
+		if s.tab == 0 {
+			s.tab = ws.ActiveTab
+		}
+		tab, ok := tabIn(ws, s.tab)
+		if !ok {
+			// An empty space is a real state — its last tab was closed — and
+			// is shown empty rather than skipped past, as the TUI does.
+			s.tab, s.focus = 0, 0
+		} else {
+			s.tab = tab.ID
+			if !hasPane(tab, s.focus) {
+				s.focus = activePane(tab)
+			}
+		}
+	}
+	tab, cols, rows := s.tab, s.areaCols, s.areaRows
+	focus := s.focus
+	s.mu.Unlock()
+
+	if focus != prevFocus && focus != 0 {
+		_ = c.FocusPane(focus, prevFocus)
+	}
+	if err := s.layout(tab, cols, rows); err != nil {
+		return err
+	}
+	s.stateChanged()
 	return nil
 }
 
-// Resize is the window drawing the pane at cols × rows. The pane's terminal
-// on the server is set to that size before subscribing, because subscribing
-// sends what is on screen now, and it has to arrive already laid out for the
-// size it will be drawn at.
-func (s *Session) Resize(cols, rows int) error {
+// layout asks the server where the tab's panes go in the area, subscribes to
+// them, and drops what it held for panes no longer shown.
+func (s *Session) layout(tab uint64, cols, rows int) error {
+	s.mu.Lock()
+	c := s.client
+	s.mu.Unlock()
+	var rects []proto.PaneRect
+	if tab != 0 && cols > 0 && rows > 0 {
+		res, err := c.TabLayout(tab, cols, rows)
+		if err != nil {
+			return err
+		}
+		rects = res.Panes
+	}
+	s.mu.Lock()
+	if s.tab != tab {
+		// The view moved while the server was asked; the refresh that moved
+		// it lays out the new tab.
+		s.mu.Unlock()
+		return nil
+	}
+	s.rects = rects
+	shown := make(map[uint64]bool, len(rects))
+	ids := make([]uint64, 0, len(rects))
+	for _, r := range rects {
+		shown[r.Pane] = true
+		ids = append(ids, r.Pane)
+	}
+	for id := range s.panes {
+		if !shown[id] {
+			delete(s.panes, id)
+		}
+	}
+	s.mu.Unlock()
+	// Subscribing sends each pane's screen as it is now, which arrives
+	// before the pane's item has reported its size: the pane's terminal
+	// here is made at the layout's size for it, so what arrives lands at
+	// the size the server's terminal has.
+	return c.SubscribePanes(ids)
+}
+
+// SetArea is the panes' area in cells, which the tab is laid out in.
+func (s *Session) SetArea(cols, rows int) error {
+	s.mu.Lock()
+	if cols == s.areaCols && rows == s.areaRows {
+		s.mu.Unlock()
+		return nil
+	}
+	s.areaCols, s.areaRows = cols, rows
+	tab := s.tab
+	s.mu.Unlock()
+	if err := s.layout(tab, cols, rows); err != nil {
+		return err
+	}
+	s.stateChanged()
+	return nil
+}
+
+// ResizePane is a pane's item drawing it at cols × rows. The pane's terminal
+// on the server is set to that size, and the one here with it.
+func (s *Session) ResizePane(pane uint64, cols, rows int) error {
 	if cols < 1 || rows < 1 {
 		return nil
 	}
 	s.mu.Lock()
-	if cols == s.cols && rows == s.rows && s.screen != nil {
+	c := s.client
+	pv := s.panes[pane]
+	if pv != nil && pv.cols == cols && pv.rows == rows {
 		s.mu.Unlock()
 		return nil
 	}
-	c, pane := s.client, s.pane
-	s.cols, s.rows = cols, rows
 	s.mu.Unlock()
-	if c == nil || pane == 0 {
-		return nil
-	}
 	if err := c.ResizePane(pane, cols, rows); err != nil {
 		return err
 	}
 	s.mu.Lock()
-	if s.pane != pane {
-		s.mu.Unlock()
-		return nil
-	}
-	if s.screen == nil {
-		s.screen = vt.NewScreen(cols, rows, 0)
+	pv = s.panes[pane]
+	if pv == nil {
+		pv = &paneView{screen: vt.NewScreen(cols, rows, 0)}
+		s.panes[pane] = pv
 	} else {
-		s.screen.Resize(cols, rows)
+		pv.screen.Resize(cols, rows)
 	}
-	subscribe := !s.subscribed
-	s.subscribed = true
+	pv.cols, pv.rows = cols, rows
 	s.mu.Unlock()
-	if subscribe {
-		if err := c.SubscribePanes([]uint64{pane}); err != nil {
-			return err
-		}
-	}
-	s.changed()
+	// The size changed under what the pane shows: ask for it again, laid
+	// out for the new size, rather than wait for the program to redraw.
+	_ = c.SubscribePanes(s.shownPanes())
+	s.paneChanged(pane)
 	return nil
 }
 
-// Key sends a key press to the pane, encoded for the modes its program has
-// asked for.
-func (s *Session) Key(key, mods int, text string) error {
+func (s *Session) shownPanes() []uint64 {
 	s.mu.Lock()
-	c, pane, screen := s.client, s.pane, s.screen
+	defer s.mu.Unlock()
+	ids := make([]uint64, 0, len(s.rects))
+	for _, r := range s.rects {
+		ids = append(ids, r.Pane)
+	}
+	return ids
+}
+
+// Key sends a key press to a pane, encoded for the modes its program has
+// asked for.
+func (s *Session) Key(pane uint64, key, mods int, text string) error {
+	s.mu.Lock()
+	c := s.client
 	var m vt.Modes
-	if screen != nil {
-		m = screen.Modes()
+	if pv := s.panes[pane]; pv != nil {
+		m = pv.screen.Modes()
 	}
 	s.mu.Unlock()
 	if c == nil || pane == 0 {
@@ -212,23 +420,203 @@ func (s *Session) Key(key, mods int, text string) error {
 	if !ok {
 		return nil
 	}
+	// Typing goes back to the present, as in a terminal: what is typed
+	// lands there, and a view of the past would hide it.
+	s.leaveScroll(pane)
+	s.mu.Lock()
+	if pv := s.panes[pane]; pv != nil && pv.sel.done {
+		pv.sel = selection{}
+		s.mu.Unlock()
+		s.paneChanged(pane)
+	} else {
+		s.mu.Unlock()
+	}
 	return c.SendInput(pane, b)
 }
 
-// Frame is what to paint now, reusing buf's storage. ok is false while there
-// is nothing to show yet.
-func (s *Session) Frame(buf []Cell) (f Frame, ok bool) {
+// Frame is what to paint for a pane now, reusing buf's storage. ok is false
+// while there is nothing to show for it yet.
+func (s *Session) Frame(pane uint64, buf []Cell) (f Frame, ok bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.screen == nil {
+	pv := s.panes[pane]
+	if pv == nil {
 		return Frame{BG: s.colours.BG}, false
 	}
-	return FrameOf(s.screen, &s.colours, buf), true
+	screen := pv.screen
+	if pv.scroll != nil {
+		screen = pv.scroll
+	}
+	f = FrameOf(screen, &s.colours, buf)
+	if pv.scroll != nil {
+		// The past has no cursor: the program's is in the present.
+		f.CursorVisible = false
+	}
+	highlight(&f, pv.sel)
+	return f, true
 }
 
-func (s *Session) changed() {
-	if s.Changed != nil {
-		s.Changed()
+// --- what the window does --------------------------------------------------
+
+// Focus gives a pane of the tab shown the keyboard.
+func (s *Session) Focus(pane uint64) error {
+	s.mu.Lock()
+	prev, c := s.focus, s.client
+	if pane == prev {
+		s.mu.Unlock()
+		return nil
+	}
+	s.focus = pane
+	s.mu.Unlock()
+	s.stateChanged()
+	return c.FocusPane(pane, prev)
+}
+
+// ShowWorkspace shows a space, on the tab it is on.
+func (s *Session) ShowWorkspace(id uint64) error {
+	s.mu.Lock()
+	ws, ok := workspaceIn(s.snap, id)
+	if !ok || ws.ID != id {
+		s.mu.Unlock()
+		return nil
+	}
+	s.workspace, s.tab, s.focus = id, ws.ActiveTab, 0
+	s.mu.Unlock()
+	return s.refresh()
+}
+
+// ShowTab shows a tab of the space shown.
+func (s *Session) ShowTab(id uint64) error {
+	s.mu.Lock()
+	s.tab, s.focus = id, 0
+	s.mu.Unlock()
+	return s.refresh()
+}
+
+// JumpToPane shows the space and tab a pane is in, with the keyboard on it:
+// what a click on an agent does.
+func (s *Session) JumpToPane(pane uint64) error {
+	s.mu.Lock()
+	found := false
+	for _, w := range s.snap.Workspaces {
+		for _, t := range w.Tabs {
+			if hasPane(t, pane) {
+				s.workspace, s.tab, s.focus, found = w.ID, t.ID, pane, true
+			}
+		}
+	}
+	prev := s.focus
+	s.mu.Unlock()
+	if !found {
+		return nil
+	}
+	if err := s.refresh(); err != nil {
+		return err
+	}
+	s.mu.Lock()
+	c := s.client
+	s.mu.Unlock()
+	return c.FocusPane(pane, prev)
+}
+
+// NewTab opens a tab in the space shown, starting where the pane in focus is
+// working, as the TUI's does (herdr's new_cwd = "follow").
+func (s *Session) NewTab() error {
+	s.mu.Lock()
+	c, ws, focus := s.client, s.workspace, s.focus
+	s.mu.Unlock()
+	if ws == 0 {
+		return s.ensurePane()
+	}
+	tab, _, err := c.NewTab(ws, "", proto.PaneSpec{DirOf: focus})
+	if err != nil {
+		return err
+	}
+	return s.ShowTab(tab)
+}
+
+// NewWorkspace opens a space with a shell and shows it.
+func (s *Session) NewWorkspace() error {
+	s.mu.Lock()
+	c := s.client
+	s.mu.Unlock()
+	ws, err := c.NewWorkspace("")
+	if err != nil {
+		return err
+	}
+	tab, _, err := c.NewTab(ws, "", proto.PaneSpec{})
+	if err != nil {
+		return err
+	}
+	s.mu.Lock()
+	s.workspace, s.tab, s.focus = ws, tab, 0
+	s.mu.Unlock()
+	return s.refresh()
+}
+
+// Split splits the pane in focus, "columns" side by side or "rows" one over
+// the other, the new pane starting where the focused one is working.
+func (s *Session) Split(direction string) error {
+	s.mu.Lock()
+	c, focus := s.client, s.focus
+	s.mu.Unlock()
+	if focus == 0 {
+		return nil
+	}
+	pane, err := c.SplitPane(focus, direction, proto.PaneSpec{DirOf: focus})
+	if err != nil {
+		return err
+	}
+	s.mu.Lock()
+	s.focus = pane
+	s.mu.Unlock()
+	return s.refresh()
+}
+
+// ClosePane closes the pane in focus.
+func (s *Session) ClosePane() error {
+	s.mu.Lock()
+	c, focus := s.client, s.focus
+	s.mu.Unlock()
+	if focus == 0 {
+		return nil
+	}
+	return c.ClosePane(focus)
+}
+
+// CloseTab closes a tab.
+func (s *Session) CloseTab(id uint64) error {
+	s.mu.Lock()
+	c := s.client
+	s.mu.Unlock()
+	return c.CloseTab(id)
+}
+
+// ToggleGroup folds or unfolds a group of spaces in this window's list.
+func (s *Session) ToggleGroup(name string) {
+	s.mu.Lock()
+	s.folded[name] = !s.folded[name]
+	s.mu.Unlock()
+	s.stateChanged()
+}
+
+// ToggleGrouped lists agents under their tabs, or flat.
+func (s *Session) ToggleGrouped() {
+	s.mu.Lock()
+	s.grouped = !s.grouped
+	s.mu.Unlock()
+	s.stateChanged()
+}
+
+func (s *Session) paneChanged(pane uint64) {
+	if s.PaneChanged != nil {
+		s.PaneChanged(pane)
+	}
+}
+
+func (s *Session) stateChanged() {
+	if s.StateChanged != nil {
+		s.StateChanged()
 	}
 }
 
@@ -238,32 +626,56 @@ func (s *Session) status(msg string) {
 	}
 }
 
+// --- client.Handler ---------------------------------------------------------
+
 // PaneOutput is part of client.Handler.
 func (s *Session) PaneOutput(pane uint64, data []byte) {
 	s.mu.Lock()
-	if pane != s.pane || s.screen == nil {
+	pv := s.panes[pane]
+	if pv == nil {
+		// Output for a pane whose item has not reported its size yet: the
+		// screen is made at the layout's size for it, which is the size the
+		// server's terminal has, so the screen subscribing sends lands right.
+		for _, r := range s.rects {
+			if r.Pane == pane {
+				pv = &paneView{screen: vt.NewScreen(r.Cols, r.Rows, 0), cols: r.Cols, rows: r.Rows}
+				s.panes[pane] = pv
+			}
+		}
+	}
+	if pv == nil {
 		s.mu.Unlock()
 		return
 	}
-	_, _ = s.screen.Write(data)
+	_, _ = pv.screen.Write(data)
 	s.mu.Unlock()
-	s.changed()
+	s.paneChanged(pane)
 }
 
-// Event is part of client.Handler.
+// Event is part of client.Handler. Anything that changes what the session
+// is — a pane opened or closed, an agent's state, a space renamed — is read
+// again from a snapshot, off this goroutine.
 func (s *Session) Event(ev proto.Event) {
 	switch ev.Kind {
-	case proto.EventPaneClosed, proto.EventPaneExited, proto.EventPaneFocused,
-		proto.EventTabFocused, proto.EventWorkspaceFocused, proto.EventSessionChanged:
-		// Another client moved the focus, or the pane shown went away: show
-		// what the session has in focus now. Off this goroutine, since it
-		// calls the server.
-		go func() {
-			if err := s.refocus(); err != nil {
-				s.status(err.Error())
-			}
-		}()
+	case proto.EventPaneClipboard:
+		// A program copied (OSC 52): the clipboard is the viewer's, so the
+		// server passes it on and this window puts it there — how Claude
+		// Code's own selection reaches the clipboard.
+		if s.Copied != nil && len(ev.Data) > 0 {
+			s.Copied(string(ev.Data))
+		}
+		return
+	case proto.EventNotify, proto.EventContextArrived:
+		return
 	}
+	go func() {
+		// A moment's wait gathers the events of one change (a split is an
+		// opened pane, a focus and a layout) into one snapshot.
+		time.Sleep(20 * time.Millisecond)
+		if err := s.refresh(); err != nil {
+			s.status(err.Error())
+		}
+	}()
 }
 
 // Disconnected is part of client.Handler.

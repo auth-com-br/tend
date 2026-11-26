@@ -2,12 +2,15 @@
 
 #include <QFontDatabase>
 #include <QFontMetricsF>
+#include <QClipboard>
+#include <QGuiApplication>
 #include <QKeyEvent>
 #include <QList>
 #include <QPainter>
 #include <QQuickWindow>
 #include <QImage>
 #include <QtQml/qqml.h>
+#include <algorithm>
 #include <cmath>
 #include <cstring>
 
@@ -32,16 +35,29 @@ TerminalItem::TerminalItem(QQuickItem *parent) : QQuickPaintedItem(parent) {
 	setFlag(ItemAcceptsInputMethod, false);
 	setFlag(ItemIsFocusScope, true);
 	setAcceptedMouseButtons(Qt::AllButtons);
+	setAcceptHoverEvents(true);
 	setActiveFocusOnTab(false);
 	setOpaquePainting(true);
-	m_font = QFontDatabase::systemFont(QFontDatabase::FixedFont);
-	m_font.setPointSizeF(11);
-	m_font.setStyleHint(QFont::Monospace);
+	m_font = defaultFont();
 	measure();
 	g_items.append(this);
 }
 
 TerminalItem::~TerminalItem() { g_items.removeAll(this); }
+
+QFont TerminalItem::defaultFont() {
+	QFont font = QFontDatabase::systemFont(QFontDatabase::FixedFont);
+	font.setPointSizeF(11);
+	font.setStyleHint(QFont::Monospace);
+	return font;
+}
+
+// The same rounding as measure(), so a pane laid out in these cells is
+// filled by its item to the cell.
+QSizeF TerminalItem::defaultCellSize() {
+	QFontMetricsF fm(defaultFont());
+	return QSizeF(std::ceil(fm.horizontalAdvance(QLatin1Char('M'))), std::ceil(fm.lineSpacing()));
+}
 
 void TerminalItem::setPane(qint64 pane) {
 	if (pane == m_pane)
@@ -84,6 +100,30 @@ void TerminalItem::measure() {
 	m_cellW = std::ceil(fm.horizontalAdvance(QLatin1Char('M')));
 	m_cellH = std::ceil(fm.lineSpacing());
 	m_ascent = std::round(fm.ascent());
+	m_variantsReady = false;
+}
+
+// variant is the font in one style, spaced so that each character advances
+// exactly one cell. The cell is the font's advance rounded up to a whole
+// pixel, and a run of text is drawn as one string: without the spacing, a
+// word of eight letters ended three pixels short of its cells and every
+// gap between words grew by that ("Allow  external  CLAUDE.md" in Claude
+// Code's prompts). Bold is measured on its own: a font with no bold face is
+// made bold by Qt, wider.
+const QFont &TerminalItem::variant(bool bold, bool italic) {
+	if (!m_variantsReady) {
+		for (int i = 0; i < 4; i++) {
+			QFont f = m_font;
+			f.setBold(i & 1);
+			f.setItalic(i & 2);
+			f.setKerning(false);
+			qreal advance = QFontMetricsF(f).horizontalAdvance(QLatin1Char('M'));
+			f.setLetterSpacing(QFont::AbsoluteSpacing, m_cellW - advance);
+			m_variants[i] = f;
+		}
+		m_variantsReady = true;
+	}
+	return m_variants[(bold ? 1 : 0) | (italic ? 2 : 0)];
 }
 
 void TerminalItem::geometryChange(const QRectF &now, const QRectF &before) {
@@ -141,7 +181,6 @@ void TerminalItem::paint(QPainter *p) {
 	// string, which a monospaced font lays out on the grid by itself; any
 	// other character is drawn in its own cell, so a glyph from a fallback
 	// font of another width cannot push the rest of the line off the grid.
-	QFont font = m_font;
 	QString run;
 	for (int y = 0; y < m_rows; y++) {
 		const TendCell *row = &m_cells[size_t(y) * m_cols];
@@ -155,9 +194,7 @@ void TerminalItem::paint(QPainter *p) {
 			}
 			uint32_t fg = c.fg;
 			uint16_t attrs = c.attrs;
-			font.setBold(attrs & AttrBold);
-			font.setItalic(attrs & AttrItalic);
-			p->setFont(font);
+			p->setFont(variant(attrs & AttrBold, attrs & AttrItalic));
 			QColor colour = rgb(fg);
 			if (attrs & AttrDim)
 				colour.setAlphaF(0.6);
@@ -192,9 +229,7 @@ void TerminalItem::paint(QPainter *p) {
 			// the background colour, as a terminal's focused cursor is.
 			p->fillRect(r, rgb(c.fg));
 			if (c.ch != ' ' && c.ch != 0) {
-				font.setBold(c.attrs & AttrBold);
-				font.setItalic(c.attrs & AttrItalic);
-				p->setFont(font);
+				p->setFont(variant(c.attrs & AttrBold, c.attrs & AttrItalic));
 				p->setPen(rgb(c.bg));
 				p->drawText(QPointF(r.x(), m_cy * m_cellH + m_ascent),
 				            QString::fromUcs4(reinterpret_cast<const char32_t *>(&c.ch), 1));
@@ -212,13 +247,107 @@ void TerminalItem::keyPressEvent(QKeyEvent *event) {
 		event->ignore();
 		return;
 	}
+	// Ctrl+Shift+V pastes, as in a desktop terminal: the clipboard goes to
+	// the pane as a paste (bracketed when the program asked), not as keys.
+	if (event->key() == Qt::Key_V && (event->modifiers() & Qt::ControlModifier) &&
+	    (event->modifiers() & Qt::ShiftModifier)) {
+		QByteArray paste = QGuiApplication::clipboard()->text().toUtf8();
+		if (!paste.isEmpty())
+			goTermPaste(m_pane, paste.data(), int(paste.size()));
+		event->accept();
+		return;
+	}
 	QByteArray text = event->text().toUtf8();
 	goTermKey(m_pane, event->key(), int(event->modifiers()), text.data(), int(text.size()));
 	event->accept();
 }
 
+// The mouse goes to Go as cells and xterm's button numbers (0 left, 1
+// middle, 2 right) with what Go decides from: whether the pane's program
+// asked for the mouse, and so gets it, or tend selects and scrolls.
+// Kinds are ui.MouseKind's: 1 press, 2 release, 3 drag, 4 move, 5 wheel up,
+// 6 wheel down. Modifiers are ui.MouseMod's: 1 shift, 2 alt, 4 ctrl.
+static int buttonCode(Qt::MouseButton b) {
+	switch (b) {
+	case Qt::LeftButton:
+		return 0;
+	case Qt::MiddleButton:
+		return 1;
+	case Qt::RightButton:
+		return 2;
+	default:
+		return -1;
+	}
+}
+
+void TerminalItem::reportMouse(int kind, int button, QPointF pos, Qt::KeyboardModifiers mods) {
+	if (m_pane == 0)
+		return;
+	int x = std::clamp(int(pos.x() / m_cellW), 0, std::max(0, m_reportedCols - 1));
+	int y = std::clamp(int(pos.y() / m_cellH), 0, std::max(0, m_reportedRows - 1));
+	if ((kind == 3 || kind == 4) && x == m_lastX && y == m_lastY)
+		return;
+	m_lastX = x;
+	m_lastY = y;
+	int m = 0;
+	if (mods & Qt::ShiftModifier)
+		m |= 1;
+	if (mods & Qt::AltModifier)
+		m |= 2;
+	if (mods & Qt::ControlModifier)
+		m |= 4;
+	goTermMouse(m_pane, kind, button, x, y, m);
+}
+
 void TerminalItem::mousePressEvent(QMouseEvent *event) {
 	forceActiveFocus(Qt::MouseFocusReason);
+	emit activated();
+	int b = buttonCode(event->button());
+	if (b >= 0) {
+		m_button = b;
+		m_lastX = m_lastY = -1;
+		reportMouse(1, b, event->position(), event->modifiers());
+	}
+	event->accept();
+}
+
+void TerminalItem::mouseMoveEvent(QMouseEvent *event) {
+	if (m_button >= 0)
+		reportMouse(3, m_button, event->position(), event->modifiers());
+	event->accept();
+}
+
+void TerminalItem::mouseReleaseEvent(QMouseEvent *event) {
+	int b = buttonCode(event->button());
+	if (b >= 0) {
+		m_lastX = m_lastY = -1;
+		reportMouse(2, b, event->position(), event->modifiers());
+		if (b == m_button)
+			m_button = -1;
+	}
+	event->accept();
+}
+
+void TerminalItem::hoverMoveEvent(QHoverEvent *event) {
+	if (m_button < 0)
+		reportMouse(4, 0, event->position(), event->modifiers());
+	QQuickPaintedItem::hoverMoveEvent(event);
+}
+
+// A notch of the wheel is 120; a touchpad sends it in parts, which are
+// added up so a slow swipe still scrolls.
+void TerminalItem::wheelEvent(QWheelEvent *event) {
+	m_wheel += event->angleDelta().y();
+	while (m_wheel >= 120) {
+		m_wheel -= 120;
+		m_lastX = m_lastY = -1;
+		reportMouse(5, 0, event->position(), event->modifiers());
+	}
+	while (m_wheel <= -120) {
+		m_wheel += 120;
+		m_lastX = m_lastY = -1;
+		reportMouse(6, 0, event->position(), event->modifiers());
+	}
 	event->accept();
 }
 

@@ -139,3 +139,58 @@ func TestTheWindowShowsWhatTheSessionHasInFocus(t *testing.T) {
 		t.Errorf("an empty session gave pane %d", got)
 	}
 }
+
+// TestASelectionIsShownWhereItWasDragged: a drag highlights the text from
+// where it began to where it is, in reading order whichever way it went, or
+// the rectangle with alt. If it regresses, the window copies one thing and
+// shows another.
+func TestASelectionIsShownWhereItWasDragged(t *testing.T) {
+	frame := func() Frame {
+		f := Frame{Cols: 4, Rows: 3, Cells: make([]Cell, 12)}
+		for i := range f.Cells {
+			f.Cells[i] = Cell{Ch: 'x', FG: 1, BG: 2, Width: 1}
+		}
+		return f
+	}
+	marked := func(f Frame) string {
+		out := ""
+		for i, c := range f.Cells {
+			if i > 0 && i%f.Cols == 0 {
+				out += "|"
+			}
+			if c.FG == 2 {
+				out += "#"
+			} else {
+				out += "."
+			}
+		}
+		return out
+	}
+	// Backwards from (1,2) to (2,0): the same as forwards.
+	f := frame()
+	highlight(&f, selection{active: true, anchorX: 1, anchorY: 2, x: 2, y: 0})
+	if got, want := marked(f), "..##|####|##.."; got != want {
+		t.Errorf("stream selection %s, want %s", got, want)
+	}
+	f = frame()
+	highlight(&f, selection{done: true, block: true, anchorX: 1, anchorY: 0, x: 2, y: 1})
+	if got, want := marked(f), ".##.|.##.|...."; got != want {
+		t.Errorf("block selection %s, want %s", got, want)
+	}
+	f = frame()
+	highlight(&f, selection{})
+	if got := marked(f); got != "....|....|...." {
+		t.Errorf("no selection marked %s", got)
+	}
+}
+
+// TestTheWheelAsKeysFollowsDECCKM: a full-screen program that does not take
+// the mouse is scrolled with arrows, in the form it reads them.
+func TestTheWheelAsKeysFollowsDECCKM(t *testing.T) {
+	if got := string(arrowKey(true, false)); got != "\x1b[A" {
+		t.Errorf("up %q", got)
+	}
+	if got := string(arrowKey(false, true)); got != "\x1bOB" {
+		t.Errorf("down under DECCKM %q", got)
+	}
+}

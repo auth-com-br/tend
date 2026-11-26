@@ -7,6 +7,7 @@
 package qtterm
 
 //go:generate sh -c "$(pkg-config --variable=libexecdir Qt6Core)/moc terminalitem.h -o terminalitem.moc"
+//go:generate sh -c "$(pkg-config --variable=libexecdir Qt6Core)/moc bridge.h -o bridge.moc"
 
 /*
 #cgo CXXFLAGS: -std=c++17 -fPIC
@@ -29,11 +30,38 @@ import (
 var Handlers struct {
 	Key    func(pane uint64, key, mods int, text string)
 	Resize func(pane uint64, cols, rows int)
+	// Call is an action QML asked for through Bridge.call: the method's
+	// name and its arguments as JSON.
+	Call func(method string, args []byte)
+	// Mouse is the mouse over a pane, in its cells: kind and mods as
+	// ui.MouseKind and ui.MouseMod, button as xterm numbers them.
+	Mouse func(pane uint64, kind, button, x, y, mods int)
+	// Paste is the clipboard pasted into a pane (ctrl+shift+v).
+	Paste func(pane uint64, text string)
 }
 
 // Register makes Tend.Terminal available to QML. Call it after the
 // application object exists and before the QML is loaded.
-func Register() { C.tend_term_register() }
+func Register() {
+	C.tend_term_register()
+	C.tend_bridge_register()
+}
+
+// SetState gives QML the window's state, as JSON. Main thread only.
+func SetState(json []byte) {
+	if len(json) == 0 {
+		return
+	}
+	C.tend_bridge_set_state((*C.char)(unsafe.Pointer(&json[0])), C.int(len(json)))
+}
+
+// SetStatus shows a line at the bottom of the window; "" hides it. Main
+// thread only.
+func SetStatus(text string) {
+	cs := C.CString(text)
+	defer C.free(unsafe.Pointer(cs))
+	C.tend_bridge_set_status(cs, C.int(len(text)))
+}
 
 // Set gives the items showing pane a frame to paint. Main thread only.
 func Set(pane uint64, f core.Frame) {
@@ -63,6 +91,35 @@ func goTermKey(pane C.int64_t, key, mods C.int, text *C.char, n C.int) {
 	if Handlers.Key != nil {
 		Handlers.Key(uint64(pane), int(key), int(mods), C.GoStringN(text, n))
 	}
+}
+
+//export goBridgeCall
+func goBridgeCall(method *C.char, mlen C.int, args *C.char, alen C.int) {
+	if Handlers.Call != nil {
+		Handlers.Call(C.GoStringN(method, mlen), C.GoBytes(unsafe.Pointer(args), alen))
+	}
+}
+
+//export goTermMouse
+func goTermMouse(pane C.int64_t, kind, button, x, y, mods C.int) {
+	if Handlers.Mouse != nil {
+		Handlers.Mouse(uint64(pane), int(kind), int(button), int(x), int(y), int(mods))
+	}
+}
+
+//export goTermPaste
+func goTermPaste(pane C.int64_t, text *C.char, n C.int) {
+	if Handlers.Paste != nil {
+		Handlers.Paste(uint64(pane), C.GoStringN(text, n))
+	}
+}
+
+// SetClipboard puts text on the clipboard, and on the primary selection
+// where there is one (Linux's middle click). Main thread only.
+func SetClipboard(text string) {
+	cs := C.CString(text)
+	defer C.free(unsafe.Pointer(cs))
+	C.tend_set_clipboard(cs, C.int(len(text)))
 }
 
 //export goTermResize

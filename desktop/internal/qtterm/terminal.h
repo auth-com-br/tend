@@ -35,6 +35,15 @@ void tend_term_set(int64_t pane, const TendCell *cells, int cols, int rows,
 // checked without a person looking at it (tend-desktop -shot).
 int tend_term_grab(const char *path);
 
+// tend_bridge_register makes the Bridge singleton known to QML as
+// Tend.Bridge 1.0; tend_bridge_set_state and _set_status give it the
+// window's state (JSON) and a line for the user. Main thread only.
+void tend_bridge_register(void);
+// tend_set_clipboard puts text on the clipboard and the primary selection.
+void tend_set_clipboard(const char *text, int len);
+void tend_bridge_set_state(const char *json, int len);
+void tend_bridge_set_status(const char *text, int len);
+
 #ifdef __cplusplus
 }
 #endif
