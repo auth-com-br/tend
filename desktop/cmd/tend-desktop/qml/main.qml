@@ -81,21 +81,21 @@ Window {
     //
     // A browser tab is this window's, not the session's — like a folded
     // group, it is what one person is looking at — and belongs to the space
-    // it was opened in. Its page is Browser.qml, made from text when the
-    // first one opens, so the window has no Chromium in it until then.
+    // it was opened in. Its page is Browser.qml, the only file importing
+    // QtWebEngine, made when the first one opens, so the window has no
+    // Chromium in it until then.
 
     property int activeBrowser: 0
     property int nextBrowser: 1
     property var browsers: ({})
 
     function openBrowser(url) {
-        var page
-        try {
-            page = Qt.createQmlObject(Bridge.browserQml, browserLayer, "Browser.qml")
-        } catch (e) {
+        var component = Qt.createComponent("Browser.qml")
+        if (component.status !== Component.Ready) {
             Bridge.call("status", { text: "the browser needs Qt WebEngine: sudo apt install qml6-module-qtwebengine" })
             return
         }
+        var page = component.createObject(browserLayer)
         var id = nextBrowser++
         page.anchors.fill = browserLayer
         if (url) page.go(url)

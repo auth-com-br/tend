@@ -19,9 +19,6 @@ class TendBridge : public QObject {
 	Q_PROPERTY(QString status READ status NOTIFY statusChanged)
 	Q_PROPERTY(qreal cellWidth READ cellWidth CONSTANT)
 	Q_PROPERTY(qreal cellHeight READ cellHeight CONSTANT)
-	// browserQml is Browser.qml's text, made into a page only when a
-	// browser tab is opened, so QtWebEngine is not loaded before.
-	Q_PROPERTY(QString browserQml READ browserQml CONSTANT)
 	// startUrl is a page to open in a browser tab when the window opens
 	// (tend-desktop -url).
 	Q_PROPERTY(QString startUrl READ startUrl CONSTANT)
@@ -30,8 +27,6 @@ public:
 	explicit TendBridge(QObject *parent = nullptr);
 	QString state() const { return m_state; }
 	QString status() const { return m_status; }
-	QString browserQml() const { return m_browserQml; }
-	void setBrowserQml(const QString &qml) { m_browserQml = qml; }
 	QString startUrl() const { return m_startUrl; }
 	void setStartUrl(const QString &url) { m_startUrl = url; }
 	qreal cellWidth() const;
@@ -48,7 +43,6 @@ signals:
 private:
 	QString m_state = QStringLiteral("{}");
 	QString m_status;
-	QString m_browserQml;
 	QString m_startUrl;
 };
 

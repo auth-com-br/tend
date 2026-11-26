@@ -43,9 +43,6 @@ void tend_bridge_register(void);
 void tend_set_clipboard(const char *text, int len);
 void tend_bridge_set_state(const char *json, int len);
 void tend_bridge_set_status(const char *text, int len);
-// tend_bridge_set_browser_qml gives the Bridge Browser.qml's text, before
-// the QML is loaded.
-void tend_bridge_set_browser_qml(const char *qml, int len);
 void tend_bridge_set_start_url(const char *url, int len);
 
 #ifdef __cplusplus

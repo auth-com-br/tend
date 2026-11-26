@@ -5,11 +5,13 @@
 package main
 
 import (
-	_ "embed"
+	"embed"
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io/fs"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
@@ -21,17 +23,52 @@ import (
 	"github.com/mappu/miqt/qt6/qml"
 
 	"github.com/auth-com-br/tend/internal/config"
+	"github.com/auth-com-br/tend/internal/transport"
 	"github.com/auth-com-br/tend/internal/ui"
 
 	"github.com/auth-com-br/tend/desktop/internal/core"
 	"github.com/auth-com-br/tend/desktop/internal/qtterm"
 )
 
-//go:embed qml/main.qml
-var mainQML []byte
+// qmlFiles are the window's QML: main.qml and a file per panel, each made
+// only when it is opened (docs/DESKTOP.md, rule 3). They are written to a
+// private directory when the window opens and loaded from there, so QML's
+// own loading — Loader, imports between files — works as it does for any
+// QML application, and the binary is still all there is to install.
+//
+//go:embed qml
+var qmlFiles embed.FS
 
-//go:embed qml/Browser.qml
-var browserQML []byte
+// writeQML puts the window's QML in a new directory of its own, private to
+// this user, and says where.
+func writeQML() (string, error) {
+	base, err := transport.RuntimeDir()
+	if err != nil {
+		base = os.TempDir()
+	}
+	if err := os.MkdirAll(base, 0o700); err != nil {
+		return "", err
+	}
+	dir, err := os.MkdirTemp(base, "desktop-qml-")
+	if err != nil {
+		return "", err
+	}
+	err = fs.WalkDir(qmlFiles, "qml", func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		out := filepath.Join(dir, strings.TrimPrefix(path, "qml"))
+		if d.IsDir() {
+			return os.MkdirAll(out, 0o700)
+		}
+		data, err := qmlFiles.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		return os.WriteFile(out, data, 0o600)
+	})
+	return dir, err
+}
 
 // Qt wants its objects made and used on the thread that made the
 // application, and Go moves goroutines between threads; locking main to the
@@ -66,7 +103,6 @@ func main() {
 	qt.QCoreApplication_SetAttribute2(qt.AA_ShareOpenGLContexts, true)
 	qt.NewQApplication(os.Args)
 	qtterm.Register()
-	qtterm.SetBrowserQML(browserQML)
 	qtterm.SetStartURL(*startURL)
 
 	sess, err := core.Open(*session, tendPath, cfg)
@@ -162,7 +198,12 @@ func main() {
 
 	engine := qml.NewQQmlApplicationEngine()
 	qtterm.SetState(sess.StateJSON())
-	engine.LoadData(mainQML)
+	qmlDir, err := writeQML()
+	if err != nil {
+		fail(fmt.Errorf("writing the window's QML: %w", err))
+	}
+	defer os.RemoveAll(qmlDir)
+	engine.Load(qt.QUrl_FromLocalFile(filepath.Join(qmlDir, "main.qml")))
 	if len(engine.RootObjects()) == 0 {
 		fail(fmt.Errorf("the window's QML did not load"))
 	}

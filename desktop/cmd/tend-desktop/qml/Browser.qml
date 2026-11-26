@@ -16,18 +16,8 @@ Rectangle {
     readonly property string pageTitle: view.title
     readonly property bool loading: view.loading
 
-    // main.qml's palette, repeated: this file is made from text on its
-    // own, and is handed nothing but its address.
-    QtObject {
-        id: theme
-        readonly property color base: "#1e1e2e"
-        readonly property color mantle: "#181825"
-        readonly property color surface0: "#313244"
-        readonly property color surface1: "#45475a"
-        readonly property color overlay0: "#6c7086"
-        readonly property color text: "#cdd6f4"
-        readonly property color accent: "#89b4fa"
-    }
+    // The window's theme (main.qml's theme object), which this page, made
+    // in main.qml's context, sees as its own.
 
     function go(text) {
         var t = text.trim()
