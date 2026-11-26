@@ -205,7 +205,10 @@ Item {
             id: rlName
             visible: rl.named
             x: 22
-            width: visible ? Math.min(implicitWidth, rl.width * 0.5) : 0
+            // Measured apart: a Text's own implicitWidth moves with its
+            // width when it elides — the loop Qt reported on every start.
+            TextMetrics { id: rlNameM; font: rlName.font; text: rlName.text }
+            width: visible ? Math.min(rlNameM.advanceWidth + 2, rl.width * 0.5) : 0
             anchors.verticalCenter: parent.verticalCenter
             text: rl.repo.name || "."
             color: theme.text
@@ -292,6 +295,8 @@ Item {
         model: files.f.entries || []
         boundsBehavior: Flickable.StopAtBounds
         readonly property string openPath: (st.doc && st.doc.kind === "file" && st.doc.path) || ""
+        // A tooltip does not stay on a row that scrolled away under it.
+        onMovementStarted: { tipTimer.stop(); files.tipPending = null; files.tipEntry = null }
 
         // Below the entries: the folder shown's own menu.
         MouseArea {
@@ -398,6 +403,11 @@ Item {
                 anchors.fill: parent
                 hoverEnabled: true
                 acceptedButtons: Qt.LeftButton | Qt.RightButton
+                onContainsMouseChanged: {
+                    if (containsMouse) files.hover(entry.modelData, entry)
+                    else files.unhover(entry.modelData)
+                }
+                onPressed: files.unhover(entry.modelData)
                 onClicked: (m) => {
                     var d = entry.modelData
                     if (m.button === Qt.RightButton) {
@@ -410,9 +420,11 @@ Item {
         }
     }
 
-    // A file's or a folder's icon, drawn: a folder (open or shut), or a
-    // page with its kind on it in its kind's colour — no icon theme to
-    // load, and the same on every desktop.
+    // A file's or a folder's icon, drawn: a folder with its tab (open, its
+    // front leans forward), or a page with its corner folded and its kind
+    // across it in its kind's colour — no icon theme to load, the same on
+    // every desktop, and Canvas is QtQuick's own, so no module is added to
+    // what the package depends on.
     component FileIcon: Item {
         id: fi
         property string name: ""
@@ -426,53 +438,82 @@ Item {
             return i > 0 ? n.slice(i + 1) : ""
         }
         readonly property var kind: files.kindOf(ext)
-        width: 16
-        height: 16
-        opacity: faded ? 0.5 : 1
+        width: 18
+        height: 18
+        opacity: faded ? 0.45 : 1
 
-        // A folder: its tab and its body; open, the body leans forward.
-        Rectangle {
-            visible: fi.dir
-            x: 1; y: 2
-            width: 7; height: 4
-            radius: 1.5
-            color: theme.yellow
-            opacity: 0.85
+        Canvas {
+            id: shape
+            anchors.fill: parent
+            renderStrategy: Canvas.Cooperative
+            readonly property color tint: fi.dir ? theme.yellow : fi.kind.color
+            onTintChanged: requestPaint()
+            Connections { target: fi; function onExpandedChanged() { shape.requestPaint() } function onDirChanged() { shape.requestPaint() } }
+            onPaint: {
+                var g = getContext("2d")
+                g.reset()
+                var c = tint
+                var fill = Qt.rgba(c.r, c.g, c.b, 0.22)
+                var solid = Qt.rgba(c.r, c.g, c.b, 0.9)
+                g.lineJoin = "round"
+                g.lineWidth = 1.2
+                if (fi.dir) {
+                    // The back, with its tab.
+                    g.beginPath()
+                    g.moveTo(1.5, 4.5)
+                    g.lineTo(6.5, 4.5)
+                    g.lineTo(8, 6)
+                    g.lineTo(16, 6)
+                    g.quadraticCurveTo(16.5, 6, 16.5, 6.5)
+                    g.lineTo(16.5, 14.5)
+                    g.quadraticCurveTo(16.5, 15, 16, 15)
+                    g.lineTo(2, 15)
+                    g.quadraticCurveTo(1.5, 15, 1.5, 14.5)
+                    g.closePath()
+                    g.fillStyle = fi.expanded ? fill : Qt.rgba(c.r, c.g, c.b, 0.55)
+                    g.strokeStyle = solid
+                    g.fill()
+                    g.stroke()
+                    if (fi.expanded) {
+                        // The front, leaning forward: the folder is open.
+                        g.beginPath()
+                        g.moveTo(3.5, 8.5)
+                        g.lineTo(17.5, 8.5)
+                        g.lineTo(15.8, 15)
+                        g.lineTo(1.6, 15)
+                        g.closePath()
+                        g.fillStyle = Qt.rgba(c.r, c.g, c.b, 0.75)
+                        g.fill()
+                        g.stroke()
+                    }
+                } else {
+                    // A page, its top right corner folded.
+                    g.beginPath()
+                    g.moveTo(3.5, 1.5)
+                    g.lineTo(10.5, 1.5)
+                    g.lineTo(14.5, 5.5)
+                    g.lineTo(14.5, 16.5)
+                    g.lineTo(3.5, 16.5)
+                    g.closePath()
+                    g.fillStyle = fill
+                    g.strokeStyle = solid
+                    g.fill()
+                    g.stroke()
+                    g.beginPath()
+                    g.moveTo(10.5, 1.5)
+                    g.lineTo(10.5, 5.5)
+                    g.lineTo(14.5, 5.5)
+                    g.stroke()
+                }
+            }
         }
-        Rectangle {
-            visible: fi.dir
-            x: 1; y: 4
-            width: 14; height: 10
-            radius: 2
-            color: Qt.rgba(theme.yellow.r, theme.yellow.g, theme.yellow.b, fi.expanded ? 0.55 : 0.8)
-            border.width: 1
-            border.color: theme.yellow
-        }
-        Rectangle {
-            visible: fi.dir && fi.expanded
-            x: 3; y: 7
-            width: 12; height: 7
-            radius: 1.5
-            color: theme.yellow
-            opacity: 0.9
-        }
-
-        // A file: a page, its kind in a band across it.
-        Rectangle {
-            visible: !fi.dir
-            x: 2; y: 0
-            width: 12; height: 16
-            radius: 2
-            color: Qt.rgba(fi.kind.color.r, fi.kind.color.g, fi.kind.color.b, 0.16)
-            border.width: 1
-            border.color: Qt.rgba(fi.kind.color.r, fi.kind.color.g, fi.kind.color.b, 0.7)
-        }
+        // The kind, as a tag across the page.
         Rectangle {
             visible: !fi.dir && fi.kind.label !== ""
-            anchors.horizontalCenter: parent.horizontalCenter
-            y: 8
-            width: Math.max(14, tag.implicitWidth + 3)
-            height: 8
+            x: Math.round(9 - width / 2)
+            y: 9
+            width: Math.max(12, tag.implicitWidth + 4)
+            height: 7
             radius: 2
             color: fi.kind.color
             Text {
@@ -775,5 +816,101 @@ Item {
         color: btnArea.containsMouse ? theme.surface1 : theme.surface0
         Text { id: btnText; anchors.centerIn: parent; text: btn.label; color: theme.text; font.pixelSize: 12 }
         MouseArea { id: btnArea; anchors.fill: parent; hoverEnabled: true; onClicked: btn.clicked() }
+    }
+
+    // What an entry is, said when the pointer rests on it: its name in full,
+    // where it is, what git says of it, and for a repository its branch.
+    // Drawn here rather than QtQuick.Controls' ToolTip, which the package
+    // does not depend on.
+    property var tipEntry: null
+    property real tipY: 0
+    function hover(d, item) {
+        tipEntry = null
+        tipY = item.mapToItem(files, 0, item.height).y + 4
+        tipPending = d
+        tipTimer.restart()
+    }
+    function unhover(d) {
+        if (tipPending === d || tipEntry === d) { tipTimer.stop(); tipPending = null; tipEntry = null }
+    }
+    property var tipPending: null
+    Timer {
+        id: tipTimer
+        interval: 550
+        onTriggered: files.tipEntry = files.tipPending
+    }
+    function statusWord(l) {
+        switch (l) {
+        case "M": return "modified"
+        case "A": return "added"
+        case "D": return "deleted"
+        case "R": return "renamed"
+        case "?": return "untracked"
+        case "U": return "conflict"
+        case "!": return "conflict"
+        }
+        return ""
+    }
+    Rectangle {
+        id: tipBox
+        visible: !!files.tipEntry
+        z: 100
+        x: 10
+        y: Math.min(files.tipY, files.height - height - 4)
+        width: Math.min(files.width - 20, tipCol.implicitWidth + 20)
+        height: tipCol.implicitHeight + 14
+        radius: 7
+        color: theme.crust
+        border.width: 1
+        border.color: theme.surface1
+        opacity: visible ? 1 : 0
+        Behavior on opacity { NumberAnimation { duration: 120 } }
+        readonly property var e: files.tipEntry || ({})
+        readonly property var repo: e.dir === true ? files.repoByName[e.rel] : undefined
+        Column {
+            id: tipCol
+            x: 10
+            y: 7
+            width: tipBox.width - 20
+            spacing: 3
+            Text {
+                width: parent.width
+                text: tipBox.e.name || ""
+                color: theme.text
+                font.pixelSize: 12
+                font.weight: Font.DemiBold
+                wrapMode: Text.WrapAnywhere
+            }
+            Text {
+                width: parent.width
+                text: (tipBox.e.dir === true ? "folder · " : "") + (tipBox.e.rel || "")
+                color: theme.subtext
+                font.pixelSize: 11
+                wrapMode: Text.WrapAnywhere
+            }
+            Text {
+                visible: text !== ""
+                text: {
+                    var parts = []
+                    var w = files.statusWord(tipBox.e.status)
+                    if (w) parts.push(w)
+                    if (tipBox.e.ignored === true) parts.push("ignored by git")
+                    return parts.join(" · ")
+                }
+                color: tipBox.e.status ? files.letterColor(tipBox.e.status) : theme.overlay0
+                font.pixelSize: 11
+            }
+            Text {
+                visible: !!tipBox.repo
+                text: tipBox.repo ? "repository · ⎇ " + (tipBox.repo.branch || "detached") + (files.syncText(tipBox.repo) ? "  " + files.syncText(tipBox.repo) : "") : ""
+                color: theme.peach
+                font.pixelSize: 11
+            }
+            Text {
+                text: "click to open · right click for more"
+                color: theme.overlay0
+                font.pixelSize: 10
+            }
+        }
     }
 }
