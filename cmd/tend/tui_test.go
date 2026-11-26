@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -147,7 +148,22 @@ func (a *attached) waitForScreen(t *testing.T, what string, cond func(string) bo
 		}
 		time.Sleep(20 * time.Millisecond)
 	}
+	dumpGoroutinesOnCI(t)
 	t.Fatalf("timed out waiting for %s; the screen was:\n%s", what, a.text())
+}
+
+// dumpGoroutinesOnCI logs every goroutine of the test process when a wait
+// times out on CI, where the in-process server of startSession runs: what
+// it was doing is the evidence a timeout there needs, and the runner is
+// not a machine anybody can look at. TestReloadingSettingsAppliesThem-
+// WithoutARestart timed out on every CI run in November 2026 and never
+// here.
+func dumpGoroutinesOnCI(t *testing.T) {
+	if os.Getenv("CI") == "" {
+		return
+	}
+	buf := make([]byte, 4<<20)
+	t.Logf("goroutines at the timeout:\n%s", buf[:runtime.Stack(buf, true)])
 }
 
 // startSession runs a server in this process and attaches the real binary to
