@@ -573,6 +573,46 @@ func TestSeveralClientsShareTheSession(t *testing.T) {
 	}
 }
 
+// TestTasksMadeByOneClientReachAnother: a task made over the wire by one
+// client is listed for a second, which is told with a tasks-changed event,
+// and an update and a delete go through the same way. If it regresses, a
+// task added in the desktop window is not seen in the TUI, or the planner
+// is only up to date when it is reopened.
+func TestTasksMadeByOneClientReachAnother(t *testing.T) {
+	h := newHarness(t)
+	rec := newRecorder()
+	second, err := Dial(h.path, rec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer second.Close()
+
+	title, status := "ship it", "done"
+	made, err := h.client.CreateTask(proto.TaskParams{Title: &title})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if made.ID == 0 || made.Status != "todo" {
+		t.Fatalf("made %+v", made)
+	}
+	waitFor(t, "the second client to be told", func() bool {
+		return len(rec.eventsOfKind(proto.EventTasksChanged)) > 0
+	})
+	tasks, err := second.Tasks()
+	if err != nil || len(tasks) != 1 || tasks[0].Title != "ship it" {
+		t.Fatalf("the second client lists %+v, %v", tasks, err)
+	}
+	if done, err := second.UpdateTask(proto.TaskParams{Task: made.ID, Status: &status}); err != nil || done.Status != "done" {
+		t.Errorf("update: %+v, %v", done, err)
+	}
+	if err := second.DeleteTask(made.ID); err != nil {
+		t.Fatal(err)
+	}
+	if tasks, _ := h.client.Tasks(); len(tasks) != 0 {
+		t.Errorf("after the delete the first client lists %+v", tasks)
+	}
+}
+
 func TestCallsFailAfterClose(t *testing.T) {
 	h := newHarness(t)
 	if err := h.client.Close(); err != nil {

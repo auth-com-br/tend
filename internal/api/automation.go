@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -120,6 +119,13 @@ const (
 	MethodContextRemove = "context.remove"
 	MethodContextClear  = "context.clear"
 	MethodContextSend   = "context.send"
+
+	// The session's tasks (server/tasks.go), tend's own: the planner, with
+	// an agent started for a task at its time.
+	MethodTaskList   = "task.list"
+	MethodTaskCreate = "task.create"
+	MethodTaskUpdate = "task.update"
+	MethodTaskDelete = "task.delete"
 
 	// Browsers (server/browser.go), tend's own: browser.attach is how a
 	// browser — through its extension's bridge — takes the commands the
@@ -789,30 +795,14 @@ func (a *API) callMore(req Request, pend *pending) (any, error) {
 			}
 			argv = []string{p.Agent}
 		}
-		label := p.Agent
-		if label == "" {
-			label = filepath.Base(argv[0])
-		}
-		// Asked before anything is typed: an agent a policy forbids is
-		// one tend does not start, however it was asked to.
-		if err := a.srv.AdmitAgentIn(id, label); err != nil {
-			return nil, paneErr(p.PaneID, err)
-		}
-		if p.Name != "" {
-			// Named before it starts, so a script can address it by name
-			// from its first report on.
-			if err := a.srv.NameAgent(id, p.Name); err != nil {
+		// The server's StartAgent is the whole of it — the policy asked, the
+		// name given, the launch typed — and the task scheduler starts a
+		// task's agent through it too.
+		if err := a.srv.StartAgent(id, argv, p.Agent, p.Name); err != nil {
+			if errors.Is(err, server.ErrBadAgentName) || errors.Is(err, server.ErrDuplicateName) {
 				return nil, agentNameErr(p.Name, err)
 			}
-		}
-		// Typed into whatever is in the pane, which is how a person starts an
-		// agent: the shell runs it, and detection picks it up from the
-		// foreground process as it does for any other pane.
-		if err := a.srv.Submit(id, strings.Join(agent.LaunchArgv(argv), " ")); err != nil {
 			return nil, paneErr(p.PaneID, err)
-		}
-		if known, ok := agent.SessionFromLaunch(argv); ok {
-			_ = a.srv.RememberAgentSession(id, known)
 		}
 		return map[string]any{"type": "agent_started", "pane_id": p.PaneID, "argv": argv}, nil
 
@@ -1113,6 +1103,9 @@ func (a *API) callMore(req Request, pend *pending) (any, error) {
 		}
 		a.srv.RemoveContext(p.IDs)
 		return ok2(), nil
+
+	case MethodTaskList, MethodTaskCreate, MethodTaskUpdate, MethodTaskDelete:
+		return a.task(req)
 
 	case MethodBrowserAttach:
 		var p BrowserAttachParams

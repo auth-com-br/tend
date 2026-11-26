@@ -100,7 +100,8 @@ var ErrUnknownTool = errors.New("unknown tool")
 func (s *Server) Info() (string, string) {
 	return "tend", "These tools drive the tend session you run in: start another coding agent " +
 		"beside you, give it a task, wait for it and read what it says. An agent is named by its " +
-		"pane id (p_7) or the name it was started with."
+		"pane id (p_7) or the name it was started with. The session's tasks are the person's plan of the " +
+		"work: list_tasks, add_task (with an agent and a time, tend starts the agent then), complete_task."
 }
 
 // List is tend's tools.
@@ -263,6 +264,34 @@ var tools = []map[string]any{
 		}, "target"),
 	},
 	{
+		"name":        "list_tasks",
+		"description": "The tend session's tasks: the person's plan of the work, with id, status (todo, doing, done), due date, the agent to start and when, and the pane it was started in.",
+		"inputSchema": schema(map[string]any{
+			"all": map[string]any{"type": "boolean", "description": "Include the tasks already done."},
+		}),
+	},
+	{
+		"name": "add_task",
+		"description": "Add a task to the tend session's plan. With agent and start_at, tend starts that agent at that time " +
+			"in a new tab of the task's space and gives it prompt, as start_agent does; the session's policies decide whether it may start.",
+		"inputSchema": schema(map[string]any{
+			"title":    str("What is to be done, in a line."),
+			"notes":    str("More about it."),
+			"due":      str("When it is to be done by, RFC 3339 (2026-11-27T18:00:00-03:00)."),
+			"start_at": str("When to start its agent, RFC 3339. Needs agent."),
+			"agent":    str("The agent to start for it: the command, as claude or codex."),
+			"prompt":   str("The first message for that agent."),
+			"space":    str("The space it belongs to (w_3). Default: your own space; none for a space of its own."),
+		}, "title"),
+	},
+	{
+		"name":        "complete_task",
+		"description": "Mark one of the session's tasks done.",
+		"inputSchema": schema(map[string]any{
+			"task_id": map[string]any{"type": "integer", "description": "The task's id, from list_tasks."},
+		}, "task_id"),
+	},
+	{
 		"name":        "focus_agent",
 		"description": "Show an agent's pane to the person using tend.",
 		"inputSchema": schema(map[string]any{"target": target}, "target"),
@@ -317,6 +346,19 @@ func (s *Server) call(name string, args map[string]any) (string, error) {
 		return strings.TrimRight(text(r["text"]), "\n"), nil
 	case "wait_for_agent":
 		return s.waitForAgent(args)
+	case "list_tasks":
+		return s.listTasks(args)
+	case "add_task":
+		return s.addTask(args)
+	case "complete_task":
+		id, ok := args["task_id"].(float64)
+		if !ok || id <= 0 {
+			return "", errors.New("task_id is required")
+		}
+		if _, err := s.API.Call("task.update", map[string]any{"task_id": int64(id), "status": "done"}); err != nil {
+			return "", err
+		}
+		return fmt.Sprintf("task %d is done", int64(id)), nil
 	case "focus_agent":
 		t, err := need(args, "target")
 		if err != nil {
@@ -562,4 +604,75 @@ func waited(r map[string]any, timeout time.Duration) string {
 		return "not done after " + timeout.String() + ": " + line
 	}
 	return line
+}
+
+// listTasks is the session's tasks as lines an agent reads.
+func (s *Server) listTasks(args map[string]any) (string, error) {
+	r, err := s.API.Call("task.list", nil)
+	if err != nil {
+		return "", err
+	}
+	all, _ := args["all"].(bool)
+	list, _ := r["tasks"].([]any)
+	var b strings.Builder
+	for _, v := range list {
+		m, _ := v.(map[string]any)
+		if !all && text(m["status"]) == "done" {
+			continue
+		}
+		b.WriteString(describeTask(m) + "\n")
+	}
+	if b.Len() == 0 {
+		return "no tasks in the session", nil
+	}
+	return strings.TrimRight(b.String(), "\n"), nil
+}
+
+// describeTask is one task as a line.
+func describeTask(m map[string]any) string {
+	parts := []string{fmt.Sprintf("task %v", m["task_id"]), "status=" + text(m["status"]), fmt.Sprintf("title=%q", text(m["title"]))}
+	for _, k := range []string{"due", "start_at", "agent", "workspace_id", "pane_id", "error"} {
+		if v := text(m[k]); v != "" {
+			if k == "error" {
+				v = fmt.Sprintf("%q", v)
+			}
+			parts = append(parts, k+"="+v)
+		}
+	}
+	return strings.Join(parts, " ")
+}
+
+func (s *Server) addTask(args map[string]any) (string, error) {
+	title, err := need(args, "title")
+	if err != nil {
+		return "", err
+	}
+	params := map[string]any{"title": title}
+	for _, k := range []string{"notes", "due", "start_at", "agent", "prompt"} {
+		if v := strings.TrimSpace(text(args[k])); v != "" {
+			params[k] = v
+		}
+	}
+	if params["start_at"] != nil && params["agent"] == nil {
+		return "", errors.New("start_at starts an agent: name it with agent")
+	}
+	// The caller's own space unless it says otherwise: a task an agent
+	// plans is most often about the project it is in.
+	switch space := strings.TrimSpace(text(args["space"])); space {
+	case "none":
+	case "":
+		if s.Caller != "" {
+			if here, err := s.where(); err == nil && text(here["workspace_id"]) != "" {
+				params["workspace_id"] = text(here["workspace_id"])
+			}
+		}
+	default:
+		params["workspace_id"] = space
+	}
+	r, err := s.API.Call("task.create", params)
+	if err != nil {
+		return "", err
+	}
+	m, _ := r["task"].(map[string]any)
+	return "added " + describeTask(m), nil
 }

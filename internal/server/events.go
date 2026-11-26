@@ -84,6 +84,8 @@ const (
 	// at — Title is which ("browser"), Body how many items — for the
 	// client to show it (browser.go).
 	EventContextArrived
+	// EventTasksChanged says the session's tasks changed (tasks.go).
+	EventTasksChanged
 )
 
 func (k EventKind) String() string {
@@ -120,6 +122,8 @@ func (k EventKind) String() string {
 		return "context-changed"
 	case EventContextArrived:
 		return "context-arrived"
+	case EventTasksChanged:
+		return "tasks-changed"
 	default:
 		return "unknown"
 	}

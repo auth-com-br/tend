@@ -36,6 +36,7 @@ commands:
   pane              drive a pane: read it, type into it, wait for it
   notify            tell whoever is watching the session something
   context           add to, list or clear what the agents are to be handed
+  task              the session's tasks: list, add, done, rm; an agent at a time
   gitlab            keep a token for a GitLab, for its issues and merge requests
   mcp               the agents' MCP servers: list them, test them (prefix+M manages them)
   perm              what the agents may do without asking (prefix+P manages it)
@@ -169,6 +170,8 @@ func main() {
 		err = runNotify(args[1:])
 	case "context":
 		err = runContext(args[1:])
+	case "task":
+		err = runTask(args[1:])
 	case "gitlab":
 		err = runGitLab(args[1:])
 	case "mcp":

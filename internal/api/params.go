@@ -463,6 +463,22 @@ type ContextSendParams struct {
 	IDs    []uint64 `json:"ids"`
 }
 
+// TaskParams is what the task methods take (tasks.go): TaskID names the
+// task for update and delete, and the rest is what to set, left out to leave
+// as it is. Times are RFC 3339 ("2026-11-27T09:00:00-03:00"), and an empty
+// one clears it; WorkspaceID "" clears the space.
+type TaskParams struct {
+	TaskID      uint64  `json:"task_id"`
+	Title       *string `json:"title"`
+	Notes       *string `json:"notes"`
+	Status      *string `json:"status"`
+	Due         *string `json:"due"`
+	StartAt     *string `json:"start_at"`
+	WorkspaceID *string `json:"workspace_id"`
+	Agent       *string `json:"agent"`
+	Prompt      *string `json:"prompt"`
+}
+
 // BrowserAttachParams attaches a browser; Name says which, for status.
 type BrowserAttachParams struct {
 	Name string `json:"name"`

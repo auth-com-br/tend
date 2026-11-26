@@ -253,6 +253,8 @@ func EventName(k EventKind) string {
 		return "notification"
 	case EventSessionChanged:
 		return "session.changed"
+	case EventTasksChanged:
+		return "task.changed"
 	}
 	return ""
 }

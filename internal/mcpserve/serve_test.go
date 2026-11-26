@@ -115,9 +115,51 @@ func TestAnMCPClientIsGreetedAndShownTheTools(t *testing.T) {
 			t.Errorf("%s has no input schema", m["name"])
 		}
 	}
-	want := "list_agents start_agent send_message read_screen wait_for_agent focus_agent"
+	want := "list_agents start_agent send_message read_screen wait_for_agent list_tasks add_task complete_task focus_agent"
 	if strings.Join(names, " ") != want {
 		t.Fatalf("tools = %v, want %s", names, want)
+	}
+}
+
+// TestAnAgentPlansTasksInItsOwnSpace: add_task makes a task in the caller's
+// space unless told otherwise, refuses a start time with no agent to start,
+// list_tasks leaves the done ones out unless asked, and complete_task marks
+// one done — each through the socket's task methods. If it regresses, an
+// agent cannot keep the person's plan, or a task it plans lands in no space
+// and its agent starts somewhere unrelated.
+func TestAnAgentPlansTasksInItsOwnSpace(t *testing.T) {
+	f := newFake()
+	f.answers["task.create"] = map[string]any{"task": map[string]any{"task_id": 3, "title": "review", "status": "todo"}}
+	f.answers["task.list"] = map[string]any{"tasks": []any{
+		map[string]any{"task_id": 1, "title": "open", "status": "todo", "start_at": "2026-11-27T09:00:00-03:00", "agent": "claude"},
+		map[string]any{"task_id": 2, "title": "closed", "status": "done"},
+	}}
+	s := &Server{API: f, Caller: "p_1"}
+	got := session(t, s,
+		callTool("add_task", map[string]any{"title": "review", "agent": "claude", "start_at": "2026-11-27T09:00:00-03:00"}),
+		callTool("add_task", map[string]any{"title": "x", "start_at": "2026-11-27T09:00:00-03:00"}),
+		callTool("add_task", map[string]any{"title": "elsewhere", "space": "none"}),
+		callTool("list_tasks", map[string]any{}),
+		callTool("complete_task", map[string]any{"task_id": 1}),
+	)
+	if text, isErr := toolText(t, got[0]); isErr || !strings.Contains(text, "task 3") {
+		t.Errorf("add_task = %q (error %v)", text, isErr)
+	}
+	if _, isErr := toolText(t, got[1]); !isErr {
+		t.Error("a start time with no agent was taken")
+	}
+	if text, _ := toolText(t, got[3]); !strings.Contains(text, `title="open"`) || strings.Contains(text, "closed") {
+		t.Errorf("list_tasks = %q", text)
+	}
+	want := []string{
+		`pane.get {"pane_id":"p_1"}`,
+		`task.create {"agent":"claude","start_at":"2026-11-27T09:00:00-03:00","title":"review","workspace_id":"w_2"}`,
+		`task.create {"title":"elsewhere"}`,
+		`task.list null`,
+		`task.update {"status":"done","task_id":1}`,
+	}
+	if strings.Join(f.calls, "\n") != strings.Join(want, "\n") {
+		t.Fatalf("asked:\n%s\nwant:\n%s", strings.Join(f.calls, "\n"), strings.Join(want, "\n"))
 	}
 }
 

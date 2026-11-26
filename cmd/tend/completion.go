@@ -20,6 +20,7 @@ var commands = []struct{ name, help string }{
 	{"pane", "drive a pane: read, type, wait"},
 	{"notify", "tell whoever is watching the session"},
 	{"context", "add to, list or clear what the agents are to be handed"},
+	{"task", "the session's tasks, and agents started for them at a time"},
 	{"gitlab", "keep a token for a GitLab: login, logout, status"},
 	{"mcp", "the agents' MCP servers: list them, test them"},
 	{"perm", "what the agents may do without asking: list it"},

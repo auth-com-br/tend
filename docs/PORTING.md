@@ -10,7 +10,7 @@ herdr's source. Read `AGENTS.md` first for how to work.
 
 Sizes: herdr is about 258k lines of Rust; tend is about 106k lines of Go plus
 43k of tests (November 2026). herdr's API has about 110 methods; tend's client
-protocol has 88, and its automation socket 95.
+protocol has 92, and its automation socket 99.
 
 ---
 
@@ -521,6 +521,7 @@ there; it now names the directory.
 | Integration assets | `.sh` and `.ps1` | Unix `.sh` / `.js` / `.ts` / Hermes plugin only | Windows PowerShell assets not ported yet; platform code is compile-gated when they are |
 | Desktop client | none: a terminal client only (the checkout here, September 2026, has no window) | `tend-desktop`, a Qt Quick window on a session, a second client of the same server (`desktop/`, its own Go module, cgo and Qt there only; the `tend` binary stays pure Go). The pane is drawn by a small C++ item because the Go bindings (miqt) have no Qt Quick; everything it paints is decided in Go. Phase 0: the focused pane, keyboard, resize. See `docs/DESKTOP.md` | the owner asked for a desktop version in Qt and Go, kept apart from the terminal one |
 | WhatsApp | none | `tend whatsapp` (`tend-whatsapp`, `whatsapp/`, its own Go module): the owner's number linked as a companion device through whatsmeow, the conversations kept on the machine in SQLite (modernc, pure Go), an MCP server with `list_chats`, `read_chat`, `search` and `propose_reply`, and every reply sent only on the owner's approval (`tend whatsapp approve`). Its own module and binary because the dependencies made tend 16 MB heavier (22.2 → 38.3 MB, linux/amd64, static); tend-whatsapp alone is 27.6 MB. See `docs/TOOLS.md`, WhatsApp | the owner serves customers on WhatsApp and asked for the agents to read the conversations and draft replies (issue #73); the way in, against WhatsApp's terms with a risk of the number being banned, was chosen by the owner knowingly (`docs/DESKTOP.md`) |
+| Tasks (the planner) | none | the session keeps tasks (`internal/session/task.go`): title, notes, todo/doing/done, a due time, and optionally an agent, a first prompt and a time to start it, tied to a space. They are server state, so every client sees one list: `task.list`, `task.create`, `task.update`, `task.delete` on the client protocol (feature `tasks`, event `tasks-changed`; read with `task.list` rather than carried in the snapshot, as the context buffer is, because notes can be long and the snapshot is re-read on every pane change) and the same names on the automation socket, with RFC 3339 times; `tend task list|add|show|done|rm`; the MCP server's `list_tasks`, `add_task`, `complete_task`. At its time the server opens a tab in the task's space (or a space named after it), in that space's folder, and starts the agent through `Server.StartAgent`, the code `agent.start` runs, so the policies hold; the prompt is typed once the agent is ready, as `start_agent` types one. A start acted on is marked and saved, so it happens once, including one whose time passed while no server ran. The agent is split on spaces (`claude --model opus`), where `agent.start`'s `agent` is one word | asked for as the desktop's phase 6 (issue #72, docs/DESKTOP.md "Planning"); herdr has no planner to port |
 
 ---
 

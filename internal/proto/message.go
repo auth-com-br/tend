@@ -125,6 +125,16 @@ const (
 	// MethodGroupMoveCompany moves a group and its spaces from one company
 	// to another.
 	MethodGroupMoveCompany = "group.move_company"
+	// The task methods are the session's planner (session/task.go): the
+	// work ahead, with dates, and an agent to start for it at a time. The
+	// tasks are read with task.list rather than carried in the snapshot,
+	// as the context buffer is: a planner's notes can be long, and the
+	// snapshot is read again on every change to any pane, by every client.
+	// EventTasksChanged says when to read them again.
+	MethodTaskList   = "task.list"
+	MethodTaskCreate = "task.create"
+	MethodTaskUpdate = "task.update"
+	MethodTaskDelete = "task.delete"
 	// The MCP methods are the MCP manager's (internal/mcp): the agents'
 	// servers, read and written where the agents run, and tested there.
 	// They are answered off the connection's request loop, since a test
@@ -310,6 +320,10 @@ var KnownMethods = []string{
 	MethodGroupDelete,
 	MethodGroupSetDir,
 	MethodGroupMoveCompany,
+	MethodTaskList,
+	MethodTaskCreate,
+	MethodTaskUpdate,
+	MethodTaskDelete,
 	MethodDirList,
 	MethodMCPList,
 	MethodMCPTest,
@@ -432,6 +446,10 @@ const (
 	// (PaneInfo.Usage) — tokens, how full the context is, the cost, the
 	// provider's limit where the agent records it.
 	FeatureUsage = "usage"
+	// FeatureTasks: the server keeps the session's tasks, starts their
+	// agents at their time, and says when they change with
+	// EventTasksChanged.
+	FeatureTasks = "tasks"
 )
 
 // KnownFeatures is every feature this build knows of, for the same reason
@@ -442,6 +460,7 @@ var KnownFeatures = []string{
 	FeatureFocusRequest, FeatureScrollRequest, FeatureKittyKeyboard, FeatureAgentView, FeatureServerShell, FeaturePopup, FeatureUpdate,
 	FeatureDockUnless, FeatureContext, FeatureContextArrived, FeatureFollowCwd, FeatureGitHubFolders,
 	FeatureGroups, FeatureWheelKeys, FeatureDormant, FeatureMarkUnread, FeatureUsage,
+	FeatureTasks,
 }
 
 // --- session ---------------------------------------------------------------
@@ -967,6 +986,49 @@ type CompanyParams struct {
 	Company   uint64 `json:"company,omitempty"`
 	Name      string `json:"name,omitempty"`
 	Workspace uint64 `json:"workspace,omitempty"`
+}
+
+// TaskInfo is one task as a client is sent it. Times are Unix seconds, zero
+// for one not set; Status is todo, doing or done.
+type TaskInfo struct {
+	ID     uint64 `json:"id"`
+	Title  string `json:"title"`
+	Notes  string `json:"notes,omitempty"`
+	Status string `json:"status"`
+	// Due is when it is to be done by; StartAt when its Agent is to be
+	// started, in Workspace (or a space of its own), and given Prompt.
+	Due       int64  `json:"due,omitempty"`
+	StartAt   int64  `json:"start_at,omitempty"`
+	Workspace uint64 `json:"workspace,omitempty"`
+	Agent     string `json:"agent,omitempty"`
+	Prompt    string `json:"prompt,omitempty"`
+	// Pane is where its agent was started; it may have closed since.
+	// Started is when the start was acted on, and Error why it failed.
+	Pane    uint64 `json:"pane,omitempty"`
+	Started int64  `json:"started,omitempty"`
+	Error   string `json:"error,omitempty"`
+	Created int64  `json:"created,omitempty"`
+	Updated int64  `json:"updated,omitempty"`
+}
+
+// TaskParams names a task, for update and delete, and what to set on it,
+// for create and update. A field left out is left as it is, so an update
+// sends only what it changes; a zero time or workspace clears it.
+type TaskParams struct {
+	Task      uint64  `json:"task,omitempty"`
+	Title     *string `json:"title,omitempty"`
+	Notes     *string `json:"notes,omitempty"`
+	Status    *string `json:"status,omitempty"`
+	Due       *int64  `json:"due,omitempty"`
+	StartAt   *int64  `json:"start_at,omitempty"`
+	Workspace *uint64 `json:"workspace,omitempty"`
+	Agent     *string `json:"agent,omitempty"`
+	Prompt    *string `json:"prompt,omitempty"`
+}
+
+// TaskListResult is task.list's answer, in the order the tasks were made.
+type TaskListResult struct {
+	Tasks []TaskInfo `json:"tasks"`
 }
 
 // CompanyCreateResult is the company made.
@@ -1719,6 +1781,10 @@ const (
 	// at: Title is which ("browser"), Body how many items. A client shows
 	// the context panel for it.
 	EventContextArrived = "context-arrived"
+	// EventTasksChanged says the session's tasks changed: one made,
+	// edited, deleted, or started by the scheduler. It carries nothing: a
+	// client that shows them reads task.list again.
+	EventTasksChanged = "tasks-changed"
 )
 
 // Event is something that happened, sent unsolicited.

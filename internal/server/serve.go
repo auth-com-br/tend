@@ -103,6 +103,10 @@ var Methods = []string{
 	proto.MethodGroupDelete,
 	proto.MethodGroupSetDir,
 	proto.MethodGroupMoveCompany,
+	proto.MethodTaskList,
+	proto.MethodTaskCreate,
+	proto.MethodTaskUpdate,
+	proto.MethodTaskDelete,
 	proto.MethodDirList,
 	proto.MethodMCPList,
 	proto.MethodMCPTest,
@@ -341,6 +345,8 @@ func (c *clientConn) forward(ev Event) error {
 		out.Kind = proto.EventContextArrived
 		out.Title = ev.Title
 		out.Body = ev.Body
+	case EventTasksChanged:
+		out.Kind = proto.EventTasksChanged
 	default:
 		// An event kind this build does not map is dropped rather than sent
 		// half-formed, so a client never sees a message it cannot interpret.
@@ -616,6 +622,16 @@ func (c *clientConn) dispatch(req proto.Request) (any, error) {
 			return nil, err
 		}
 		return c.srv.Company(req.Method, p)
+
+	case proto.MethodTaskList:
+		return proto.TaskListResult{Tasks: c.srv.Tasks()}, nil
+
+	case proto.MethodTaskCreate, proto.MethodTaskUpdate, proto.MethodTaskDelete:
+		var p proto.TaskParams
+		if err := decodeParams(req.Params, &p); err != nil {
+			return nil, err
+		}
+		return c.srv.ChangeTask(req.Method, p)
 
 	case proto.MethodPaneSplit:
 		var p proto.PaneSplitParams

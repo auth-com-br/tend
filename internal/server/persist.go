@@ -271,9 +271,11 @@ func (s *Server) saveStructure() {
 	last := s.lastSaved
 	s.mu.Unlock()
 
-	if len(snap.Workspaces) == 0 {
+	if len(snap.Workspaces) == 0 && len(snap.Tasks) == 0 {
 		// Nothing left to come back to. Leaving the old file would bring back
-		// a session the user closed on purpose.
+		// a session the user closed on purpose. The tasks are kept with no
+		// space open: the planner is the work ahead, and closing the last
+		// space is not deleting it.
 		if last != nil {
 			_ = os.Remove(s.cfg.StateFile)
 			_ = os.Remove(historyFile(s.cfg.StateFile))

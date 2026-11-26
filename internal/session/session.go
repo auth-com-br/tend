@@ -142,6 +142,10 @@ type Session struct {
 	// groups are the user's named sets of spaces (group.go).
 	groups []*Group
 
+	// tasks are the session's planner (task.go).
+	tasks    []*Task
+	nextTask uint64
+
 	// stateSeq numbers state changes, for Pane.StateSeq.
 	stateSeq uint64
 
@@ -362,6 +366,7 @@ func (s *Session) CloseWorkspace(id WorkspaceID) ([]PaneID, error) {
 			s.active = len(s.workspaces) - 1
 		}
 		s.forgetWorkspace(id)
+		s.forgetTaskWorkspace(id)
 		return closed, nil
 	}
 	return nil, fmt.Errorf("%w: %d", ErrNoSuchWorkspace, id)
@@ -729,6 +734,9 @@ func (s *Session) CheckInvariants() error {
 		}
 	}
 	if err := s.checkCompanies(); err != nil {
+		return err
+	}
+	if err := s.checkTasks(); err != nil {
 		return err
 	}
 	return s.checkGroups()

@@ -476,6 +476,32 @@ func (c *Client) AssignCompany(company, ws uint64, in bool) error {
 	return c.Call(method, proto.CompanyParams{Company: company, Workspace: ws}, nil)
 }
 
+// Tasks lists the session's tasks, in the order they were made.
+func (c *Client) Tasks() ([]proto.TaskInfo, error) {
+	var res proto.TaskListResult
+	err := c.Call(proto.MethodTaskList, nil, &res)
+	return res.Tasks, err
+}
+
+// CreateTask makes a task from what p sets, and returns it as made.
+func (c *Client) CreateTask(p proto.TaskParams) (proto.TaskInfo, error) {
+	var res proto.TaskInfo
+	err := c.Call(proto.MethodTaskCreate, p, &res)
+	return res, err
+}
+
+// UpdateTask changes what p sets on task p.Task, and returns it as it is now.
+func (c *Client) UpdateTask(p proto.TaskParams) (proto.TaskInfo, error) {
+	var res proto.TaskInfo
+	err := c.Call(proto.MethodTaskUpdate, p, &res)
+	return res, err
+}
+
+// DeleteTask deletes a task; an agent started for it is left running.
+func (c *Client) DeleteTask(task uint64) error {
+	return c.Call(proto.MethodTaskDelete, proto.TaskParams{Task: task}, nil)
+}
+
 // CloseWorkspace closes a workspace and every pane in it.
 func (c *Client) CloseWorkspace(ws uint64) error {
 	return c.Call(proto.MethodWorkspaceClose, proto.WorkspaceCloseParams{Workspace: ws}, nil)

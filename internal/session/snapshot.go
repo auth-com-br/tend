@@ -3,6 +3,7 @@ package session
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/auth-com-br/tend/internal/detect"
 )
@@ -48,6 +49,30 @@ type Snapshot struct {
 	// included. A file from before groups had records has none, and gets
 	// them from the names its workspaces carry.
 	Groups []GroupSnapshot `json:"groups,omitempty"`
+
+	// Tasks are the session's planner (task.go), left out while there are
+	// none as companies are.
+	Tasks    []TaskSnapshot `json:"tasks,omitempty"`
+	NextTask uint64         `json:"next_task,omitempty"`
+}
+
+// TaskSnapshot is one task. Times are Unix seconds, zero for one not set:
+// a number reads the same in every time zone the file is opened in.
+type TaskSnapshot struct {
+	ID        uint64 `json:"id"`
+	Title     string `json:"title"`
+	Notes     string `json:"notes,omitempty"`
+	Status    string `json:"status"`
+	Due       int64  `json:"due,omitempty"`
+	StartAt   int64  `json:"start_at,omitempty"`
+	Workspace uint64 `json:"workspace,omitempty"`
+	Agent     string `json:"agent,omitempty"`
+	Prompt    string `json:"prompt,omitempty"`
+	Pane      uint64 `json:"pane,omitempty"`
+	Started   int64  `json:"started,omitempty"`
+	Error     string `json:"error,omitempty"`
+	Created   int64  `json:"created,omitempty"`
+	Updated   int64  `json:"updated,omitempty"`
 }
 
 // GroupSnapshot is one group and the companies it has had spaces of.
@@ -150,6 +175,16 @@ func (s *Session) SnapshotWith(dirs map[PaneID]string, sessions map[PaneID]Agent
 		NextTab:       s.nextTab,
 		NextWorkspace: s.nextWorkspace,
 		NextCompany:   s.nextCompany,
+		NextTask:      s.nextTask,
+	}
+	for _, t := range s.tasks {
+		snap.Tasks = append(snap.Tasks, TaskSnapshot{
+			ID: uint64(t.ID), Title: t.Title, Notes: t.Notes, Status: string(t.Status),
+			Due: unix(t.Due), StartAt: unix(t.StartAt), Workspace: uint64(t.Workspace),
+			Agent: t.Agent, Prompt: t.Prompt, Pane: uint64(t.Pane),
+			Started: unix(t.Started), Error: t.Error,
+			Created: unix(t.Created), Updated: unix(t.Updated),
+		})
 	}
 	for _, c := range s.companies {
 		cs := CompanySnapshot{ID: uint64(c.ID), Name: c.Name}
@@ -355,6 +390,23 @@ func Restore(snap Snapshot) (*Session, error) {
 	}
 	s.sanitizeGroups()
 
+	s.nextTask = snap.NextTask
+	taskIDs := make(map[uint64]bool, len(snap.Tasks))
+	for _, ts := range snap.Tasks {
+		if ts.ID == 0 || taskIDs[ts.ID] {
+			continue // as with companies: the first of two is kept
+		}
+		taskIDs[ts.ID] = true
+		s.tasks = append(s.tasks, &Task{
+			ID: TaskID(ts.ID), Title: ts.Title, Notes: ts.Notes, Status: TaskStatus(ts.Status),
+			Due: fromUnix(ts.Due), StartAt: fromUnix(ts.StartAt), Workspace: WorkspaceID(ts.Workspace),
+			Agent: ts.Agent, Prompt: ts.Prompt, Pane: PaneID(ts.Pane),
+			Started: fromUnix(ts.Started), Error: ts.Error,
+			Created: fromUnix(ts.Created), Updated: fromUnix(ts.Updated),
+		})
+	}
+	s.sanitizeTasks()
+
 	if err := s.CheckInvariants(); err != nil {
 		return nil, fmt.Errorf("session: snapshot does not describe a valid session: %w", err)
 	}
@@ -401,4 +453,20 @@ func (s *Session) raiseCounters() {
 			}
 		}
 	}
+}
+
+// unix is a time as the file keeps it: seconds, zero for none.
+func unix(t time.Time) int64 {
+	if t.IsZero() {
+		return 0
+	}
+	return t.Unix()
+}
+
+// fromUnix reads one back.
+func fromUnix(sec int64) time.Time {
+	if sec == 0 {
+		return time.Time{}
+	}
+	return time.Unix(sec, 0)
 }

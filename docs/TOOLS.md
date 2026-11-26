@@ -441,6 +441,36 @@ message one and wait for its answer (`send_message` with `wait`), read its
 screen, and show it to you. The session's policies and companies hold, as
 they do for anything else that starts an agent.
 
+## Tasks
+
+The session keeps a list of the work ahead — tasks with a title, notes, a
+due date and a status (todo, doing, done) — which every client sees: the
+desktop window's planner, a script, an agent.
+
+```bash
+tend task add -due 2026-11-30 write the report for Acme
+tend task add -space w_2 -agent claude -at 09:00 -prompt "review yesterday's PRs" morning review
+tend task list            # the ones not done; -all for every one, -json for a script
+tend task show 2
+tend task done 1
+tend task rm 1
+```
+
+A task with an agent and a time is started by the server at that time,
+attached or not: a new tab in the task's space (or a space named after the
+task, when it has none), in that space's folder, the agent typed in as
+`agent.start` types one — so the policies decide whether it may start — and
+the prompt given once the agent is ready. The task then records the pane
+and is "doing"; a start that fails says why on the task and in a
+notification. A time that passed while the server was down is started when
+it comes back, once. Times are `2026-11-27 09:00`, a date, `09:00` (the next
+one), `+30m`, or RFC 3339.
+
+The same tasks are `task.list`, `task.create`, `task.update` and
+`task.delete` on the automation socket, and `list_tasks`, `add_task` and
+`complete_task` in tend's own MCP server (`tend mcp serve`), so an agent can
+keep the plan too.
+
 ## Layouts
 
 `tend layout open work` builds a whole setup from `layouts/work.toml` beside

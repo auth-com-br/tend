@@ -284,6 +284,15 @@ type Config struct {
 	// Prices replace or add to what tend thinks a model costs, for the
 	// cost shown beside an agent ([activity.prices]).
 	Prices map[string]usage.Price
+	// Now is the clock the task scheduler goes by (tasks.go). Nil is the
+	// real one; a test sets its own to bring a task's time without waiting
+	// for it.
+	Now func() time.Time
+	// TaskReady and TaskSettle bound how long a task's new agent is given
+	// to be ready for its prompt, and then to start on it. Zero picks the
+	// MCP server's start_agent defaults.
+	TaskReady  time.Duration
+	TaskSettle time.Duration
 }
 
 // PaneSpec describes a pane to open.
@@ -442,6 +451,9 @@ type Server struct {
 	// retick carries a new detection interval to the loop, which cannot read
 	// the configuration under the lock while it is doing a round of work.
 	retick chan time.Duration
+	// taskWake tells the task scheduler the tasks changed, so a start
+	// moved closer is seen at once rather than at its next look.
+	taskWake chan struct{}
 
 	done chan struct{}
 	wg   sync.WaitGroup
@@ -508,6 +520,10 @@ func build(cfg Config) (*Server, error) {
 		branches: newBranchCache(),
 		done:     make(chan struct{}),
 		retick:   make(chan time.Duration, 1),
+		taskWake: make(chan struct{}, 1),
+	}
+	if s.cfg.Now == nil {
+		s.cfg.Now = time.Now
 	}
 	if cfg.Activity != nil {
 		find := cfg.Transcripts
@@ -540,6 +556,10 @@ func (s *Server) startLoops() {
 	// with SleepAfter zero it looks at nothing.
 	s.wg.Add(1)
 	go s.sleepLoop()
+	// The tasks' agents start at their times, and one whose time passed
+	// while no server ran starts now.
+	s.wg.Add(1)
+	go s.taskLoop()
 	// The phone view comes back with the server that had it on.
 	go s.webRestore()
 }
