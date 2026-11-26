@@ -240,3 +240,77 @@ func TestTheWheelScrollsAShellsHistory(t *testing.T) {
 		}
 	}
 }
+
+// TestTheMenusDoWhatTheTUIsDo: the space menu renames through a prompt,
+// a group made for a space holds it, the tab menu closes a tab, and the pane
+// menu splits and zooms. If it regresses, a right click in the window offers
+// what the TUI offers and does something else.
+func TestTheMenusDoWhatTheTUIsDo(t *testing.T) {
+	s := openTest(t)
+	if err := s.SetArea(100, 40); err != nil {
+		t.Fatal(err)
+	}
+	ws := s.State().Workspace
+	pick := func(label string) {
+		t.Helper()
+		st := s.State()
+		if st.Menu == nil {
+			t.Fatalf("no menu open to pick %q from", label)
+		}
+		for i, it := range st.Menu.Items {
+			if it == label {
+				if err := s.PickMenu(i); err != nil {
+					t.Fatalf("%s: %v", label, err)
+				}
+				return
+			}
+		}
+		t.Fatalf("menu %q has no %q: %v", st.Menu.Title, label, st.Menu.Items)
+	}
+
+	s.OpenMenu("space", 0, 0, ws, "", 10, 10)
+	pick("rename")
+	if st := s.State(); st.Prompt == nil || st.Prompt.Kind != promptRenameSpace {
+		t.Fatalf("rename asked for %+v", st.Prompt)
+	}
+	if err := s.SubmitPrompt("api"); err != nil {
+		t.Fatal(err)
+	}
+	waitFor(t, "the space renamed", func() bool {
+		_ = s.refresh()
+		sp := s.State().Spaces
+		return len(sp) > 0 && sp[0].Label == "api"
+	})
+
+	s.OpenMenu("space", 0, 0, ws, "", 10, 10)
+	pick("new group...")
+	if err := s.SubmitPrompt("acme"); err != nil {
+		t.Fatal(err)
+	}
+	waitFor(t, "the space in its group", func() bool {
+		_ = s.refresh()
+		sp := s.State().Spaces
+		return len(sp) == 2 && sp[0].Kind == "group" && sp[0].Label == "acme"
+	})
+
+	pane := s.Focused()
+	s.OpenMenu("pane", pane, 0, 0, "", 10, 10)
+	pick("split right")
+	waitFor(t, "two panes", func() bool { return len(s.State().Panes) == 2 })
+	s.OpenMenu("pane", pane, 0, 0, "", 10, 10)
+	pick("zoom")
+	if st := s.State(); !st.Zoomed || len(st.Panes) != 1 || st.Panes[0].Cols != 100 {
+		t.Errorf("zoom shows %+v", st.Panes)
+	}
+
+	if err := s.NewTab(); err != nil {
+		t.Fatal(err)
+	}
+	tab := s.State().Tabs[1].ID
+	s.OpenMenu("tab", 0, tab, 0, "", 10, 10)
+	pick("close tab")
+	waitFor(t, "the tab closed", func() bool {
+		_ = s.refresh()
+		return len(s.State().Tabs) == 1
+	})
+}

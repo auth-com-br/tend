@@ -29,6 +29,22 @@ type State struct {
 	// NewAgents are the agents installed on the server's machine, which
 	// the new-tab menu offers.
 	NewAgents []NewAgent `json:"newAgents"`
+	// Menu is the menu open, Prompt the line the window asks for, Panel the
+	// screen the global menu opened: this window's, never the session's.
+	Menu   *MenuState `json:"menu,omitempty"`
+	Prompt *Prompt    `json:"prompt,omitempty"`
+	Panel  string     `json:"panel,omitempty"`
+	Zoomed bool       `json:"zoomed,omitempty"`
+	// Update is a newer release the server found, for the menu's mark.
+	Update string `json:"update,omitempty"`
+}
+
+// MenuState is a menu as QML draws it.
+type MenuState struct {
+	Title string   `json:"title"`
+	Items []string `json:"items"`
+	X     int      `json:"x"`
+	Y     int      `json:"y"`
 }
 
 // NewAgent is an agent the new-tab menu can start.
@@ -163,6 +179,19 @@ func (s *Session) State() State {
 	st := State{
 		Session: s.name, Grouped: s.grouped, Workspace: s.workspace, Focus: s.focus,
 		AreaCols: s.areaCols, AreaRows: s.areaRows,
+	}
+	if m := s.menu; m != nil {
+		ms := &MenuState{Title: m.Title, X: m.X, Y: m.Y}
+		for _, it := range m.Items {
+			ms.Items = append(ms.Items, it.Label)
+		}
+		st.Menu = ms
+	}
+	st.Prompt = s.prompt
+	st.Panel = s.panel
+	st.Zoomed = s.zoom != 0
+	if s.snap.Update != nil {
+		st.Update = s.snap.Update.Ready
 	}
 	for _, a := range s.catalog {
 		// Installed, and agents rather than the memory tools the catalog

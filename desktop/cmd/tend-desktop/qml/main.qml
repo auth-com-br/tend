@@ -231,6 +231,27 @@ Window {
             }
         }
 
+        // The TUI's sidebar foot: a new space, and the menu of everything
+        // else ("● menu" when an update is ready, so the menu that says so is
+        // found).
+        Row {
+            anchors.left: parent.left
+            anchors.leftMargin: 8
+            anchors.bottom: parent.bottom
+            anchors.bottomMargin: 6
+            spacing: 4
+            ToolButton { width: 64; text: "+ space"; onClicked: Bridge.call("workspace.new", {}) }
+            ToolButton {
+                id: globalMenuButton
+                width: 64
+                text: (st.update ? "● " : "") + "menu"
+                onClicked: {
+                    var p = mapToItem(root.contentItem, 0, -8)
+                    Bridge.call("menu.open", { kind: "global", x: Math.round(p.x), y: -1 })
+                }
+            }
+        }
+
         Rectangle {
             anchors.right: parent.right
             anchors.top: parent.top
@@ -291,6 +312,7 @@ Window {
         required property string group
         required property int pane
         required property int workspace
+        required property int tab
         required property string lines
         signal clicked()
 
@@ -376,7 +398,16 @@ Window {
             anchors.fill: parent
             hoverEnabled: true
             cursorShape: Qt.PointingHandCursor
-            onClicked: entry.clicked()
+            acceptedButtons: Qt.LeftButton | Qt.RightButton
+            onClicked: (mouse) => {
+                if (mouse.button === Qt.RightButton) {
+                    var kinds = { space: "space", group: "group", agent: "agent" }
+                    if (!kinds[entry.kind]) return
+                    var p = mapToItem(root.contentItem, mouse.x, mouse.y)
+                    Bridge.call("menu.open", { kind: kinds[entry.kind], workspace: entry.workspace, pane: entry.pane,
+                                               tab: entry.tab, group: entry.group, x: Math.round(p.x), y: Math.round(p.y) })
+                } else entry.clicked()
+            }
         }
     }
 
@@ -447,9 +478,12 @@ Window {
                         z: -1
                         anchors.fill: parent
                         hoverEnabled: true
-                        acceptedButtons: Qt.LeftButton | Qt.MiddleButton
+                        acceptedButtons: Qt.LeftButton | Qt.MiddleButton | Qt.RightButton
                         onClicked: (mouse) => {
-                            if (mouse.button === Qt.MiddleButton) Bridge.call("tab.close", { tab: tabEntry.tabId })
+                            if (mouse.button === Qt.RightButton) {
+                                var p = mapToItem(root.contentItem, mouse.x, mouse.y)
+                                Bridge.call("menu.open", { kind: "tab", tab: tabEntry.tabId, x: Math.round(p.x), y: Math.round(p.y) })
+                            } else if (mouse.button === Qt.MiddleButton) Bridge.call("tab.close", { tab: tabEntry.tabId })
                             else { root.showBrowser(0); Bridge.call("tab", { tab: tabEntry.tabId }) }
                         }
                     }
@@ -774,7 +808,7 @@ Window {
         }
         Text {
             id: miLabel
-            x: 38
+            x: mi.icon === "" ? 12 : 38
             anchors.verticalCenter: parent.verticalCenter
             color: theme.text
             font.pixelSize: 14
@@ -819,6 +853,128 @@ Window {
             for (var i = 0; i < browserModel.count; i++)
                 if (browserModel.get(i).bid === b && browserModel.get(i).workspace !== root.st.workspace)
                     root.showBrowser(0)
+        }
+    }
+
+
+    // ---- menus and prompts --------------------------------------------------
+    //
+    // The TUI's menus (internal/ui), drawn here: Go builds them and runs the
+    // item picked; QML only places them. A menu opened by a pane's right
+    // click comes at the pointer.
+
+    HoverHandler { id: pointer }
+
+    MouseArea {
+        anchors.fill: parent
+        visible: !!st.menu
+        z: 190
+        acceptedButtons: Qt.AllButtons
+        onPressed: Bridge.call("menu.close", {})
+    }
+
+    Rectangle {
+        id: contextMenu
+        objectName: "contextMenu"
+        visible: !!st.menu
+        z: 200
+        readonly property var m: st.menu || ({ items: [], x: 0, y: 0, title: "" })
+        width: 240
+        height: menuItems.height + 34
+        x: Math.min(root.width - width - 4, Math.max(4, m.x >= 0 ? m.x : pointer.point.position.x))
+        y: m.y >= 0 ? Math.min(root.height - height - 4, m.y)
+                    : (m.x >= 0 ? root.height - height - 30 : Math.min(root.height - height - 4, pointer.point.position.y))
+        radius: 8
+        color: theme.mantle
+        border.color: theme.surface1
+        border.width: 1
+        Text {
+            x: 12
+            y: 8
+            text: contextMenu.m.title
+            color: theme.overlay0
+            font.pixelSize: 11
+            font.bold: true
+            font.letterSpacing: 1
+            font.capitalization: Font.AllUppercase
+        }
+        Column {
+            id: menuItems
+            x: 6
+            y: 28
+            width: parent.width - 12
+            Repeater {
+                model: contextMenu.m.items
+                delegate: MenuItem {
+                    required property string modelData
+                    required property int index
+                    text: modelData
+                    onActivated: Bridge.call("menu.pick", { index: index })
+                }
+            }
+        }
+    }
+
+    // A line of text an item asked for: a new name, a group, a branch.
+    Rectangle {
+        anchors.fill: parent
+        visible: !!st.prompt
+        z: 210
+        color: Qt.rgba(0, 0, 0, 0.45)
+        MouseArea { anchors.fill: parent; onPressed: Bridge.call("prompt.cancel", {}) }
+        Rectangle {
+            id: promptBox
+            anchors.centerIn: parent
+            width: 420
+            height: 120
+            radius: 10
+            color: theme.mantle
+            border.color: theme.surface1
+            MouseArea { anchors.fill: parent }
+            Text {
+                x: 18
+                y: 16
+                text: st.prompt ? st.prompt.title : ""
+                color: theme.text
+                font.pixelSize: 15
+                font.bold: true
+            }
+            Rectangle {
+                x: 16
+                y: 50
+                width: parent.width - 32
+                height: 34
+                radius: 6
+                color: theme.base
+                border.color: theme.accent
+                TextInput {
+                    id: promptInput
+                    anchors.fill: parent
+                    anchors.leftMargin: 10
+                    anchors.rightMargin: 10
+                    verticalAlignment: TextInput.AlignVCenter
+                    color: theme.text
+                    selectionColor: theme.surface1
+                    selectByMouse: true
+                    font.pixelSize: 14
+                    onAccepted: Bridge.call("prompt.submit", { text: text })
+                    Keys.onEscapePressed: Bridge.call("prompt.cancel", {})
+                }
+            }
+            Text {
+                x: 18
+                y: 92
+                text: "enter to confirm · esc to cancel"
+                color: theme.overlay0
+                font.pixelSize: 11
+            }
+        }
+        onVisibleChanged: {
+            if (visible) {
+                promptInput.text = st.prompt ? st.prompt.text : ""
+                promptInput.selectAll()
+                promptInput.forceActiveFocus()
+            }
         }
     }
 

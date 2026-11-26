@@ -8,6 +8,7 @@ import (
 	"github.com/auth-com-br/tend/internal/client"
 	"github.com/auth-com-br/tend/internal/config"
 	"github.com/auth-com-br/tend/internal/proto"
+	"github.com/auth-com-br/tend/internal/ui"
 	"github.com/auth-com-br/tend/internal/vt"
 )
 
@@ -48,6 +49,16 @@ type Session struct {
 	refreshing bool
 	again      bool
 
+	// The window's own, never sent: the menu open and the prompt one of its
+	// items asked for, the panel the global menu opened, the pane zoomed
+	// to fill the tab, and what was last copied from each pane (a menu's
+	// "copy" copies it again).
+	menu     *ui.Menu
+	prompt   *Prompt
+	panel    string
+	zoom     uint64
+	lastCopy map[uint64]string
+
 	// catalog is the agents the server's machine has, for the new-tab menu;
 	// read once, after the window opens, since it asks each agent for its
 	// version and takes a moment.
@@ -64,6 +75,8 @@ type Session struct {
 	// Copied is text for the clipboard: a selection made in a pane, or
 	// what a pane's program copied (OSC 52).
 	Copied func(string)
+	// ClipboardText reads the clipboard, which only the Qt side can.
+	ClipboardText func() string
 }
 
 // paneView is one pane the window shows: its terminal, kept at the size the
@@ -86,8 +99,9 @@ func Open(name, tendPath string, ui config.UI) (*Session, error) {
 		name:    name,
 		ui:      ui,
 		colours: DefaultColours,
-		folded:  map[string]bool{},
-		panes:   map[uint64]*paneView{},
+		folded:   map[string]bool{},
+		panes:    map[uint64]*paneView{},
+		lastCopy: map[uint64]string{},
 	}
 	c, err := OpenSession(name, tendPath, s)
 	if err != nil {
@@ -326,6 +340,19 @@ func (s *Session) layout(tab uint64, cols, rows int) error {
 		// it lays out the new tab.
 		s.mu.Unlock()
 		return nil
+	}
+	// A zoomed pane fills the area alone, as the TUI's zoom: the others run
+	// on, unseen, and come back when it is unzoomed or leaves the tab.
+	if s.zoom != 0 {
+		zoomed := false
+		for _, r := range rects {
+			zoomed = zoomed || r.Pane == s.zoom
+		}
+		if zoomed {
+			rects = []proto.PaneRect{{Pane: s.zoom, Cols: cols, Rows: rows}}
+		} else {
+			s.zoom = 0
+		}
 	}
 	s.rects = rects
 	shown := make(map[uint64]bool, len(rects))
@@ -594,19 +621,8 @@ func (s *Session) NewAgentTab(id string) error {
 		ws = s.workspace
 		s.mu.Unlock()
 	}
-	program := agent.Path
-	if program == "" {
-		program = agent.ID
-	}
-	label := ""
-	if agent.Detects {
-		label = agent.ID
-	}
-	spec := proto.PaneSpec{
-		Command: append([]string{"/bin/sh", "-c", resumeScript, "tend-agent", program}, agent.Args...),
-		DirOf:   focus,
-		Agent:   label,
-	}
+	spec := agentSpec(agent)
+	spec.DirOf = focus
 	tab, _, err := c.NewTab(ws, agent.Name, spec)
 	if err != nil {
 		return fmt.Errorf("%s did not start: %w", agent.Name, err)
@@ -691,6 +707,23 @@ func (s *Session) AdjustSplit(pane uint64, side string, cells int) error {
 	return nil
 }
 
+// ToggleZoom makes a pane fill its tab, or the tab whole again.
+func (s *Session) ToggleZoom(pane uint64) error {
+	s.mu.Lock()
+	if s.zoom == pane {
+		s.zoom = 0
+	} else {
+		s.zoom, s.focus = pane, pane
+	}
+	tab, cols, rows := s.tab, s.areaCols, s.areaRows
+	s.mu.Unlock()
+	if err := s.layout(tab, cols, rows); err != nil {
+		return err
+	}
+	s.stateChanged()
+	return nil
+}
+
 // ToggleGroup folds or unfolds a group of spaces in this window's list.
 func (s *Session) ToggleGroup(name string) {
 	s.mu.Lock()
@@ -760,8 +793,13 @@ func (s *Session) Event(ev proto.Event) {
 		// A program copied (OSC 52): the clipboard is the viewer's, so the
 		// server passes it on and this window puts it there — how Claude
 		// Code's own selection reaches the clipboard.
-		if s.Copied != nil && len(ev.Data) > 0 {
-			s.Copied(string(ev.Data))
+		if len(ev.Data) > 0 {
+			s.mu.Lock()
+			s.lastCopy[ev.Pane] = string(ev.Data)
+			s.mu.Unlock()
+			if s.Copied != nil {
+				s.Copied(string(ev.Data))
+			}
 		}
 		return
 	case proto.EventNotify, proto.EventContextArrived:

@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -42,6 +43,7 @@ func main() {
 	tendBin := flag.String("tend", "", "the tend binary to start a session's server with (default: beside this one, else on PATH)")
 	shot := flag.String("shot", "", "save the window as a PNG at this path a moment after it opens, and quit (for checking it without looking)")
 	startURL := flag.String("url", "", "open this page in a browser tab when the window opens")
+	shotCall := flag.String("shot-call", "", "with -shot: a Bridge call made first, as 'method {json args}', to capture what it opens")
 	shotOpen := flag.String("shot-open", "", "with -shot: the objectName of an item whose open property is set first, to capture a menu")
 	flag.Parse()
 	debug = os.Getenv("TEND_DESKTOP_DEBUG") != ""
@@ -91,6 +93,9 @@ func main() {
 	}
 	qtterm.Handlers.Paste = func(pane uint64, text string) {
 		background(func() error { return sess.Paste(pane, text) })
+	}
+	sess.ClipboardText = func() string {
+		return mainthread.Wait2(func() string { return qt.QGuiApplication_Clipboard().Text() })
 	}
 	sess.Copied = func(text string) {
 		mainthread.Start(func() { qtterm.SetClipboard(text) })
@@ -168,6 +173,13 @@ func main() {
 	if *shot != "" {
 		go func() {
 			time.Sleep(3 * time.Second)
+			if *shotCall != "" {
+				method, args, _ := strings.Cut(*shotCall, " ")
+				if err := dispatch(sess, method, []byte(args)); err != nil {
+					fmt.Fprintln(os.Stderr, "tend-desktop: -shot-call:", err)
+				}
+				time.Sleep(300 * time.Millisecond)
+			}
 			mainthread.Start(func() {
 				if *shotOpen != "" {
 					if item := findObject(engine.RootObjects()[0], *shotOpen); item != nil {
@@ -202,6 +214,10 @@ func dispatch(sess *core.Session, method string, raw []byte) error {
 		Text      string `json:"text"`
 		Side      string `json:"side"`
 		Cells     int    `json:"cells"`
+		Kind      string `json:"kind"`
+		X         int    `json:"x"`
+		Y         int    `json:"y"`
+		Index     int    `json:"index"`
 		Cols      int    `json:"cols"`
 		Rows      int    `json:"rows"`
 	}
@@ -235,6 +251,21 @@ func dispatch(sess *core.Session, method string, raw []byte) error {
 		return sess.AdjustSplit(a.Pane, a.Side, a.Cells)
 	case "pane.close":
 		return sess.ClosePane()
+	case "menu.open":
+		sess.OpenMenu(a.Kind, a.Pane, a.Tab, a.Workspace, a.Group, a.X, a.Y)
+		return nil
+	case "menu.pick":
+		return sess.PickMenu(a.Index)
+	case "menu.close":
+		sess.CloseMenu()
+		return nil
+	case "prompt.submit":
+		return sess.SubmitPrompt(a.Text)
+	case "prompt.cancel":
+		sess.CancelPrompt()
+		return nil
+	case "pane.zoom":
+		return sess.ToggleZoom(a.Pane)
 	case "status":
 		setStatus(a.Text)
 		return nil

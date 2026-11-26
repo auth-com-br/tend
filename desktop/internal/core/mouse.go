@@ -53,6 +53,12 @@ func (s *Session) Mouse(pane uint64, ev ui.MouseEvent) error {
 		return nil
 	}
 
+	// A right press where tend has the mouse is the pane's menu, as in the
+	// TUI; at the pointer, which QML knows (-1, -1).
+	if ev.Kind == ui.MousePress && ev.Button == 2 {
+		s.OpenMenu("pane", pane, 0, 0, "", -1, -1)
+		return nil
+	}
 	switch ev.Kind {
 	case ui.MouseWheelUp, ui.MouseWheelDown:
 		up := ev.Kind == ui.MouseWheelUp
@@ -126,8 +132,13 @@ func (s *Session) finishSelection(pane uint64, ev ui.MouseEvent) error {
 	if err != nil {
 		return err
 	}
-	if text != "" && s.Copied != nil {
-		s.Copied(text)
+	if text != "" {
+		s.mu.Lock()
+		s.lastCopy[pane] = text
+		s.mu.Unlock()
+		if s.Copied != nil {
+			s.Copied(text)
+		}
 	}
 	return nil
 }
