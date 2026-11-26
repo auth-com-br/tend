@@ -119,6 +119,11 @@ These are herdr's rules and they are enforced here by where code lives:
 - **Detection reads a snapshot.** It never touches the parser or the viewport.
 - **The terminal core is pure Go, no cgo.** The owner chose this over binding
   libghostty. Do not "fix" it.
+- **The desktop client lives in `desktop/`, its own Go module**, and is the
+  only place cgo and Qt are allowed. It is another client of the same server;
+  it imports tend's `internal/` packages and must not be imported by them.
+  `make check` does not cover it: `make desktop-check` does. Read
+  `docs/DESKTOP.md` before touching it.
 - **Lock order** is server, then pane runtime, never the reverse. Do no I/O while
   holding the server lock: it is the lock every pane operation needs.
 

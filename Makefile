@@ -31,7 +31,7 @@ DEV_PKGS ?= ./...
 # SESSION is which session `make restart` acts on.
 SESSION ?= default
 
-.PHONY: toolchain run dev watch test test-race check fmt vet bench build install dist manifest packages stats clean restart
+.PHONY: toolchain run dev watch test test-race check fmt vet bench build install dist manifest packages stats clean restart desktop desktop-check desktop-install
 
 ## toolchain: fail with a usable message instead of "go: No such file or directory".
 toolchain:
@@ -178,6 +178,29 @@ manifest: toolchain
 packages: toolchain
 	$(GO) run ./tools/packages -version $(VERSION) -dir dist
 
+## desktop: build tend-desktop, the Qt window on a session (desktop/, its own
+## module: cgo and Qt 6 live there, so `make check` and the tend binary stay
+## pure Go). Needs Qt 6 with Qt Quick and pkg-config; see docs/DESKTOP.md.
+## The first build compiles the Qt bindings and takes a few minutes.
+desktop: toolchain
+	cd desktop && $(GO) generate ./internal/qtterm
+	cd desktop && $(GO) build -ldflags "$(LDFLAGS)" -o bin/tend-desktop ./cmd/tend-desktop
+
+## desktop-check: the desktop's gate — gofmt, vet and tests of desktop/.
+desktop-check: toolchain
+	cd desktop && $(GO) generate ./internal/qtterm
+	@out="$$($(GOFMT) -l desktop)"; \
+	if [ -n "$$out" ]; then echo "gofmt needed:"; echo "$$out"; exit 1; fi
+	cd desktop && $(GO) vet ./...
+	cd desktop && $(GO) test ./...
+
+## desktop-install: install tend-desktop beside tend, so it starts sessions
+## with the tend of the same version (core.FindTend looks beside itself first).
+desktop-install: desktop
+	@mkdir -p "$(INSTALL_DIR)"
+	cp desktop/bin/tend-desktop "$(INSTALL_DIR)/tend-desktop"
+	@echo "installed $(INSTALL_DIR)/tend-desktop ($(VERSION))"
+
 clean:
-	rm -rf bin dist
+	rm -rf bin dist desktop/bin
 	$(GO) clean -testcache

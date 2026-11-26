@@ -510,6 +510,7 @@ there; it now names the directory.
 | Sidebar "menu" button | opens the global menu | the same — before, it opened the current space's menu, which is on a right-click on the space | ported with the release notes, whose only way in is that menu |
 | Release notes markdown | `**` drawn as it is | `**bold**` drawn in bold | tend's notes are its GitHub release text, which uses it |
 | Integration assets | `.sh` and `.ps1` | Unix `.sh` / `.js` / `.ts` / Hermes plugin only | Windows PowerShell assets not ported yet; platform code is compile-gated when they are |
+| Desktop client | none: a terminal client only (the checkout here, September 2026, has no window) | `tend-desktop`, a Qt Quick window on a session, a second client of the same server (`desktop/`, its own Go module, cgo and Qt there only; the `tend` binary stays pure Go). The pane is drawn by a small C++ item because the Go bindings (miqt) have no Qt Quick; everything it paints is decided in Go. Phase 0: the focused pane, keyboard, resize. See `docs/DESKTOP.md` | the owner asked for a desktop version in Qt and Go, kept apart from the terminal one |
 
 ---
 
