@@ -257,31 +257,39 @@ status line. Everything is a mouse target as well as a key.
 
 ## Status and plan
 
+All the phases of the design are built (November 2026). What each was
+checked against is in its commit; what was not is listed below.
+
 | Phase | What | State |
 |---|---|---|
 | 0 | Window on a session: the focused pane, keyboard, resize | done |
-| 1 | The bridge and Go models; sidebar (spaces, groups, agents and state); tabs; splits with dividers; focus; mouse in panes; scrollback; selection and copy; the weight test | done |
-| 2 | Menus (from internal/ui's menu definitions), rename, dialogs, notifications (native), settings, themes from the settings, the kitty keyboard protocol | done |
-| 3 | The dock: files, search, changes with diff and review, history (internal/explorer's logic without its grid) | |
-| 4 | Issues and PRs, errors, tickets, MCP, permissions, agent manager, sessions, context, worktrees, machines | issues and PRs, errors, tickets: done (#70, dock tabs; servers and accounts are added in the TUI) |
-| 5 | What only a window does: command palette, tray and native notifications, drag and drop into an agent, a tab in its own window, diff and review side by side, spending dashboard, native previews | |
-| 5 | Spending screen (global menu, or the status line's cost): the agents open now from PaneUsage, and today and this week by agent, company and day from activity.Load, drawn with rectangles | done |
-| 6 | Planning: tasks with dates and agents | |
-| 7 | WhatsApp for the agents (MCP server, replies approved by the owner) | |
-| 7 | The dock's WhatsApp tab: tend-whatsapp's daemon over its socket — link status (linking opens `tend whatsapp link` in a tab), chats, messages, search, and the agents' replies, sent only from a confirmation showing the exact text and chat | done |
-| 8 | Browser tab (QtWebEngine, on demand) | |
-| 9 | Packaging (.desktop, AppImage or .deb), CI | |
+| 1 | Sidebar (spaces, groups, agents and state, from internal/sidebar); tabs; splits with dividers; focus; the mouse in panes; scrollback; selection and copy; the weight test | done |
+| 2 | Menus (internal/ui's), prompts, native notifications (internal/announce) and tend notify, the settings screen (internal/settings), the welcome, the theme, the kitty keyboard protocol, the input method | done |
+| 3 | The files tab on explorer.Panel: tree, search, changes (stage, discard, commit, drafted message, merge, PR), history, branches, sync; document tabs for files (code highlighted, markdown, images) and diffs side by side with review comments to the agent | done |
+| 4 | Dock tabs for issues and PRs, errors, tickets (servers and accounts are added in the TUI); screens for MCP servers, permissions, the agent manager, agent sessions (and "continue in…"), the context buffer, about, what's new, all tools | done |
+| 5 | Command palette (Ctrl+Shift+P / Ctrl+Shift+K), the tray, files dropped on an agent, a tab in its own window, the spending screen | done |
+| 6 | Tasks in the dock: the session's plan, with dates, agents started at a time, reminders for tasks without one, and the tracker's tickets beside them | done |
+| 7 | WhatsApp for the agents: tend-whatsapp (MCP server, replies sent only when the owner approves) and its dock tab | done |
+| 8 | Browser tabs (QtWebEngine, loaded on demand), attached to the session as a browser the agents drive | done |
+| 9 | .deb packages, AppImage target, launcher entry, CI | done |
 
-- Phase 4, MCP servers: native screen (each agent's servers, on/off, copy, test, add, remove) — done
-- Phase 4, permissions: native screen (rules and modes per agent, decision, move, add, remove, open in an editor) — done
-- Phase 4, agent manager: native screen (installed agents and versions, memory tools, install in a tab) — done
-- Phase 4, agent sessions: native screen (search, resume in a tab, delete, continue in another agent; "continue in…" on panes too) — done
-- Phase 4, context: native screen (list, send to the agent, copy, remove, clear) — done
-- About, what's new and "all tools…": native screens and menu — done
+Not checked, and why:
+
+- Real WhatsApp pairing and sending: no phone here; everything ran against a
+  stand-in of the daemon and a fake connection.
+- Real GitHub, GitLab, GlitchTip, Sentry and trackers: stand-in servers.
+- The AppImage file itself (appimagetool is a download) and the CI workflow
+  (GitHub Actions): written, not run.
+- The browser's element picking by a real click inside a page.
+- Typing with an input method or dead keys into the window, and the tray
+  icon as drawn: there is no way here to type into, or look at, Wayland's
+  surfaces; captures of the window are offscreen or grabs of it.
 
 ### Only in the window
 
-Chosen by the owner (November 2026); none is started.
+Chosen by the owner (November 2026); all built (phase 5). The palette
+opens with Ctrl+Shift+P or Ctrl+Shift+K rather than Ctrl+K, which is the
+shell's kill-to-end-of-line in every pane.
 
 - **Command palette** (ctrl+K): every action and every space, tab and agent by
   name.

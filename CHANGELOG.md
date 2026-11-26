@@ -3,6 +3,21 @@
 What changed in each release of tend, newest first. The same text is each
 release's notes on GitHub and what "what's new" shows inside tend.
 
+## Unreleased
+
+#### New
+- **tend-desktop: tend in a window.** A Qt Quick window on the same session the terminal tend attaches to — both can be open at once, and closing the window leaves everything running. Native throughout, no browser engine in it and one process (about 60 MB with ten panes): the sidebar of spaces and agents, tabs, splits you drag, the mouse in every pane, selection, menus on a right click, notifications from your desktop (a click goes to the agent), the settings, your theme. On the right, a dock: files (tree, search, changes, diff side by side with review comments to the agent, history, branches), tasks, issues and pull requests, errors, tickets, WhatsApp. Ctrl+Shift+P opens a palette of everything; + opens a terminal, an agent or a web page; a tab dragged out of the window gets one of its own; files dropped on an agent are given to it; Shift+Enter is a new line in Claude Code. `make desktop` builds it, `make deb` packages it; see docs/DESKTOP.md.
+- **Tasks: the plan of the work.** `tend task add` (and the window's tasks tab, and an MCP tool for agents) keeps tasks with a due time and, if you like, an agent to start at a time with its first message — the server starts it, with no window open. A task with a time and no agent reminds you at that time.
+- **WhatsApp for the agents.** `tend whatsapp` links your number as a linked device (as WhatsApp Web does — against WhatsApp's terms, which tend says before linking), and gives agents tools to read and search your conversations and to propose replies, which are sent only when you approve them. Its own binary, `tend-whatsapp` (`make whatsapp-install`).
+- **The window is a browser agents drive.** Pages an agent opens through tend open as browser tabs of the window, and an element picked on one goes to the context buffer, as with tend's browser extension.
+- `tend shortcut -desktop` puts the window in your application launcher.
+
+#### Fixed
+- **A pane whose program ends closes, as in herdr,** and its space with it when it was the last; tend used to leave it there, dead, until closed by hand.
+- **Ubuntu's Chromium (a snap) is not chosen for tend's browser:** its confinement keeps the extension from reaching tend. With only it, tend says why.
+- **A phone view turned off is not started again** by a server starting at the same moment.
+- `tend activity` records an agent that exits as exited, now that its pane closes with it.
+
 ## v0.18.0 — 2026-11-24
 
 #### New
