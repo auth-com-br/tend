@@ -466,6 +466,14 @@ func (s *Session) Key(pane uint64, key, mods int, text string) error {
 	if pv := s.panes[pane]; pv != nil {
 		m = pv.screen.Modes()
 	}
+	// The keyboard protocol the program asked for, as the server keeps it
+	// (FeatureKittyKeyboard): the screen here may have been made after the
+	// program asked, and only the server saw the request.
+	for _, p := range s.snap.Panes {
+		if p.ID == pane {
+			m.KittyKeyboard, m.ModifyOtherKeys = p.KittyKeyboard, p.ModifyOtherKeys
+		}
+	}
 	s.mu.Unlock()
 	if c == nil || pane == 0 {
 		return nil

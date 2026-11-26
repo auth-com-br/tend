@@ -43,10 +43,134 @@ const (
 // what every program in a pane expects. ok is false for a key that sends
 // nothing on its own (a bare modifier, a key with no text).
 //
-// Not here yet: the kitty keyboard protocol and modifyOtherKeys, which the
-// TUI hands to the outer terminal (vt.Modes.KittyKeyboard). Until they are,
-// Shift+Enter is a plain Enter, as in a terminal without them.
+// A program that asked for the kitty keyboard protocol (vt.Modes.
+// KittyKeyboard) or xterm's modifyOtherKeys gets keys in that form: the
+// TUI hands those requests to the terminal it runs in, which encodes them;
+// the window is that terminal. It is how Shift+Enter reaches Claude Code as
+// a new line (issue #66) rather than as Enter.
 func EncodeQtKey(key, mods int, text string, m vt.Modes) (out []byte, ok bool) {
+	if m.KittyKeyboard != 0 {
+		if b, ok := encodeKitty(key, mods, text, m); ok {
+			return b, true
+		}
+	} else if m.ModifyOtherKeys >= 2 {
+		if b, ok := encodeModifyOtherKeys(key, mods, text); ok {
+			return b, true
+		}
+	}
+	return encodeXterm(key, mods, text, m)
+}
+
+// Kitty keyboard flags (the protocol's progressive enhancements).
+const (
+	kittyDisambiguate = 1
+	kittyAllAsEscapes = 8
+)
+
+// kittyCodes are the functional keys kitty sends as CSI code u, by the
+// legacy byte they would otherwise be.
+var kittyCodes = map[int]int{
+	QtKeyEscape:    27,
+	QtKeyReturn:    13,
+	QtKeyEnter:     13,
+	QtKeyTab:       9,
+	QtKeyBacktab:   9,
+	QtKeyBackspace: 127,
+}
+
+// modifierParam is the protocol's modifier number: 1, plus 1 for shift, 2
+// for alt, 4 for ctrl — the same in kitty's and xterm's encodings.
+func modifierParam(mods int) int {
+	p := 1
+	if mods&QtShift != 0 {
+		p++
+	}
+	if mods&QtAlt != 0 {
+		p += 2
+	}
+	if mods&QtControl != 0 {
+		p += 4
+	}
+	return p
+}
+
+func csiU(code, param int) []byte {
+	if param > 1 {
+		return []byte("\x1b[" + strconv.Itoa(code) + ";" + strconv.Itoa(param) + "u")
+	}
+	return []byte("\x1b[" + strconv.Itoa(code) + "u")
+}
+
+// encodeKitty is kitty's protocol for the keys whose legacy bytes are
+// ambiguous; the rest (arrows, function keys) fall to the legacy encoding,
+// which the protocol keeps for them. ok is false for a key to send as
+// legacy.
+func encodeKitty(key, mods int, text string, m vt.Modes) ([]byte, bool) {
+	all := m.KittyKeyboard&kittyAllAsEscapes != 0
+	if m.KittyKeyboard&(kittyDisambiguate|kittyAllAsEscapes) == 0 {
+		return nil, false
+	}
+	param := modifierParam(mods)
+	if key == QtKeyBacktab {
+		param = modifierParam(mods | QtShift)
+	}
+	if code, is := kittyCodes[key]; is {
+		switch {
+		case all:
+			return csiU(code, param), true
+		case key == QtKeyEscape:
+			// Escape alone is the ambiguity the protocol exists to end.
+			return csiU(code, param), true
+		case param > 1:
+			// Enter, Tab and Backspace stay legacy alone, and are told
+			// apart with a modifier: Shift+Enter is CSI 13;2u.
+			return csiU(code, param), true
+		}
+		return nil, false
+	}
+	if key >= 0x01000000 {
+		return nil, false // arrows, function keys: legacy with modifiers
+	}
+	// A key that types: as text alone or with shift, unless every key is
+	// to be an escape; with ctrl or alt, as its unshifted code point.
+	plain := mods&(QtControl|QtAlt) == 0
+	if plain && !all {
+		return nil, false
+	}
+	code := key
+	if code >= 'A' && code <= 'Z' {
+		code += 'a' - 'A'
+	}
+	// With every key as an escape, the protocol says the key, and the text
+	// it types is the program's to take from the code and the shift.
+	return csiU(code, param), true
+}
+
+// encodeModifyOtherKeys is xterm's modifyOtherKeys at level 2: a key with
+// a modifier that its legacy bytes would lose is CSI 27 ; mod ; code ~.
+func encodeModifyOtherKeys(key, mods int, text string) ([]byte, bool) {
+	param := modifierParam(mods)
+	if param == 1 {
+		return nil, false
+	}
+	code, is := kittyCodes[key]
+	if !is {
+		if key >= 0x01000000 {
+			return nil, false
+		}
+		if mods&(QtControl|QtAlt) == 0 {
+			return nil, false // shift alone types its character
+		}
+		code = key
+		if code >= 'A' && code <= 'Z' && mods&QtShift == 0 {
+			code += 'a' - 'A'
+		}
+	}
+	return []byte("\x1b[27;" + strconv.Itoa(param) + ";" + strconv.Itoa(code) + "~"), true
+}
+
+// encodeXterm is the legacy encoding, every key as an xterm sends it.
+func encodeXterm(key, mods int, text string, m vt.Modes) (out []byte, ok bool) {
 	shift, alt, ctrl := mods&QtShift != 0, mods&QtAlt != 0, mods&QtControl != 0
 	// xterm's modifier parameter: 1, plus 1 for shift, 2 for alt, 4 for ctrl.
 	param := 1

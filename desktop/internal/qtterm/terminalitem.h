@@ -48,6 +48,8 @@ signals:
 
 protected:
 	void keyPressEvent(QKeyEvent *event) override;
+	void inputMethodEvent(QInputMethodEvent *event) override;
+	QVariant inputMethodQuery(Qt::InputMethodQuery query) const override;
 	void geometryChange(const QRectF &now, const QRectF &before) override;
 	void mousePressEvent(QMouseEvent *event) override;
 	void mouseMoveEvent(QMouseEvent *event) override;

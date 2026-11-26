@@ -4,6 +4,7 @@
 #include <QFontMetricsF>
 #include <QClipboard>
 #include <QGuiApplication>
+#include <QInputMethodEvent>
 #include <QKeyEvent>
 #include <QList>
 #include <QPainter>
@@ -32,7 +33,10 @@ enum : uint16_t {
 static QColor rgb(uint32_t c) { return QColor((c >> 16) & 0xff, (c >> 8) & 0xff, c & 0xff); }
 
 TerminalItem::TerminalItem(QQuickItem *parent) : QQuickPaintedItem(parent) {
-	setFlag(ItemAcceptsInputMethod, false);
+	// The input method is taken: dead keys and compose (an ABNT2 keyboard's
+	// ´ then a), and IBus and the like, give their text as an input method
+	// event, which a terminal item refusing them would lose.
+	setFlag(ItemAcceptsInputMethod, true);
 	setFlag(ItemIsFocusScope, true);
 	setAcceptedMouseButtons(Qt::AllButtons);
 	setAcceptHoverEvents(true);
@@ -260,6 +264,31 @@ void TerminalItem::keyPressEvent(QKeyEvent *event) {
 	QByteArray text = event->text().toUtf8();
 	goTermKey(m_pane, event->key(), int(event->modifiers()), text.data(), int(text.size()));
 	event->accept();
+}
+
+// What an input method composed goes to the pane as text, as typed; the
+// text still being composed is the input method's own to show.
+void TerminalItem::inputMethodEvent(QInputMethodEvent *event) {
+	QByteArray text = event->commitString().toUtf8();
+	if (m_pane != 0 && !text.isEmpty())
+		goTermKey(m_pane, 0, 0, text.data(), int(text.size()));
+	event->accept();
+}
+
+// The input method asks where the cursor is, to put its window beside it.
+QVariant TerminalItem::inputMethodQuery(Qt::InputMethodQuery query) const {
+	switch (query) {
+	case Qt::ImEnabled:
+		return true;
+	case Qt::ImCursorRectangle:
+		return QRectF(m_cx * m_cellW, m_cy * m_cellH, m_cellW, m_cellH);
+	case Qt::ImFont:
+		return m_font;
+	case Qt::ImHints:
+		return int(Qt::ImhNoPredictiveText | Qt::ImhNoAutoUppercase);
+	default:
+		return QQuickPaintedItem::inputMethodQuery(query);
+	}
 }
 
 // The mouse goes to Go as cells and xterm's button numbers (0 left, 1

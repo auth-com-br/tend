@@ -219,3 +219,39 @@ func TestTheWindowWearsTheThemeTheSettingsName(t *testing.T) {
 		t.Error("no theme did not give catppuccin")
 	}
 }
+
+// TestShiftEnterIsANewLineForAProgramThatAsked: Claude Code asks for the
+// kitty keyboard protocol and reads Shift+Enter as CSI 13;2u, a new line in
+// its prompt; a program that asked for xterm's modifyOtherKeys gets CSI
+// 27;2;13~. One that asked for neither gets Enter, as in a terminal without
+// them. If it regresses, Shift+Enter sends the prompt in Claude Code (#66).
+func TestShiftEnterIsANewLineForAProgramThatAsked(t *testing.T) {
+	kitty := vt.Modes{KittyKeyboard: 1}
+	xterm := vt.Modes{ModifyOtherKeys: 2}
+	for _, c := range []struct {
+		name      string
+		key, mods int
+		text      string
+		m         vt.Modes
+		want      string
+	}{
+		{"shift+enter, kitty", QtKeyReturn, QtShift, "\r", kitty, "\x1b[13;2u"},
+		{"enter alone stays enter, kitty", QtKeyReturn, 0, "\r", kitty, "\r"},
+		{"escape, kitty", QtKeyEscape, 0, "\x1b", kitty, "\x1b[27u"},
+		{"ctrl+c, kitty", 'C', QtControl, "\x03", kitty, "\x1b[99;5u"},
+		{"a letter types, kitty", 'A', 0, "a", kitty, "a"},
+		{"shift+a types, kitty", 'A', QtShift, "A", kitty, "A"},
+		{"an arrow stays legacy, kitty", QtKeyUp, 0, "", kitty, "\x1b[A"},
+		{"ctrl+up, kitty", QtKeyUp, QtControl, "", kitty, "\x1b[1;5A"},
+		{"every key as escapes", 'A', 0, "a", vt.Modes{KittyKeyboard: 8}, "\x1b[97u"},
+		{"shift+enter, modifyOtherKeys", QtKeyReturn, QtShift, "\r", xterm, "\x1b[27;2;13~"},
+		{"ctrl+a, modifyOtherKeys", 'A', QtControl, "", xterm, "\x1b[27;5;97~"},
+		{"a letter types, modifyOtherKeys", 'A', 0, "a", xterm, "a"},
+		{"shift+enter, no protocol", QtKeyReturn, QtShift, "\r", vt.Modes{}, "\r"},
+	} {
+		got, ok := EncodeQtKey(c.key, c.mods, c.text, c.m)
+		if !ok || string(got) != c.want {
+			t.Errorf("%s: %q (ok=%v), want %q", c.name, got, ok, c.want)
+		}
+	}
+}
