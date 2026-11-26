@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/auth-com-br/tend/internal/proto"
+	"github.com/auth-com-br/tend/internal/tools"
 )
 
 // A tend server outlives the client that started it. Building a new binary and
@@ -143,12 +144,7 @@ func (t *tui) disagree() (mismatch, bool) {
 }
 
 // handoffCommand is the same replacement, from a shell.
-func handoffCommand(session string) string {
-	if session == "" || session == "default" {
-		return "tend handoff"
-	}
-	return "tend handoff -s " + session
-}
+var handoffCommand = tools.HandoffCommand
 
 // staleServerKeys answers the notice. It reports whether it took the input.
 func (t *tui) staleServerKeys(data []byte) (bool, error) {

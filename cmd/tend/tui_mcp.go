@@ -503,44 +503,11 @@ func (t *tui) mcpDetail() {
 		return
 	}
 	st, v := t.mcp, t.mcpMgr
-	var lines []string
-	for _, id := range st.cols {
-		e, has := st.entries[key][id]
-		if !has {
-			continue
-		}
-		state := "on"
-		if !e.Enabled {
-			state = "off"
-			if e.Via == "stash" {
-				state += " (kept by tend until it is turned on)"
-			}
-		}
-		if e.Reason != "" {
-			state += " — " + e.Reason
-		}
-		path := ""
-		for _, a := range st.list.Agents {
-			if a.ID == id {
-				path = a.Path
-			}
-		}
-		lines = append(lines, id+" · "+e.Name+" · "+state, "  file: "+tildeHome(path), "  "+e.Transport+": "+mcpTarget(e))
-		if len(e.EnvKeys) > 0 {
-			lines = append(lines, "  env: "+strings.Join(e.EnvKeys, ", "))
-		}
-		if len(e.HeaderKeys) > 0 {
-			lines = append(lines, "  headers: "+strings.Join(e.HeaderKeys, ", "))
-		}
-		if len(e.Extras) > 0 {
-			lines = append(lines, "  also: "+strings.Join(e.Extras, ", "))
-		}
-		lines = append(lines, "")
-	}
+	test := ""
 	if r, ok := st.tests[key]; ok {
-		lines = append(lines, "test: "+r[0])
+		test = r[0]
 	}
-	v.Detail = lines
+	v.Detail = tools.MCPDetail(st.list, st.cols, st.entries[key], test)
 	t.dirty = true
 }
 

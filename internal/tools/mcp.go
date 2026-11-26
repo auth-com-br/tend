@@ -263,3 +263,46 @@ func MCPResultText(r proto.MCPTestResult, err error) string {
 	}
 	return s
 }
+
+// MCPDetail is a row's servers, agent by agent (cols, the grid's columns),
+// as far as they can be shown, and the row's last test when there is one.
+func MCPDetail(list proto.MCPListResult, cols []string, entries map[string]proto.MCPEntry, test string) []string {
+	var lines []string
+	for _, id := range cols {
+		e, has := entries[id]
+		if !has {
+			continue
+		}
+		state := "on"
+		if !e.Enabled {
+			state = "off"
+			if e.Via == "stash" {
+				state += " (kept by tend until it is turned on)"
+			}
+		}
+		if e.Reason != "" {
+			state += " — " + e.Reason
+		}
+		path := ""
+		for _, a := range list.Agents {
+			if a.ID == id {
+				path = a.Path
+			}
+		}
+		lines = append(lines, id+" · "+e.Name+" · "+state, "  file: "+TildeHome(path), "  "+e.Transport+": "+MCPTarget(e))
+		if len(e.EnvKeys) > 0 {
+			lines = append(lines, "  env: "+strings.Join(e.EnvKeys, ", "))
+		}
+		if len(e.HeaderKeys) > 0 {
+			lines = append(lines, "  headers: "+strings.Join(e.HeaderKeys, ", "))
+		}
+		if len(e.Extras) > 0 {
+			lines = append(lines, "  also: "+strings.Join(e.Extras, ", "))
+		}
+		lines = append(lines, "")
+	}
+	if test != "" {
+		lines = append(lines, "test: "+test)
+	}
+	return lines
+}

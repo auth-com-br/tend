@@ -26,6 +26,15 @@ func ErrorText(err error) string {
 	return msg
 }
 
+// HandoffCommand is what moves a session's server to this build: a panel
+// whose server is older than it says so.
+func HandoffCommand(session string) string {
+	if session == "" || session == "default" {
+		return "tend handoff"
+	}
+	return "tend handoff -s " + session
+}
+
 // TildeHome writes the home directory as ~, so a path fits on a line.
 func TildeHome(path string) string {
 	if home, err := os.UserHomeDir(); err == nil && home != "" && strings.HasPrefix(path, home+string(os.PathSeparator)) {
