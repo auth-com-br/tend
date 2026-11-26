@@ -265,8 +265,10 @@ status line. Everything is a mouse target as well as a key.
 | 3 | The dock: files, search, changes with diff and review, history (internal/explorer's logic without its grid) | |
 | 4 | Issues and PRs, errors, tickets, MCP, permissions, agent manager, sessions, context, worktrees, machines | |
 | 5 | What only a window does: command palette, tray and native notifications, drag and drop into an agent, a tab in its own window, diff and review side by side, spending dashboard, native previews | |
+| 5 | Spending screen (global menu, or the status line's cost): the agents open now from PaneUsage, and today and this week by agent, company and day from activity.Load, drawn with rectangles | done |
 | 6 | Planning: tasks with dates and agents | |
 | 7 | WhatsApp for the agents (MCP server, replies approved by the owner) | |
+| 7 | The dock's WhatsApp tab: tend-whatsapp's daemon over its socket — link status (linking opens `tend whatsapp link` in a tab), chats, messages, search, and the agents' replies, sent only from a confirmation showing the exact text and chat | done |
 | 8 | Browser tab (QtWebEngine, on demand) | |
 | 9 | Packaging (.desktop, AppImage or .deb), CI | |
 

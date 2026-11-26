@@ -1204,6 +1204,12 @@ Window {
     }
     Loader {
         anchors.fill: parent
+        z: 180
+        active: st.panel === "spending"
+        source: "panels/Spending.qml"
+    }
+    Loader {
+        anchors.fill: parent
         z: 185
         active: st.panel === "welcome"
         source: "panels/Welcome.qml"
@@ -1241,6 +1247,7 @@ Window {
         height: 24
         color: theme.crust
         Text {
+            id: statusLeft
             anchors.left: parent.left
             anchors.leftMargin: 10
             anchors.verticalCenter: parent.verticalCenter
@@ -1248,6 +1255,24 @@ Window {
                   + (st.waiting > 0 ? "  ·  " + st.waiting + " waiting" : "")
             color: st.waiting > 0 ? theme.red : theme.overlay0
             font.pixelSize: 12
+        }
+        // What the agents open now have cost; a click opens the spending
+        // screen.
+        Text {
+            anchors.left: statusLeft.right
+            anchors.leftMargin: 14
+            anchors.verticalCenter: parent.verticalCenter
+            text: "$" + (st.spent || 0).toFixed(2) + " in agents"
+            color: spentArea.containsMouse ? theme.accent : theme.overlay0
+            font.pixelSize: 12
+            MouseArea {
+                id: spentArea
+                anchors.fill: parent
+                anchors.margins: -4
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: Bridge.call("spending", { name: "today" })
+            }
         }
         Text {
             anchors.right: parent.right

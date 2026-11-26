@@ -30,10 +30,13 @@ type Session struct {
 	mu     sync.Mutex
 	client *client.Client
 	name   string
-	cfg    config.Config
-	ui     config.UI
-	notes  *notifier
-	done   chan struct{}
+	// tendPath is the tend binary the window starts servers with, and the
+	// commands it opens in a tab (tend whatsapp link).
+	tendPath string
+	cfg      config.Config
+	ui       config.UI
+	notes    *notifier
+	done     chan struct{}
 	// serverExited is closed when a server this window started has exited;
 	// nil when the window found one running.
 	serverExited <-chan struct{}
@@ -81,6 +84,8 @@ type Session struct {
 	// the view stays on it, and the window shows nothing else.
 	pinned   uint64
 	files    filesTab
+	wa       waTab
+	spend    spending
 	docs     docs
 	menu     *ui.Menu
 	prompt   *Prompt
@@ -131,6 +136,7 @@ type paneView struct {
 func Open(name, tendPath string, cfg config.Config) (*Session, error) {
 	s := &Session{
 		name:     name,
+		tendPath: tendPath,
 		cfg:      cfg,
 		ui:       cfg.UI,
 		grouped:  cfg.UI.Grouped,

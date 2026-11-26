@@ -16,7 +16,8 @@ Item {
     // The tabs, as a rail of marks along the window's edge.
     readonly property var tabs: [
         { name: "files", mark: "❐", tip: "files" },
-        { name: "tasks", mark: "✓", tip: "tasks" }
+        { name: "tasks", mark: "✓", tip: "tasks" },
+        { name: "whatsapp", mark: "✆", tip: "WhatsApp" }
     ]
 
     Rectangle {

@@ -61,6 +61,24 @@ var notHere = map[string]bool{
 	ui.MenuWhatsNew:    true,
 }
 
+// menuSpending is the window's own item in the global menu: the spending
+// screen, which the TUI has as `tend activity` rather than a screen.
+const menuSpending = "desktop-spending"
+
+// withSpending puts the spending screen in the global menu, before the
+// settings.
+func withSpending(m ui.Menu) ui.Menu {
+	items := make([]ui.MenuItem, 0, len(m.Items)+1)
+	for _, it := range m.Items {
+		if it.Action == ui.MenuSettings {
+			items = append(items, ui.MenuItem{Label: "spending", Action: menuSpending})
+		}
+		items = append(items, it)
+	}
+	m.Items = items
+	return m
+}
+
 func withoutMissing(m ui.Menu) ui.Menu {
 	items := m.Items[:0:0]
 	for _, it := range m.Items {
@@ -130,7 +148,8 @@ func (s *Session) menuForLocked(kind string, pane, tab, ws uint64, group string,
 		m := ui.PaneMenu(pane, x, y, len(s.rects) > 1, info[pane].Agent != "", selected)
 		return decorate(m, pane), true
 	case "global":
-		return ui.GlobalMenu(false, s.snap.Update != nil && s.snap.Update.Ready != "", false, x, y), true
+		m := ui.GlobalMenu(false, s.snap.Update != nil && s.snap.Update.Ready != "", false, x, y)
+		return withSpending(m), true
 	}
 	return ui.Menu{}, false
 }
@@ -349,6 +368,9 @@ func (s *Session) runMenu(m ui.Menu, item ui.MenuItem) error {
 		return s.ReloadSettings()
 	case ui.MenuSettings:
 		s.OpenPanel("settings")
+		return nil
+	case menuSpending:
+		s.OpenSpending("today")
 		return nil
 	case ui.MenuSleepPick:
 		return s.openSleepMenu(m)

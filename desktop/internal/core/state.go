@@ -45,6 +45,10 @@ type State struct {
 	Theme Theme `json:"theme"`
 	// Settings is the settings screen, while it is open.
 	Settings *SettingsState `json:"settings,omitempty"`
+	// Spending is the spending screen, while it is open, and Spent what
+	// the agents open now have cost, for the status line.
+	Spending *SpendingState `json:"spending,omitempty"`
+	Spent    float64        `json:"spent,omitempty"`
 	// Dock is the right side, while it is open.
 	Dock *DockState `json:"dock,omitempty"`
 	// Docs are the document tabs of the space shown, and Doc the one in
@@ -219,6 +223,10 @@ func (s *Session) State() State {
 	if s.panel == "settings" {
 		st.Settings = s.settingsStateLocked()
 	}
+	if s.panel == "spending" {
+		st.Spending = s.spendingStateLocked(view.Now)
+	}
+	st.Spent = s.liveCostLocked()
 	st.Toasts = append([]Toast(nil), s.notes.shown...)
 	if s.snap.Update != nil {
 		st.Update = s.snap.Update.Ready

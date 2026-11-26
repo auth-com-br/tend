@@ -23,6 +23,8 @@ type DockState struct {
 	Error   string      `json:"error,omitempty"`
 	Tasks   []TaskRow   `json:"tasks,omitempty"`
 	Files   *FilesState `json:"files,omitempty"`
+	// WhatsApp is tend-whatsapp's daemon as the tab shows it (whatsapp.go).
+	WhatsApp *WhatsAppState `json:"whatsapp,omitempty"`
 }
 
 // TaskRow is a task as the dock lists it.
@@ -80,6 +82,9 @@ func (s *Session) loadDock(tab string) {
 	switch tab {
 	case "files":
 		err = s.loadFiles()
+	case "whatsapp":
+		err = s.loadWhatsApp()
+		s.pollWhatsApp(whatsAppPoll)
 	case "tasks":
 		var tasks []proto.TaskInfo
 		if !c.Supports(proto.MethodTaskList) {
@@ -123,6 +128,9 @@ func (s *Session) dockStateLocked() *DockState {
 	st := &DockState{Tab: s.dock.tab, Loading: s.dock.loading, Error: s.dock.err}
 	if s.dock.tab == "files" {
 		st.Files = s.filesStateLocked()
+	}
+	if s.dock.tab == "whatsapp" {
+		st.WhatsApp = s.whatsAppStateLocked()
 	}
 	if s.dock.tab == "tasks" {
 		names := map[uint64]string{}

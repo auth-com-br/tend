@@ -411,6 +411,15 @@ func dispatch(sess *core.Session, method string, raw []byte) error {
 	case "doc.close":
 		sess.CloseDoc(a.Index)
 		return nil
+	case "spending":
+		sess.OpenSpending(a.Name)
+		return nil
+	case "whatsapp":
+		var w core.WhatsAppAction
+		if err := json.Unmarshal(raw, &w); err != nil {
+			return err
+		}
+		return sess.WhatsApp(w)
 	case "task.create":
 		var n core.NewTask
 		if err := json.Unmarshal(raw, &n); err != nil {
