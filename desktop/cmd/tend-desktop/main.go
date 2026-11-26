@@ -200,6 +200,8 @@ func dispatch(sess *core.Session, method string, raw []byte) error {
 		Direction string `json:"direction"`
 		Agent     string `json:"agent"`
 		Text      string `json:"text"`
+		Side      string `json:"side"`
+		Cells     int    `json:"cells"`
 		Cols      int    `json:"cols"`
 		Rows      int    `json:"rows"`
 	}
@@ -229,6 +231,8 @@ func dispatch(sess *core.Session, method string, raw []byte) error {
 		return sess.NewWorkspace()
 	case "pane.split":
 		return sess.Split(a.Direction)
+	case "pane.adjust":
+		return sess.AdjustSplit(a.Pane, a.Side, a.Cells)
 	case "pane.close":
 		return sess.ClosePane()
 	case "status":

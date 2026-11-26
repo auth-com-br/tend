@@ -186,13 +186,15 @@ desktop: toolchain
 	cd desktop && $(GO) generate ./internal/qtterm
 	cd desktop && $(GO) build -ldflags "$(LDFLAGS)" -o bin/tend-desktop ./cmd/tend-desktop
 
-## desktop-check: the desktop's gate — gofmt, vet and tests of desktop/.
+## desktop-check: the desktop's gate — gofmt, vet, its tests (against a real
+## tend server, and the weight budget, offscreen) and the race detector.
 desktop-check: toolchain
 	cd desktop && $(GO) generate ./internal/qtterm
 	@out="$$($(GOFMT) -l desktop)"; \
 	if [ -n "$$out" ]; then echo "gofmt needed:"; echo "$$out"; exit 1; fi
 	cd desktop && $(GO) vet ./...
 	cd desktop && $(GO) test ./...
+	cd desktop && $(GO) test -race -short ./...
 
 ## desktop-install: install tend-desktop beside tend, so it starts sessions
 ## with the tend of the same version (core.FindTend looks beside itself first).

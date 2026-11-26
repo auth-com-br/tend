@@ -526,6 +526,41 @@ Window {
         }
     }
 
+
+    component Divider: MouseArea {
+        id: div
+        property string side: "right"
+        property int pane: 0
+        property real start: 0
+        property int applied: 0
+        z: 5
+        hoverEnabled: true
+        cursorShape: side === "right" ? Qt.SplitHCursor : Qt.SplitVCursor
+        preventStealing: true
+        onPressed: (mouse) => {
+            var p = mapToItem(root.contentItem, mouse.x, mouse.y)
+            start = side === "right" ? p.x : p.y
+            applied = 0
+        }
+        onPositionChanged: (mouse) => {
+            if (!pressed) return
+            var p = mapToItem(root.contentItem, mouse.x, mouse.y)
+            var moved = (side === "right" ? p.x : p.y) - start
+            var cells = Math.round(moved / (side === "right" ? root.cw : root.ch))
+            if (cells !== applied) {
+                Bridge.call("pane.adjust", { pane: pane, side: side, cells: cells - applied })
+                applied = cells
+            }
+        }
+        Rectangle {
+            anchors.centerIn: parent
+            width: div.side === "right" ? 2 : parent.width
+            height: div.side === "right" ? parent.height : 2
+            color: theme.accent
+            opacity: div.containsMouse || div.pressed ? 0.8 : 0
+        }
+    }
+
     component ToolButton: Rectangle {
         id: tb
         property alias text: tbLabel.text
@@ -611,6 +646,29 @@ Window {
                     anchors.margins: 3
                     pane: box.pane
                     onActivated: Bridge.call("focus", { pane: box.pane })
+                }
+                // The borders shared with a neighbour are dividers: dragged,
+                // they move by whole cells through pane.adjust, as in the TUI.
+                // An outside border has nothing beyond it to take space from.
+                Divider {
+                    visible: box.cx + box.cols < st.areaCols
+                    side: "right"
+                    pane: box.pane
+                    anchors.right: parent.right
+                    anchors.rightMargin: -4
+                    anchors.top: parent.top
+                    anchors.bottom: parent.bottom
+                    width: 8
+                }
+                Divider {
+                    visible: box.cy + box.rows < st.areaRows
+                    side: "down"
+                    pane: box.pane
+                    anchors.bottom: parent.bottom
+                    anchors.bottomMargin: -4
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    height: 8
                 }
                 // Looking back through the history: how far, of how much. Typing
                 // returns to the present.

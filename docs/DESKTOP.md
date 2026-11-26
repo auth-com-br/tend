@@ -109,7 +109,7 @@ terminal cannot.
 
    | | budget | measured, phase 0 (one pane, GNOME Wayland) |
    |---|---|---|
-   | memory (PSS) | ≤ 150 MB with 10 panes and the sidebar | 101 MB |
+   | memory (PSS) | ≤ 150 MB with 10 panes and the sidebar | 101 MB with one pane on Wayland; 54 MB with ten offscreen (the weight test) |
    | binary, stripped | ≤ 40 MB | 31 MB |
    | processes | 1 (+ the server, shared with the TUI) | 1 |
    | start to first frame | ≤ 500 ms | not measured yet |
@@ -193,7 +193,7 @@ status line. Everything is a mouse target as well as a key.
 | Phase | What | State |
 |---|---|---|
 | 0 | Window on a session: the focused pane, keyboard, resize | done |
-| 1 | The bridge and Go models; sidebar (spaces, groups, agents and state); tabs; splits with dividers; focus; mouse in panes; scrollback; selection and copy; the weight test | next |
+| 1 | The bridge and Go models; sidebar (spaces, groups, agents and state); tabs; splits with dividers; focus; mouse in panes; scrollback; selection and copy; the weight test | done |
 | 2 | Menus (from internal/ui's menu definitions), rename, dialogs, notifications (native), settings, themes from the settings, the kitty keyboard protocol | |
 | 3 | The dock: files, search, changes with diff and review, history (internal/explorer's logic without its grid) | |
 | 4 | Issues and PRs, errors, tickets, MCP, permissions, agent manager, sessions, context, worktrees, machines | |

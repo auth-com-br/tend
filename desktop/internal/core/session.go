@@ -671,6 +671,26 @@ func (s *Session) CloseTab(id uint64) error {
 	return c.CloseTab(id)
 }
 
+// AdjustSplit moves the border on a pane's side by cells, as dragging a
+// divider in the TUI does (dragDivider): the server's pane.adjust, at the
+// size this window lays the tab out at.
+func (s *Session) AdjustSplit(pane uint64, side string, cells int) error {
+	if cells == 0 {
+		return nil
+	}
+	s.mu.Lock()
+	c, cols, rows, tab := s.client, s.areaCols, s.areaRows, s.tab
+	s.mu.Unlock()
+	if err := c.AdjustSplit(pane, side, cells, cols, rows); err != nil {
+		return err
+	}
+	if err := s.layout(tab, cols, rows); err != nil {
+		return err
+	}
+	s.stateChanged()
+	return nil
+}
+
 // ToggleGroup folds or unfolds a group of spaces in this window's list.
 func (s *Session) ToggleGroup(name string) {
 	s.mu.Lock()
