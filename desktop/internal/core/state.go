@@ -2,10 +2,14 @@ package core
 
 import (
 	"encoding/json"
+	"os"
+	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/auth-com-br/tend/internal/proto"
 	"github.com/auth-com-br/tend/internal/sidebar"
 	"github.com/auth-com-br/tend/internal/ui"
 )
@@ -96,6 +100,45 @@ type Row struct {
 	Tab       uint64    `json:"tab,omitempty"`
 	Workspace uint64    `json:"workspace,omitempty"`
 	Lines     [][]Token `json:"lines,omitempty"`
+	// Space and Agent are the row as the window lays it out (sidebar.qml):
+	// what it says, field by field, rather than the TUI's tokens laid in
+	// columns of a terminal. The tokens stay, for the settings' own layout.
+	Space *SpaceCard `json:"space,omitempty"`
+	Agent *AgentCard `json:"agent,omitempty"`
+}
+
+// SpaceCard is a space in the window's sidebar.
+type SpaceCard struct {
+	// Name is the space's, or its folder's when it has none.
+	Name string `json:"name"`
+	// Folder is where it is, the home folder as ~.
+	Folder string `json:"folder,omitempty"`
+	Branch string `json:"branch,omitempty"`
+	Ahead  int    `json:"ahead,omitempty"`
+	Behind int    `json:"behind,omitempty"`
+	// Agents are the agents running in it; Working, Waiting and Done how
+	// many are working, waiting for the person, or finished and unseen.
+	Agents  int `json:"agents,omitempty"`
+	Working int `json:"working,omitempty"`
+	Waiting int `json:"waiting,omitempty"`
+	Done    int `json:"done,omitempty"`
+}
+
+// AgentCard is an agent in the window's sidebar.
+type AgentCard struct {
+	// Kind is the agent (claude, codex…), Name what to call it.
+	Kind string `json:"kind"`
+	Name string `json:"name"`
+	// Doing is what its terminal title says it is doing, or the name the
+	// person gave the pane.
+	Doing string `json:"doing,omitempty"`
+	// Where is its space and tab.
+	Where string `json:"where,omitempty"`
+	// StateText is the state in words: a hook's own label when it gave one.
+	StateText    string `json:"stateText,omitempty"`
+	Cost         string `json:"cost,omitempty"`
+	Context      int    `json:"context"`
+	ContextLevel uint8  `json:"contextLevel,omitempty"`
 }
 
 // Token is one resolved sidebar token.
@@ -254,6 +297,7 @@ func (s *Session) State() State {
 		st.Agents = append(st.Agents, rowOf(r))
 	}
 	info := sidebar.PaneIndex(snap)
+	cards(st.Spaces, st.Agents, snap, info, view.Now)
 	for _, p := range snap.Panes {
 		if p.Agent != "" && p.Running && sidebar.DisplayState(p) == "blocked" {
 			st.Waiting++
@@ -321,4 +365,114 @@ func (s *Session) Waiting() (count int, oldest uint64) {
 		}
 	}
 	return count, oldest
+}
+
+// cards puts each space's and agent's card on its row.
+func cards(spaces, agents []Row, snap *proto.SessionSnapshot, info map[uint64]proto.PaneInfo, now time.Time) {
+	home, _ := os.UserHomeDir()
+	type place struct {
+		w   proto.WorkspaceInfo
+		tab proto.TabInfo
+	}
+	where := map[uint64]place{}
+	spaceOf := map[uint64]proto.WorkspaceInfo{}
+	tally := map[uint64]*SpaceCard{}
+	for _, w := range snap.Workspaces {
+		spaceOf[w.ID] = w
+		c := &SpaceCard{Name: w.Name, Branch: w.Branch, Ahead: w.Ahead, Behind: w.Behind}
+		if w.Dir != "" {
+			c.Folder = w.Dir
+			if home != "" && (w.Dir == home || strings.HasPrefix(w.Dir, home+"/")) {
+				c.Folder = "~" + strings.TrimPrefix(w.Dir, home)
+			}
+			if c.Name == "" {
+				c.Name = filepath.Base(w.Dir)
+			}
+		}
+		if c.Name == "" {
+			c.Name = "space"
+		}
+		for _, t := range w.Tabs {
+			for _, id := range t.Panes {
+				where[id] = place{w, t}
+				p := info[id]
+				if p.Agent == "" || !p.Running {
+					continue
+				}
+				c.Agents++
+				switch sidebar.DisplayState(p) {
+				case "working":
+					c.Working++
+				case "blocked":
+					c.Waiting++
+				case "done":
+					c.Done++
+				}
+			}
+		}
+		tally[w.ID] = c
+	}
+	for i := range spaces {
+		if spaces[i].Kind == "space" {
+			spaces[i].Space = tally[spaces[i].Workspace]
+		}
+	}
+	for i := range agents {
+		r := &agents[i]
+		if r.Kind != "agent" || r.Pane == 0 {
+			continue
+		}
+		p, ok := info[r.Pane]
+		if !ok {
+			continue
+		}
+		state := sidebar.DisplayState(p)
+		c := &AgentCard{Kind: p.Agent, Name: p.Agent, StateText: stateWords[state], Context: -1}
+		if p.Display != "" {
+			c.Name = p.Display
+		}
+		if label := p.StateLabels[state]; label != "" {
+			c.StateText = label
+		}
+		if p.Named {
+			c.Doing = p.Title
+		} else {
+			c.Doing = sidebar.StrippedTerminalTitle(p.Title)
+		}
+		if d := strings.TrimSpace(c.Doing); strings.EqualFold(d, c.Name) || strings.EqualFold(d, c.Kind) || shellTitle.MatchString(d) {
+			// A title that only names the agent, or a shell's
+			// user@host:folder left from before it started, says nothing
+			// about what it is doing.
+			c.Doing = ""
+		}
+		if pl, ok := where[r.Pane]; ok {
+			name := pl.w.Name
+			if name == "" {
+				if sc := tally[pl.w.ID]; sc != nil {
+					name = sc.Name
+				}
+			}
+			c.Where = name
+			if pl.tab.Name != "" {
+				c.Where += " · " + pl.tab.Name
+			}
+		}
+		u := ui.FormatUsage(p.Usage, now)
+		c.Cost = u.Cost
+		c.Context = p.Usage.ContextPercent()
+		c.ContextLevel = u.ContextLevel
+		r.Agent = c
+	}
+}
+
+// shellTitle is a shell's own terminal title: user@host:folder.
+var shellTitle = regexp.MustCompile(`^[^\s@]+@[^\s:]+:`)
+
+// stateWords are the states as the sidebar says them.
+var stateWords = map[string]string{
+	"working": "working",
+	"blocked": "needs you",
+	"idle":    "idle",
+	"done":    "done",
+	"asleep":  "asleep",
 }

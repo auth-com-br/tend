@@ -165,7 +165,8 @@ Window {
             rstate: r.state || "", running: r.running === true, active: r.active === true,
             folded: r.folded === true, depth: r.depth || 0, group: r.group || "",
             pane: r.pane || 0, tab: r.tab || 0, workspace: r.workspace || 0,
-            lines: JSON.stringify(r.lines || [])
+            lines: JSON.stringify(r.lines || []),
+            space: JSON.stringify(r.space || null), agentCard: JSON.stringify(r.agent || null)
         }
     }
 
@@ -201,247 +202,33 @@ Window {
 
     // ---- sidebar ---------------------------------------------------------
 
-    Rectangle {
+    Sidebar {
         id: sidebar
         visible: !st.pinned
-        width: st.pinned ? 0 : 290
+        width: st.pinned ? 0 : wanted
         anchors.top: parent.top
         anchors.bottom: statusBar.top
         anchors.left: parent.left
-        color: theme.mantle
-
-        Column {
-            anchors.fill: parent
-            anchors.topMargin: 8
-
-            SectionHeading {
-                text: "SPACES"
-                action: "+"
-                onActionClicked: Bridge.call("workspace.new", {})
-            }
-            ListView {
-                id: spaceList
-                width: parent.width
-                height: (parent.height - 80) * 0.45
-                clip: true
-                model: spaceModel
-                boundsBehavior: Flickable.StopAtBounds
-                delegate: SidebarEntry {
-                    width: spaceList.width
-                    onClicked: {
-                        if (kind === "group") Bridge.call("group.toggle", { group: group })
-                        else if (workspace) Bridge.call("workspace", { workspace: workspace })
-                    }
-                }
-            }
-
-            Item { width: 1; height: 8 }
-
-            SectionHeading {
-                text: "AGENTS"
-                action: st.grouped ? "grouped" : "flat"
-                onActionClicked: Bridge.call("agents.grouped", {})
-            }
-            ListView {
-                id: agentList
-                width: parent.width
-                height: (parent.height - 80) * 0.55
-                clip: true
-                model: agentModel
-                boundsBehavior: Flickable.StopAtBounds
-                delegate: SidebarEntry {
-                    width: agentList.width
-                    onClicked: if (pane) Bridge.call("jump", { pane: pane })
-                }
-                Text {
-                    visible: agentModel.count === 0
-                    anchors.left: parent.left
-                    anchors.leftMargin: 14
-                    text: "no agents running"
-                    color: theme.overlay0
-                    font.pixelSize: 12
-                }
-            }
-        }
-
-        // The TUI's sidebar foot: a new space, and the menu of everything
-        // else ("● menu" when an update is ready, so the menu that says so is
-        // found).
-        Row {
-            anchors.left: parent.left
-            anchors.leftMargin: 8
-            anchors.bottom: parent.bottom
-            anchors.bottomMargin: 6
-            spacing: 4
-            ToolButton { width: 64; text: "+ space"; onClicked: Bridge.call("workspace.new", {}) }
-            ToolButton {
-                id: globalMenuButton
-                width: 64
-                text: (st.update ? "● " : "") + "menu"
-                onClicked: {
-                    var p = mapToItem(root.contentItem, 0, -8)
-                    Bridge.call("menu.open", { kind: "global", x: Math.round(p.x), y: -1 })
-                }
-            }
-        }
-
-        Rectangle {
-            anchors.right: parent.right
-            anchors.top: parent.top
-            anchors.bottom: parent.bottom
-            width: 1
-            color: theme.crust
-        }
     }
 
-    component SectionHeading: Item {
-        id: heading
-        property alias text: label.text
-        property string action: ""
-        signal actionClicked()
-        width: parent ? parent.width : 0
-        height: 26
-        Text {
-            id: label
-            anchors.left: parent.left
-            anchors.leftMargin: 14
-            anchors.verticalCenter: parent.verticalCenter
-            color: theme.overlay0
-            font.pixelSize: 12
-            font.bold: true
-            font.letterSpacing: 1
-        }
-        Text {
-            visible: heading.action !== ""
-            anchors.right: parent.right
-            anchors.rightMargin: 12
-            anchors.verticalCenter: parent.verticalCenter
-            text: heading.action
-            color: actionArea.containsMouse ? theme.text : theme.overlay0
-            font.pixelSize: 12
-            MouseArea {
-                id: actionArea
-                anchors.fill: parent
-                anchors.margins: -6
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                onClicked: heading.actionClicked()
-            }
-        }
+    // A space's colour, from its name: the same space is the same colour
+    // on every start.
+    readonly property var tints: [theme.accent, theme.green, theme.peach, theme.teal, theme.yellow, theme.red]
+    function tintOf(name) {
+        var h = 0
+        for (var i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0
+        return tints[h % tints.length]
     }
-
-    // One sidebar row, the TUI's ui.SidebarRow: a space, a group of spaces,
-    // an agent, or a tab heading over agents.
-    component SidebarEntry: Rectangle {
-        id: entry
-        required property string kind
-        required property string label
-        required property string trailing
-        required property string rstate
-        required property bool running
-        required property bool active
-        required property bool folded
-        required property int depth
-        required property string group
-        required property int pane
-        required property int workspace
-        required property int tab
-        required property string lines
-        signal clicked()
-
-        readonly property var tokenLines: JSON.parse(lines)
-        height: kind === "tab" ? 24 : Math.max(28, 8 + 20 * Math.max(1, tokenLines.length))
-        color: active ? theme.surface0 : (hover.containsMouse ? Qt.rgba(1, 1, 1, 0.04) : "transparent")
-        radius: 4
-
-        Rectangle {
-            visible: entry.active
-            width: 3
-            height: parent.height - 8
-            radius: 2
-            anchors.left: parent.left
-            anchors.leftMargin: 3
-            anchors.verticalCenter: parent.verticalCenter
-            color: theme.accent
+    // An agent's colour, by which agent it is.
+    function agentTint(kind) {
+        switch (kind) {
+        case "claude": return theme.peach
+        case "codex": return theme.green
+        case "gemini": return theme.accent
+        case "agy": return theme.teal
+        case "cursor": return theme.text
         }
-
-        Row {
-            id: lead
-            anchors.left: parent.left
-            anchors.leftMargin: 14 + entry.depth * 14
-            anchors.top: parent.top
-            anchors.topMargin: entry.kind === "tab" ? 4 : 5
-            spacing: 6
-
-            // A group's fold arrow, or a space's or agent's state mark.
-            Text {
-                text: entry.kind === "group" ? (entry.folded ? "▸" : "▾")
-                    : entry.kind === "tab" ? "" : theme.stateMark(entry.rstate)
-                color: entry.kind === "group" ? theme.overlay0 : theme.stateColor(entry.rstate, entry.running)
-                font.pixelSize: 12
-                width: entry.kind === "tab" ? 0 : 10
-            }
-            Column {
-                spacing: 2
-                // A row with tokens is drawn from them, as the settings lay
-                // it out; one without (a group, a tab heading) by its label.
-                Repeater {
-                    model: entry.tokenLines.length > 0 && entry.kind !== "group" ? entry.tokenLines : [[{ kind: "primary", text: entry.label }]]
-                    delegate: Row {
-                        id: tokenRow
-                        required property var modelData
-                        required property int index
-                        spacing: 6
-                        Repeater {
-                            model: tokenRow.modelData
-                            delegate: Text {
-                                required property var modelData
-                                visible: modelData.kind !== "stateIcon"
-                                text: modelData.text
-                                elide: Text.ElideRight
-                                font.pixelSize: entry.kind === "tab" ? 12 : (tokenRow.index === 0 ? 14 : 12)
-                                font.bold: entry.kind === "group"
-                                color: {
-                                    switch (modelData.kind) {
-                                    case "primary": return entry.kind === "tab" ? theme.overlay0 : theme.text
-                                    case "stateText": return theme.stateColor(entry.rstate, entry.running)
-                                    case "git": return theme.peach
-                                    case "gauge": return modelData.level === 2 ? theme.red : modelData.level === 1 ? theme.yellow : theme.subtext
-                                    }
-                                    return theme.subtext
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        Text {
-            visible: entry.trailing !== ""
-            anchors.right: parent.right
-            anchors.rightMargin: 12
-            anchors.top: parent.top
-            anchors.topMargin: 6
-            text: entry.trailing
-            color: theme.red
-            font.pixelSize: 11
-        }
-        MouseArea {
-            id: hover
-            anchors.fill: parent
-            hoverEnabled: true
-            cursorShape: Qt.PointingHandCursor
-            acceptedButtons: Qt.LeftButton | Qt.RightButton
-            onClicked: (mouse) => {
-                if (mouse.button === Qt.RightButton) {
-                    var kinds = { space: "space", group: "group", agent: "agent" }
-                    if (!kinds[entry.kind]) return
-                    var p = mapToItem(root.contentItem, mouse.x, mouse.y)
-                    Bridge.call("menu.open", { kind: kinds[entry.kind], workspace: entry.workspace, pane: entry.pane,
-                                               tab: entry.tab, group: entry.group, x: Math.round(p.x), y: Math.round(p.y) })
-                } else entry.clicked()
-            }
-        }
+        return tintOf(kind || "")
     }
 
     // ---- tabs ------------------------------------------------------------
@@ -1016,9 +803,26 @@ Window {
         }
         width: Math.min(root.width - 8, Math.max(240, widestItem.advanceWidth + 64))
         height: menuItems.height + 34
-        x: Math.min(root.width - width - 4, Math.max(4, m.x >= 0 ? m.x : pointer.point.position.x))
+        // Where the pointer was when the menu opened, kept: bound to the
+        // pointer itself, a pane's menu followed the mouse and its items
+        // could not be reached. A different menu opened over it (another
+        // right click) takes the pointer again.
+        property real atX: 0
+        property real atY: 0
+        property string opened: ""
+        function place() {
+            var key = visible ? (m.title || "") + "\u0001" + (m.items || []).join("\u0001") : ""
+            if (key !== "" && key !== opened) {
+                atX = pointer.point.position.x
+                atY = pointer.point.position.y
+            }
+            opened = key
+        }
+        onVisibleChanged: place()
+        onMChanged: place()
+        x: Math.min(root.width - width - 4, Math.max(4, m.x >= 0 ? m.x : atX))
         y: m.y >= 0 ? Math.min(root.height - height - 4, m.y)
-                    : (m.x >= 0 ? root.height - height - 30 : Math.min(root.height - height - 4, pointer.point.position.y))
+                    : (m.x >= 0 ? root.height - height - 30 : Math.min(root.height - height - 4, atY))
         radius: 8
         color: theme.mantle
         border.color: theme.surface1
