@@ -118,6 +118,7 @@ tend kill 2                 # close one pane
 tend kill -server           # stop the session
 tend --remote host          # a session on another machine, over ssh
 tend shortcut               # put tend in your desktop's application launcher
+tend shortcut -desktop      # ...or tend-desktop, the window
 tend layout open work       # spaces, tabs and what each pane runs, from layouts/work.toml
 tend claude-teams           # Claude Code with agent teams, each teammate a pane
 claude mcp add tend -- tend mcp serve   # let an agent start, message and read other agents
@@ -219,7 +220,9 @@ state changes to stderr, each with the rule that decided it:
 
 `tend serve` runs a session's server in the foreground, which is for watching
 it rather than for using it. `make dist` cross-compiles the release binaries
-for Linux and macOS.
+for Linux and macOS; `make deb` packages tend, tend-desktop and tend-whatsapp
+as .deb files, and `make appimage` makes tend-desktop an AppImage (see
+[docs/DESKTOP.md](docs/DESKTOP.md#packages)).
 
 Requires Go 1.27+.
 

@@ -40,6 +40,73 @@ told (sizes, frames, keys) to standard error. Both work with
 `QT_QPA_PLATFORM=offscreen`, but the offscreen platform does not reproduce
 everything: the first bug of this window (below) did not happen there.
 
+### In the application launcher
+
+```
+tend shortcut -desktop            # tend-desktop in the launcher, as "tend desktop"
+tend shortcut -desktop -s work    # ...opening the session "work"
+tend shortcut -desktop -remove    # take it out
+```
+
+`-desktop` writes `tend-desktop.desktop` and the icon under
+`$XDG_DATA_HOME` (`internal/launcher`), beside — not instead of — the entry
+`tend shortcut` writes for tend in a terminal: they are two programs, and a
+person may want either or both. It points at the tend-desktop beside tend
+(where `make desktop-install` puts it), else the one on PATH, by its full
+path. It is for a build from a checkout; the .deb installs the same entry
+system-wide.
+
+### Packages
+
+```
+make deb                # dist/tend_<v>_<arch>.deb, tend-desktop_… and tend-whatsapp_…
+make deb NO_DESKTOP=1   # without tend-desktop, on a machine without Qt
+make appimage           # dist/tend-desktop-<v>-<arch>.AppImage (needs appimagetool)
+```
+
+`make deb` (`tools/deb`) builds the three programs and packages each with
+dpkg-deb, offline; it needs `dpkg-dev` besides what the build needs. The
+version is `git describe` made a Debian one (`v0.18.0-17-gfb2cbbb` is
+`0.18.0+git17.gfb2cbbb`). Run it after `make dist`, which empties `dist/`.
+
+- **tend** — `/usr/bin/tend` (static, no dependencies), the launcher entry
+  for tend in a terminal, and the icon.
+- **tend-desktop** — `/usr/bin/tend-desktop` and its launcher entry.
+  Depends on `tend` of the same version (it starts the servers with the
+  tend beside it, both in `/usr/bin`), on the Qt libraries `dpkg-shlibdeps`
+  reads from the binary, and on the QML modules it loads, which no linker
+  sees: `qml6-module-qtqml`, `-qtqml-models`, `-qtqml-workerscript`,
+  `-qtquick`, `-qtquick-window`. Recommends `qml6-module-qtwebengine` (the
+  browser tab, loaded only when one opens) and `qt6-wayland`.
+- **tend-whatsapp** — `/usr/bin/tend-whatsapp`; depends on `tend` of the
+  same version.
+
+```
+sudo apt install ./dist/tend_*.deb ./dist/tend-desktop_*.deb
+```
+
+The tend-desktop package is for the distribution it was built on: it is
+linked against that Qt and that glibc (built on Ubuntu 26.04 it needs glibc
+2.43 and Qt 6.10). A tend the .deb installed is updated with the next .deb,
+not with `tend update`, which says so.
+
+`make appimage` (`tools/appimage`) links tend-desktop again with an rpath to
+its own `lib/`, and assembles an AppDir with the Qt libraries, platform
+plugins and QML modules it loads, the launcher entry and the icon; then
+`appimagetool` — the AppImage project's packer, a download, set with
+`APPIMAGETOOL=/path` — makes the file. Without appimagetool the target
+stops after the AppDir, which runs as it is: `dist/tend-desktop.AppDir/AppRun`.
+On purpose, the AppImage does **not** contain tend (a server would run from
+a mount that is gone when the window closes; it uses the tend on PATH), does
+not set `LD_LIBRARY_PATH` (the shells and agents in the panes would inherit
+it), and does not contain QtWebEngine (the browser tab works only where the
+system has it). It leaves glibc, the C++ runtime and the graphics stack to
+the host, so it runs on systems at least as new as the one that built it.
+
+CI (`.github/workflows/ci.yml`) runs `make check`, and in an Ubuntu 26.04
+container with Qt from apt, `make desktop-check` offscreen and `make deb`,
+keeping the packages as the run's artifact.
+
 ## How it is built
 
 ```

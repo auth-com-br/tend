@@ -88,7 +88,10 @@ Read its result before committing; do not chain the commit onto it.
 
 Other targets: `make watch` reruns `make dev` on every change, `make bench`
 runs the terminal core's benchmarks (`internal/vt` must stay at 0 allocs/op),
-`make restart` rebuilds and starts a fresh server.
+`make restart` rebuilds and starts a fresh server. `make deb` and
+`make appimage` package the programs (docs/DESKTOP.md, "Packages"). CI
+(`.github/workflows/ci.yml`) runs `make check`, and `make desktop-check` and
+`make deb` in an Ubuntu container with Qt 6.
 
 If a test fails only sometimes, find out why before calling it flaky. Several
 "flaky" tests here were real bugs — the latest, a test that failed only under

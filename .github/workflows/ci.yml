@@ -1,0 +1,69 @@
+# The gates of the three programs, and the Debian packages built from them
+# (#75). `make check` is tend's and tend-whatsapp's; `make desktop-check` is
+# tend-desktop's, which needs Qt 6.10 and so runs in an Ubuntu 26.04
+# container: the runners' own Ubuntu has an older Qt than the bindings are
+# generated for. Only GitHub's own actions are used, as in dco.yml.
+name: CI
+on:
+  push:
+    branches: [master]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: make check
+        run: make check
+
+  desktop:
+    runs-on: ubuntu-latest
+    container: ubuntu:26.04
+    env:
+      # No display on a runner: the window's tests draw offscreen.
+      QT_QPA_PLATFORM: offscreen
+      DEBIAN_FRONTEND: noninteractive
+    steps:
+      # The Qt modules are docs/DESKTOP.md's list; dpkg-dev is for
+      # dpkg-shlibdeps, which reads tend-desktop's Depends for its .deb;
+      # Mesa is the OpenGL Qt Quick draws with even offscreen, and a font
+      # is what the terminal grid measures its cells with.
+      - name: Install Qt 6 and the build tools
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            git ca-certificates build-essential pkg-config dpkg-dev \
+            qt6-base-dev qt6-declarative-dev \
+            qml6-module-qtquick qml6-module-qtquick-controls qml6-module-qtquick-layouts \
+            qml6-module-qtquick-window qml6-module-qtquick-templates qml6-module-qtqml-workerscript \
+            libgl1-mesa-dri libegl1 fonts-dejavu-core
+      - uses: actions/checkout@v4
+        with:
+          # The tags, for git describe: the packages' version is made of it.
+          fetch-depth: 0
+      # The checkout belongs to another user than the container's root, and
+      # git refuses to describe it otherwise.
+      - run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: make desktop-check
+        run: make desktop-check
+      - name: make deb
+        run: make deb
+      - name: The packages are what they should be
+        run: |
+          for deb in dist/*.deb; do
+            dpkg-deb --info "$deb"
+            dpkg-deb --contents "$deb"
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: deb
+          path: dist/*.deb
+          if-no-files-found: error

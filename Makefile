@@ -31,7 +31,7 @@ DEV_PKGS ?= ./...
 # SESSION is which session `make restart` acts on.
 SESSION ?= default
 
-.PHONY: toolchain run dev watch test test-race check fmt vet bench build install dist manifest packages stats clean restart desktop desktop-check desktop-install whatsapp whatsapp-check whatsapp-install
+.PHONY: toolchain run dev watch test test-race check fmt vet bench build install dist manifest packages stats clean restart desktop desktop-check desktop-install whatsapp whatsapp-check whatsapp-install deb appimage
 
 ## toolchain: fail with a usable message instead of "go: No such file or directory".
 toolchain:
@@ -223,6 +223,37 @@ whatsapp-install: whatsapp
 	@mkdir -p "$(INSTALL_DIR)"
 	cp whatsapp/bin/tend-whatsapp "$(INSTALL_DIR)/tend-whatsapp"
 	@echo "installed $(INSTALL_DIR)/tend-whatsapp ($(VERSION))"
+
+## deb: the Debian packages of the three programs, for this machine's
+## architecture, in dist/: tend_<v>_<arch>.deb, tend-desktop_… and
+## tend-whatsapp_… (tools/deb). Needs dpkg-deb, dpkg-shlibdeps (dpkg-dev) and
+## what `make desktop` needs; NO_DESKTOP=1 leaves the desktop's out, for a
+## machine without Qt. Run it after `make dist`, which empties dist/.
+# Built here and not cross-compiled: tend-desktop is cgo against this
+# machine's Qt, so its package is for the distribution it was built on, and
+# its Depends are read from the binary by dpkg-shlibdeps.
+deb: build whatsapp $(if $(NO_DESKTOP),,desktop)
+	$(GO) run ./tools/deb -version $(VERSION) -out dist -tend bin/tend \
+		-whatsapp whatsapp/bin/tend-whatsapp $(if $(NO_DESKTOP),,-desktop desktop/bin/tend-desktop)
+
+## appimage: dist/tend-desktop-<v>-<arch>.AppImage, tend-desktop with its Qt
+## inside (tools/appimage). Needs appimagetool on PATH (or APPIMAGETOOL=...),
+## which is a download; without it the AppDir is built and left in
+## dist/tend-desktop.AppDir, which runs as it is.
+# Linked again with an rpath, not run under LD_LIBRARY_PATH: every program
+# the window starts — the tend server, and the shells and agents it starts —
+# would inherit the variable and load the AppImage's libraries, from a
+# mount that is gone once the window closes. (Seen: LD_DEBUG set on the
+# window reached the shell in its pane.) --disable-new-dtags makes it a
+# DT_RPATH, which unlike DT_RUNPATH also serves the bundled libraries' own
+# dependencies and the plugins Qt opens.
+APPIMAGETOOL ?= appimagetool
+appimage: toolchain
+	cd desktop && $(GO) generate ./internal/qtterm
+	cd desktop && $(GO) build -ldflags "$(LDFLAGS) -extldflags '-Wl,-rpath,\$$ORIGIN/../lib -Wl,--disable-new-dtags'" \
+		-o bin/tend-desktop-appimage ./cmd/tend-desktop
+	$(GO) run ./tools/appimage -version $(VERSION) -binary desktop/bin/tend-desktop-appimage \
+		-out dist -appimagetool "$(APPIMAGETOOL)"
 
 clean:
 	rm -rf bin dist desktop/bin whatsapp/bin
