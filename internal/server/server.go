@@ -528,7 +528,7 @@ func build(cfg Config) (*Server, error) {
 	if cfg.Activity != nil {
 		find := cfg.Transcripts
 		if find == nil {
-			find = DefaultTranscripts
+			find = activity.DefaultTranscripts
 		}
 		s.activity = newRecorder(cfg.Activity, cfg.SessionName, find)
 	}

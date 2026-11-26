@@ -7,14 +7,11 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/auth-com-br/tend/internal/activity"
 	"github.com/auth-com-br/tend/internal/config"
 	"github.com/auth-com-br/tend/internal/github"
-	"github.com/auth-com-br/tend/internal/server"
 	"github.com/auth-com-br/tend/internal/transport"
 )
 
@@ -61,7 +58,7 @@ func runActivity(args []string) error {
 	now := time.Now()
 	filter := activity.Filter{Agent: *agentName}
 	if *since != "" {
-		t, err := parseSince(*since, now)
+		t, err := activity.ParseSince(*since, now)
 		if err != nil {
 			return err
 		}
@@ -84,11 +81,6 @@ func runActivity(args []string) error {
 	if err != nil {
 		return err
 	}
-	recs, err := activity.Read(activity.Path(stateDir))
-	if err != nil {
-		return err
-	}
-	all, refused := activity.Fold(recs)
 
 	var w io.Writer = os.Stdout
 	if *out != "" {
@@ -101,18 +93,19 @@ func runActivity(args []string) error {
 	}
 
 	if *violations {
+		recs, err := activity.Read(activity.Path(stateDir))
+		if err != nil {
+			return err
+		}
+		all, refused := activity.Fold(recs)
 		return writeViolations(w, *format, all, refused, filter)
 	}
 
-	var runs []*activity.Run
-	for _, r := range all {
-		if filter.Keep(r) {
-			runs = append(runs, r)
-		}
-	}
-	activity.Measure(runs, server.DefaultTranscripts)
 	cfg, _ := config.LoadLenient()
-	activity.Price(runs, cfg.Activity.Prices)
+	runs, err := activity.Load(activity.Path(stateDir), filter, activity.DefaultTranscripts, cfg.Activity.Prices)
+	if err != nil {
+		return err
+	}
 	if *prs {
 		lookUpPRs(runs)
 	}
@@ -199,30 +192,6 @@ func sortViolations(vs []activity.Violation) {
 			vs[j], vs[j-1] = vs[j-1], vs[j]
 		}
 	}
-}
-
-// parseSince reads -since: a number of days or hours back, or a date.
-func parseSince(s string, now time.Time) (time.Time, error) {
-	midnight := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
-	switch s {
-	case "today":
-		return midnight, nil
-	case "week":
-		// Since Monday: the week a person means by "this week".
-		return midnight.AddDate(0, 0, -((int(now.Weekday()) + 6) % 7)), nil
-	}
-	if n, ok := strings.CutSuffix(s, "d"); ok {
-		if days, err := strconv.Atoi(n); err == nil && days >= 0 {
-			return now.AddDate(0, 0, -days), nil
-		}
-	}
-	if d, err := time.ParseDuration(s); err == nil && d >= 0 {
-		return now.Add(-d), nil
-	}
-	if t, err := time.ParseInLocation("2006-01-02", s, time.Local); err == nil {
-		return t, nil
-	}
-	return time.Time{}, fmt.Errorf("-since is today, week, 7d, 12h or a date as 2006-01-02, not %q", s)
 }
 
 // lookUpPRs asks the forge what each run's branch became. One question per

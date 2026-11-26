@@ -10,7 +10,6 @@ import (
 
 	"github.com/auth-com-br/tend/internal/activity"
 	"github.com/auth-com-br/tend/internal/agent"
-	"github.com/auth-com-br/tend/internal/integration"
 	"github.com/auth-com-br/tend/internal/policy"
 	"github.com/auth-com-br/tend/internal/session"
 	"github.com/auth-com-br/tend/internal/usage"
@@ -115,22 +114,6 @@ func newRecorder(log *activity.Log, sessionName string, find activity.Transcript
 		}
 	}
 	return r
-}
-
-// DefaultTranscripts finds a conversation's file where the agents keep them
-// on this machine.
-func DefaultTranscripts(agentLabel string, c activity.Conversation) string {
-	switch agentLabel {
-	case "claude":
-		if dir, err := integration.ClaudeDir(); err == nil {
-			return usage.FindClaude(dir, c.ID)
-		}
-	case "codex":
-		if dir, err := integration.CodexDir(); err == nil {
-			return usage.FindCodex(dir, c.ID)
-		}
-	}
-	return ""
 }
 
 // activityLoop runs the recorder until the server closes.
