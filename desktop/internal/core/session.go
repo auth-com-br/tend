@@ -9,6 +9,7 @@ import (
 	"github.com/auth-com-br/tend/internal/client"
 	"github.com/auth-com-br/tend/internal/config"
 	"github.com/auth-com-br/tend/internal/proto"
+	"github.com/auth-com-br/tend/internal/tools"
 	"github.com/auth-com-br/tend/internal/ui"
 	"github.com/auth-com-br/tend/internal/vt"
 )
@@ -90,6 +91,7 @@ type Session struct {
 	menu     *ui.Menu
 	prompt   *Prompt
 	panel    string
+	tools    toolScreens
 	zoom     uint64
 	lastCopy map[uint64]string
 
@@ -640,8 +642,7 @@ func (s *Session) LoadAgents() error {
 // resumeScript runs an agent and leaves a shell when it exits, so the
 // terminal stays as the TUI's "new agent here" leaves it (cmd/tend's
 // resumeScript, the same two lines).
-const resumeScript = `"$@"
-exec "${SHELL:-/bin/sh}"`
+const resumeScript = tools.ResumeScript
 
 // NewAgentTab opens a tab running an agent, where the pane in focus is
 // working: the TUI's groupAgentSpec — the path the catalog found it at,
@@ -879,7 +880,12 @@ func (s *Session) Event(ev proto.Event) {
 	case proto.EventNotify:
 		s.announceCustom(ev.Title, ev.Body, ev.Pane)
 		return
-	case proto.EventContextArrived:
+	case proto.EventContextChanged, proto.EventContextArrived:
+		// The context screen, if open, reads the buffer again. A capture
+		// arriving does not open it, as the TUI's does: the window has
+		// its status line and notifications for that, and a screen that
+		// opens by itself takes the keyboard from a pane being typed in.
+		s.reloadContextIf()
 		return
 	case proto.EventPaneState:
 		s.announceState(ev)

@@ -49,6 +49,14 @@ type State struct {
 	// the agents open now have cost, for the status line.
 	Spending *SpendingState `json:"spending,omitempty"`
 	Spent    float64        `json:"spent,omitempty"`
+	// The global menu's tools' screens, each while it is open (tools.go).
+	MCP          *MCPState      `json:"mcp,omitempty"`
+	Perm         *PermState     `json:"perm,omitempty"`
+	AgentsScreen *AgentsState   `json:"agentsScreen,omitempty"`
+	Sessions     *SessionsState `json:"sessions,omitempty"`
+	Context      *ContextState  `json:"context,omitempty"`
+	About        *AboutState    `json:"about,omitempty"`
+	Notes        *NotesState    `json:"notes,omitempty"`
 	// Dock is the right side, while it is open.
 	Dock *DockState `json:"dock,omitempty"`
 	// Docs are the document tabs of the space shown, and Doc the one in
@@ -227,6 +235,7 @@ func (s *Session) State() State {
 		st.Spending = s.spendingStateLocked(view.Now)
 	}
 	st.Spent = s.liveCostLocked()
+	s.toolStateLocked(&st)
 	st.Toasts = append([]Toast(nil), s.notes.shown...)
 	if s.snap.Update != nil {
 		st.Update = s.snap.Update.Ready

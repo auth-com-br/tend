@@ -88,6 +88,7 @@ func (s *Session) OpenPanel(name string) {
 	s.mu.Lock()
 	s.panel = name
 	s.mu.Unlock()
+	s.panelOpened(name)
 	s.stateChanged()
 }
 

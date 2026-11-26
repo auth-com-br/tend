@@ -8,6 +8,7 @@ import (
 
 	"github.com/auth-com-br/tend/internal/proto"
 	"github.com/auth-com-br/tend/internal/sidebar"
+	"github.com/auth-com-br/tend/internal/tools"
 	"github.com/auth-com-br/tend/internal/ui"
 )
 
@@ -45,20 +46,13 @@ const (
 )
 
 // notHere are menu items the window does not offer yet, rather than offer
-// and do nothing: continuing a conversation in another agent comes with
-// the agent sessions (phase 4), the files panel natively (phase 3), and the
-// global menu's screens with phase 2's settings and phase 4's panels.
+// and do nothing: the files panel natively (phase 3), and the global
+// menu's screens that have none yet.
 var notHere = map[string]bool{
-	ui.MenuContinueIn:  true,
-	ui.MenuFiles:       true,
-	ui.MenuKeybinds:    true,
-	ui.MenuDetach:      true,
-	ui.MenuMCP:         true,
-	ui.MenuPermissions: true,
-	ui.MenuTools:       true,
-	ui.MenuPhone:       true,
-	ui.MenuAbout:       true,
-	ui.MenuWhatsNew:    true,
+	ui.MenuFiles:    true,
+	ui.MenuKeybinds: true,
+	ui.MenuDetach:   true,
+	ui.MenuPhone:    true,
 }
 
 // menuSpending is the window's own item in the global menu: the spending
@@ -148,7 +142,7 @@ func (s *Session) menuForLocked(kind string, pane, tab, ws uint64, group string,
 		m := ui.PaneMenu(pane, x, y, len(s.rects) > 1, info[pane].Agent != "", selected)
 		return decorate(m, pane), true
 	case "global":
-		m := ui.GlobalMenu(false, s.snap.Update != nil && s.snap.Update.Ready != "", false, x, y)
+		m := ui.GlobalMenu(s.serverStaleLocked(), s.snap.Update != nil && s.snap.Update.Ready != "", s.notesAvailableLocked(), x, y)
 		return withSpending(m), true
 	}
 	return ui.Menu{}, false
@@ -372,6 +366,28 @@ func (s *Session) runMenu(m ui.Menu, item ui.MenuItem) error {
 	case menuSpending:
 		s.OpenSpending("today")
 		return nil
+	case ui.MenuMCP:
+		s.OpenPanel(panelMCP)
+		return nil
+	case ui.MenuPermissions:
+		s.OpenPanel(panelPerm)
+		return nil
+	case ui.MenuAbout:
+		s.OpenPanel(panelAbout)
+		return nil
+	case ui.MenuWhatsNew:
+		s.OpenPanel(panelNotes)
+		return nil
+	case ui.MenuTools:
+		s.openSubmenu(toolMenu(m.X, m.Y))
+		return nil
+	case ui.MenuTool:
+		return s.openTool(item.Arg)
+	case ui.MenuContinueIn:
+		s.openSubmenu(ui.ContinueMenu(m.Pane, "", tools.ContinueAgents(), m.X, m.Y))
+		return nil
+	case ui.MenuContinueWith:
+		return s.continueIn(m.Pane, m.Conversation, item.Arg)
 	case ui.MenuSleepPick:
 		return s.openSleepMenu(m)
 	case ui.MenuSleepOne:
@@ -397,12 +413,8 @@ func (s *Session) runMenu(m ui.Menu, item ui.MenuItem) error {
 		}
 		return nil
 	}
-	// The global menu's screens (settings, MCP, permissions, tools, phone,
-	// about, what's new) are the window's panels, opened by QML.
-	s.mu.Lock()
-	s.panel = item.Action
-	s.mu.Unlock()
-	s.stateChanged()
+	// Any other of the global menu's screens is a panel of that name.
+	s.OpenPanel(item.Action)
 	return nil
 }
 

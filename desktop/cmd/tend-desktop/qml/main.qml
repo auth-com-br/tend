@@ -1007,7 +1007,14 @@ Window {
         visible: !!st.menu
         z: 200
         readonly property var m: st.menu || ({ items: [], x: 0, y: 0, title: "" })
-        width: 240
+        // As wide as its longest item: the tools menu's say what each
+        // tool is for, and were cut off at a fixed width.
+        TextMetrics {
+            id: widestItem
+            font.pixelSize: 13
+            text: (contextMenu.m.items || []).reduce((a, b) => b.length > a.length ? b : a, "")
+        }
+        width: Math.min(root.width - 8, Math.max(240, widestItem.advanceWidth + 64))
         height: menuItems.height + 34
         x: Math.min(root.width - width - 4, Math.max(4, m.x >= 0 ? m.x : pointer.point.position.x))
         y: m.y >= 0 ? Math.min(root.height - height - 4, m.y)
@@ -1213,6 +1220,18 @@ Window {
         z: 185
         active: st.panel === "welcome"
         source: "panels/Welcome.qml"
+    }
+    // The global menu's tools (core/tools.go), each its own file.
+    Loader {
+        anchors.fill: parent
+        z: 180
+        readonly property var screens: ({
+            mcp: "panels/MCP.qml", permissions: "panels/Permissions.qml", agents: "panels/Agents.qml",
+            sessions: "panels/Sessions.qml", context: "panels/Context.qml", about: "panels/About.qml",
+            notes: "panels/Notes.qml"
+        })
+        active: screens[st.panel] !== undefined
+        source: screens[st.panel] || ""
     }
 
     // ---- command palette ----------------------------------------------------

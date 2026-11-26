@@ -272,6 +272,13 @@ status line. Everything is a mouse target as well as a key.
 | 8 | Browser tab (QtWebEngine, on demand) | |
 | 9 | Packaging (.desktop, AppImage or .deb), CI | |
 
+- Phase 4, MCP servers: native screen (each agent's servers, on/off, copy, test, add, remove) — done
+- Phase 4, permissions: native screen (rules and modes per agent, decision, move, add, remove, open in an editor) — done
+- Phase 4, agent manager: native screen (installed agents and versions, memory tools, install in a tab) — done
+- Phase 4, agent sessions: native screen (search, resume in a tab, delete, continue in another agent; "continue in…" on panes too) — done
+- Phase 4, context: native screen (list, send to the agent, copy, remove, clear) — done
+- About, what's new and "all tools…": native screens and menu — done
+
 ### Only in the window
 
 Chosen by the owner (November 2026); none is started.

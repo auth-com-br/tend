@@ -78,6 +78,10 @@ func writeQML() (string, error) {
 // first thread keeps Qt's main thread the one main runs on.
 func init() { runtime.LockOSThread() }
 
+// version is this build, set by the Makefile's -X main.version as tend's
+// is; the about screen says it beside the server's.
+var version = "development build"
+
 func main() {
 	session := flag.String("s", "default", "the session to open")
 	tendBin := flag.String("tend", "", "the tend binary to start a session's server with (default: beside this one, else on PATH)")
@@ -88,6 +92,7 @@ func main() {
 	shotOpen := flag.String("shot-open", "", "with -shot: the objectName of an item whose open property is set first, to capture a menu")
 	flag.Parse()
 	debug = os.Getenv("TEND_DESKTOP_DEBUG") != ""
+	core.Version = version
 
 	tendPath, err := core.FindTend(*tendBin)
 	if err != nil {
@@ -433,6 +438,38 @@ func dispatch(sess *core.Session, method string, raw []byte) error {
 	case "status":
 		setStatus(a.Text)
 		return nil
+	case "mcp":
+		var m core.MCPAction
+		if err := json.Unmarshal(raw, &m); err != nil {
+			return err
+		}
+		return sess.MCP(m)
+	case "perm":
+		var p core.PermAction
+		if err := json.Unmarshal(raw, &p); err != nil {
+			return err
+		}
+		return sess.Perm(p)
+	case "agents":
+		var g core.AgentsAction
+		if err := json.Unmarshal(raw, &g); err != nil {
+			return err
+		}
+		return sess.AgentsScreen(g)
+	case "sessions":
+		var v core.SessionsAction
+		if err := json.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		return sess.Sessions(v)
+	case "context":
+		var c core.ContextAction
+		if err := json.Unmarshal(raw, &c); err != nil {
+			return err
+		}
+		return sess.Context(c)
+	case "notes.close":
+		return sess.CloseNotes()
 	case "group.toggle":
 		sess.ToggleGroup(a.Group)
 		return nil
