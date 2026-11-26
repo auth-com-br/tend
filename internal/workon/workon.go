@@ -15,12 +15,22 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/auth-com-br/tend/internal/api"
 	"github.com/auth-com-br/tend/internal/capture"
 	"github.com/auth-com-br/tend/internal/github"
 	"github.com/auth-com-br/tend/internal/proto"
-	"github.com/auth-com-br/tend/internal/session"
 )
+
+// The automation socket's worktree methods and how it names a space, as
+// internal/api has them. Not imported from there: internal/api brings the
+// whole server with it, which the desktop's binary must not carry (its
+// weight is budgeted, docs/DESKTOP.md). A test holds them equal.
+const (
+	methodWorktreeList   = "worktree.list"
+	methodWorktreeCreate = "worktree.create"
+	methodWorktreeOpen   = "worktree.open"
+)
+
+func spaceID(ws uint64) string { return "w_" + strconv.FormatUint(ws, 10) }
 
 // Caller makes one call on the session's automation socket (internal/api),
 // waiting as long as a worktree add takes. The worktree methods live only
@@ -104,7 +114,7 @@ func Issue(call Caller, tabs Tabs, dir string, number int, title, agentName, pro
 // label — on branch in the repository of space ws, and starts the agent
 // there with prompt when it is new.
 func Fix(call Caller, tabs Tabs, ws uint64, branch, label, agentName, prompt string) (Started, error) {
-	where := map[string]any{"workspace_id": api.WorkspaceID(session.WorkspaceID(ws))}
+	where := map[string]any{"workspace_id": spaceID(ws)}
 	got, _, found, err := open(call, where, func(b string) bool { return b == branch })
 	if err != nil {
 		return Started{}, fmt.Errorf("this space is not a repository to fix it in: %w", err)
@@ -130,7 +140,7 @@ func GoToBranch(call Caller, dir, branch string) (uint64, bool, error) {
 // open looks for a worktree whose branch is wanted among the project's, and
 // opens its space when there is one.
 func open(call Caller, where map[string]any, wanted func(string) bool) (ws uint64, branch string, found bool, err error) {
-	list, err := call(api.MethodWorktreeList, where)
+	list, err := call(methodWorktreeList, where)
 	if err != nil {
 		return 0, "", false, err
 	}
@@ -146,7 +156,7 @@ func open(call Caller, where map[string]any, wanted func(string) bool) (ws uint6
 		for k, v := range where {
 			params[k] = v
 		}
-		opened, err := call(api.MethodWorktreeOpen, params)
+		opened, err := call(methodWorktreeOpen, params)
 		if err != nil {
 			return 0, "", false, err
 		}
@@ -162,7 +172,7 @@ func create(call Caller, tabs Tabs, where map[string]any, branch, label, tabName
 	for k, v := range where {
 		params[k] = v
 	}
-	created, err := call(api.MethodWorktreeCreate, params)
+	created, err := call(methodWorktreeCreate, params)
 	if err != nil {
 		return 0, 0, err
 	}

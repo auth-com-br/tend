@@ -10,7 +10,20 @@ import (
 
 	"github.com/auth-com-br/tend/internal/api"
 	"github.com/auth-com-br/tend/internal/proto"
+	"github.com/auth-com-br/tend/internal/session"
 )
+
+// TestTheSocketsNamesAreInternalAPIs: the method names and the space id
+// workon sends are the automation socket's. If it regresses, every start
+// of work fails with an unknown method or no such space.
+func TestTheSocketsNamesAreInternalAPIs(t *testing.T) {
+	if methodWorktreeList != api.MethodWorktreeList || methodWorktreeCreate != api.MethodWorktreeCreate || methodWorktreeOpen != api.MethodWorktreeOpen {
+		t.Error("the worktree methods differ from internal/api's")
+	}
+	if got, want := spaceID(12), api.WorkspaceID(session.WorkspaceID(12)); got != want {
+		t.Errorf("space id %q, want %q", got, want)
+	}
+}
 
 // TestAWorktreeIsItsRepositorysProject: a directory in a worktree belongs
 // to the repository the worktree was made from, and one in no repository
