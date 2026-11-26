@@ -97,3 +97,60 @@ func TestTheDataDirectoryIsXDGsOrTheUsualOne(t *testing.T) {
 		t.Fatalf("got %s", d)
 	}
 }
+
+// TestTheWindowsEntryStartsTendDesktopWithoutATerminal: tend-desktop is a
+// window, so its entry asks for no terminal, names the binary by its full
+// path, passes the session the way tend-desktop takes it (-s, not tend's
+// `attach -s`) and is grouped with the running window by its class. If it
+// regresses, clicking it opens an empty terminal beside the window, or the
+// default session when another was asked for.
+func TestTheWindowsEntryStartsTendDesktopWithoutATerminal(t *testing.T) {
+	got := WindowEntry("/usr/bin/tend-desktop", "work")
+	for _, want := range []string{
+		"\nName=tend desktop (work)\n", "\nExec=/usr/bin/tend-desktop -s work\n",
+		"\nTerminal=false\n", "\nIcon=tend\n", "\nStartupWMClass=tend-desktop\n",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("%q missing from:\n%s", want, got)
+		}
+	}
+	if strings.Contains(WindowEntry("/usr/bin/tend-desktop", ""), " -s") {
+		t.Error("the default session was passed as an argument")
+	}
+}
+
+// TestTheTwoEntriesShareTheIconAndRemovingOneKeepsIt: tend's entry and the
+// window's are separate files with one icon. If it regresses, taking the
+// window's shortcut out leaves tend's with no icon.
+func TestTheTwoEntriesShareTheIconAndRemovingOneKeepsIt(t *testing.T) {
+	dir := t.TempDir()
+	term, err := Install(dir, "/usr/bin/tend", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	win, err := InstallWindow(dir, "/usr/bin/tend-desktop", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if win.Entry == term.Entry || win.Icon != term.Icon {
+		t.Fatalf("entries %s and %s, icons %s and %s", term.Entry, win.Entry, term.Icon, win.Icon)
+	}
+	if _, err := RemoveWindow(dir); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(win.Entry); !os.IsNotExist(err) {
+		t.Fatalf("the window's entry is still there: %v", err)
+	}
+	if _, err := os.Stat(term.Icon); err != nil {
+		t.Fatalf("the icon went with the window's entry while tend's still uses it: %v", err)
+	}
+	if _, err := Remove(dir); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(term.Icon); !os.IsNotExist(err) {
+		t.Fatalf("the icon outlived both entries: %v", err)
+	}
+	if _, err := InstallWindow(dir, "tend-desktop", ""); err == nil {
+		t.Fatal("a tend-desktop named without its path was taken")
+	}
+}

@@ -25,6 +25,10 @@ var icon []byte
 // XDG_DATA_HOME nor HOME is set.
 var ErrNoHome = errors.New("launcher: no XDG_DATA_HOME and no HOME to put the entry in")
 
+// Icon is tend's icon, the one both entries show. What the packages
+// (tools/deb, tools/appimage) install system-wide is this same file.
+func Icon() []byte { return icon }
+
 // Paths are the two files of the entry.
 type Paths struct {
 	Entry string
@@ -38,6 +42,16 @@ func Locate(dataHome string) Paths {
 		Entry: filepath.Join(dataHome, "applications", "tend.desktop"),
 		Icon:  filepath.Join(dataHome, "icons", "hicolor", "scalable", "apps", "tend.svg"),
 	}
+}
+
+// LocateWindow says where tend-desktop's entry goes. It is an entry of its
+// own beside tend's, not a second action of tend's: they are two programs a
+// person may have one or both of, and the launcher shows each by its name.
+// The icon is the same file.
+func LocateWindow(dataHome string) Paths {
+	p := Locate(dataHome)
+	p.Entry = filepath.Join(dataHome, "applications", "tend-desktop.desktop")
+	return p
 }
 
 // DataHome is $XDG_DATA_HOME, or ~/.local/share when it is unset or not an
@@ -80,6 +94,34 @@ func Entry(exe, session string) string {
 	}, "\n")
 }
 
+// WindowEntry is the desktop entry's text for a tend-desktop at exe, opening
+// session (the default one when empty). Unlike tend's it asks for no
+// terminal: tend-desktop is the window. StartupWMClass is the class Qt gives
+// the window (the binary's name), so the dock groups the running window
+// under this entry instead of showing a second one with no icon.
+func WindowEntry(exe, session string) string {
+	name, command := "tend desktop", quote(exe)
+	if session != "" {
+		name = "tend desktop (" + session + ")"
+		command += " -s " + quote(session)
+	}
+	return strings.Join([]string{
+		"[Desktop Entry]",
+		"Type=Application",
+		"Name=" + value(name),
+		"GenericName=Terminal for coding agents",
+		"Comment=Run AI coding agents and follow every one of them, in a window",
+		"Exec=" + command,
+		"Icon=tend",
+		"Terminal=false",
+		"Categories=Development;",
+		"Keywords=agents;terminal;claude;codex;",
+		"StartupWMClass=tend-desktop",
+		"StartupNotify=true",
+		"",
+	}, "\n")
+}
+
 // quote is one argument of an Exec line. The specification has an argument
 // with a space or a reserved character in double quotes, with ", `, $ and \
 // escaped by a backslash; and a % is written twice anywhere, or the
@@ -115,11 +157,22 @@ func Install(dataHome, exe, session string) (Paths, error) {
 	if !filepath.IsAbs(exe) {
 		return Paths{}, fmt.Errorf("launcher: %q is not an absolute path to tend", exe)
 	}
-	p := Locate(dataHome)
+	return install(Locate(dataHome), Entry(exe, session))
+}
+
+// InstallWindow is Install for tend-desktop's entry.
+func InstallWindow(dataHome, exe, session string) (Paths, error) {
+	if !filepath.IsAbs(exe) {
+		return Paths{}, fmt.Errorf("launcher: %q is not an absolute path to tend-desktop", exe)
+	}
+	return install(LocateWindow(dataHome), WindowEntry(exe, session))
+}
+
+func install(p Paths, entry string) (Paths, error) {
 	if err := write(p.Icon, icon); err != nil {
 		return Paths{}, err
 	}
-	if err := write(p.Entry, []byte(Entry(exe, session))); err != nil {
+	if err := write(p.Entry, []byte(entry)); err != nil {
 		return Paths{}, err
 	}
 	return p, nil
@@ -128,8 +181,23 @@ func Install(dataHome, exe, session string) (Paths, error) {
 // Remove takes the entry and its icon away. Not being there is not an
 // error: the person asked for it gone, and it is.
 func Remove(dataHome string) (Paths, error) {
-	p := Locate(dataHome)
-	for _, path := range []string{p.Entry, p.Icon} {
+	return remove(Locate(dataHome), LocateWindow(dataHome))
+}
+
+// RemoveWindow is Remove for tend-desktop's entry.
+func RemoveWindow(dataHome string) (Paths, error) {
+	return remove(LocateWindow(dataHome), Locate(dataHome))
+}
+
+// remove takes p away, and the icon with it unless the other entry is still
+// there: the two share it, and taking one out must not leave the other
+// showing a blank square.
+func remove(p, other Paths) (Paths, error) {
+	paths := []string{p.Entry}
+	if _, err := os.Stat(other.Entry); err != nil {
+		paths = append(paths, p.Icon)
+	}
+	for _, path := range paths {
 		if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
 			return Paths{}, err
 		}
