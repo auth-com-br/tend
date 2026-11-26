@@ -71,70 +71,152 @@ Rectangle {
         }
     }
 
-    Flickable {
-        id: scroller
+    // Two lists, each in a region of its own that scrolls on its own, with
+    // a divider between them that is dragged — the TUI's sidebar
+    // (internal/ui, SidebarSplitAt). One scroll for both let the spaces push
+    // the agents off the bottom. Each heading stays while its list scrolls.
+    //
+    // By default the agents get a strip at the bottom: what they need, but
+    // no less than a third of the height and no more than half, so the
+    // first agent has somewhere to appear and a long list of spaces is not
+    // read through a keyhole. Dragged, the divider is the person's (split,
+    // the window's own, never sent).
+    property real split: -1
+    readonly property real lists: bar.height - header.height
+    readonly property real agentsWant: 30 + agentList.contentHeight + 8
+    readonly property real agentsHeight: {
+        var minSection = 90
+        if (lists < 2 * minSection + 8) return Math.max(0, lists / 2)
+        var h = split >= 0 ? split : Math.min(Math.max(agentsWant, lists / 3), lists / 2)
+        return Math.max(minSection, Math.min(lists - minSection, h))
+    }
+
+    Item {
+        id: spacesSection
         anchors.top: header.bottom
-        anchors.bottom: parent.bottom
         anchors.left: parent.left
         anchors.right: parent.right
-        contentHeight: body.height + 16
-        clip: true
-        boundsBehavior: Flickable.StopAtBounds
-
-        Column {
-            id: body
-            width: scroller.width
-            spacing: 2
-
-            SectionTitle {
-                text: "Spaces"
-                count: spaceCount()
+        anchors.bottom: divider.top
+        SectionTitle {
+            id: spacesTitle
+            text: "Spaces"
+            count: spaceCount()
+        }
+        ListView {
+            id: spaceList
+            anchors.top: spacesTitle.bottom
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.bottom: parent.bottom
+            clip: true
+            boundsBehavior: Flickable.StopAtBounds
+            model: spaceModel
+            delegate: Loader {
+                required property var model
+                width: spaceList.width
+                sourceComponent: model.kind === "group" ? groupRow : spaceCard
+                property var row: model
             }
-            Repeater {
-                model: spaceModel
-                delegate: Loader {
-                    required property var model
-                    width: body.width
-                    sourceComponent: model.kind === "group" ? groupRow : spaceCard
-                    property var row: model
-                }
+            footer: Item { width: 1; height: 8 }
+        }
+        ScrollMark { list: spaceList }
+        // The space shown is scrolled to when it is out of sight, as the
+        // TUI's sidebar reveals it (revealSidebarLocked): a space made or
+        // gone to from elsewhere is not left below the fold.
+        Connections {
+            target: spaceModel
+            function onDataChanged() { revealActive.restart() }
+            function onCountChanged() { revealActive.restart() }
+        }
+        Timer {
+            id: revealActive
+            interval: 0
+            onTriggered: {
+                for (var i = 0; i < spaceModel.count; i++)
+                    if (spaceModel.get(i).active) { spaceList.positionViewAtIndex(i, ListView.Contain); return }
             }
+        }
+    }
 
-            Item { width: 1; height: 14 }
+    // The divider: a line, dragged to give one list room from the other.
+    Item {
+        id: divider
+        anchors.left: parent.left
+        anchors.right: parent.right
+        y: bar.height - bar.agentsHeight - height
+        height: 9
+        Rectangle {
+            anchors.verticalCenter: parent.verticalCenter
+            x: 12
+            width: parent.width - 24
+            height: 1
+            color: dividerArea.containsMouse || dividerArea.pressed ? theme.surface1 : theme.surface0
+        }
+        MouseArea {
+            id: dividerArea
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.SplitVCursor
+            property real startY: 0
+            property real startHeight: 0
+            onPressed: (m) => { startY = mapToItem(bar, 0, m.y).y; startHeight = bar.agentsHeight }
+            onPositionChanged: (m) => {
+                if (!pressed) return
+                bar.split = startHeight - (mapToItem(bar, 0, m.y).y - startY)
+            }
+            // A double click gives the room back to the default.
+            onDoubleClicked: bar.split = -1
+        }
+    }
 
-            SectionTitle {
-                text: "Agents"
-                count: agentCount()
-                Segmented {
-                    anchors.right: parent.right
-                    anchors.rightMargin: 12
-                    anchors.verticalCenter: parent.verticalCenter
-                    leftText: "All"
-                    rightText: "By tab"
-                    rightOn: st.grouped === true
-                    onPicked: (r) => { if (r !== (st.grouped === true)) Bridge.call("agents.grouped", {}) }
-                }
+    Item {
+        id: agentsSection
+        anchors.top: divider.bottom
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        SectionTitle {
+            id: agentsTitle
+            text: "Agents"
+            count: agentCount()
+            Segmented {
+                anchors.right: parent.right
+                anchors.rightMargin: 12
+                anchors.verticalCenter: parent.verticalCenter
+                leftText: "All"
+                rightText: "By tab"
+                rightOn: st.grouped === true
+                onPicked: (r) => { if (r !== (st.grouped === true)) Bridge.call("agents.grouped", {}) }
             }
-            Repeater {
-                model: agentModel
-                delegate: Loader {
-                    required property var model
-                    width: body.width
-                    sourceComponent: model.kind === "tab" ? tabHeading : agentCard
-                    property var row: model
-                }
+        }
+        ListView {
+            id: agentList
+            anchors.top: agentsTitle.bottom
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.bottom: parent.bottom
+            clip: true
+            boundsBehavior: Flickable.StopAtBounds
+            model: agentModel
+            delegate: Loader {
+                required property var model
+                width: agentList.width
+                sourceComponent: model.kind === "tab" ? tabHeading : agentCard
+                property var row: model
             }
+            footer: Item { width: 1; height: 8 }
             Text {
                 visible: agentModel.count === 0
                 x: 16
-                width: body.width - 32
-                topPadding: 6
+                y: 4
+                width: agentList.width - 32
                 text: "No agents running. Start one from + on the tab bar."
                 color: theme.overlay0
                 font.pixelSize: 12
                 wrapMode: Text.Wrap
             }
         }
+        ScrollMark { list: agentList }
     }
 
     function spaceCount() {
@@ -505,6 +587,22 @@ Rectangle {
     }
 
     // ---- small parts ------------------------------------------------------
+
+    // Where a list is scrolled to: a thin mark on its right edge, there only
+    // while the list is longer than its room, and faint until the pointer
+    // is over the list or it moves.
+    component ScrollMark: Rectangle {
+        property Flickable list
+        visible: !!list && list.contentHeight > list.height + 1
+        x: list ? list.x + list.width - width - 2 : 0
+        y: list ? list.y + list.visibleArea.yPosition * list.height : 0
+        width: 4
+        radius: 2
+        height: list ? Math.max(24, list.visibleArea.heightRatio * list.height) : 0
+        color: theme.overlay0
+        opacity: list && list.moving ? 0.7 : 0.25
+        Behavior on opacity { NumberAnimation { duration: 150 } }
+    }
 
     component SectionTitle: Item {
         property alias text: label.text
