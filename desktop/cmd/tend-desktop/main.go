@@ -349,6 +349,12 @@ func dispatch(sess *core.Session, method string, raw []byte) error {
 	case "menu.open":
 		sess.OpenMenu(a.Kind, a.Pane, a.Tab, a.Workspace, a.Group, a.X, a.Y)
 		return nil
+	case "phone":
+		var p core.PhoneAction
+		if err := json.Unmarshal(raw, &p); err != nil {
+			return err
+		}
+		return sess.Phone(p)
 	case "files.menu":
 		sess.OpenFileMenu(a.Path, a.Rel, a.Dir, a.X, a.Y)
 		return nil

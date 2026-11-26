@@ -45,14 +45,17 @@ const (
 	promptGroupDir    = "group-dir"
 )
 
-// notHere are menu items the window does not offer yet, rather than offer
-// and do nothing: the files panel natively (phase 3), and the global
-// menu's screens that have none yet.
+// notHere are menu items the window does not offer, rather than offer and
+// do nothing: detaching, which for a window is closing it — the session
+// goes on either way.
 var notHere = map[string]bool{
-	ui.MenuKeybinds: true,
-	ui.MenuDetach:   true,
-	ui.MenuPhone:    true,
+	ui.MenuDetach: true,
 }
+
+// panelKeys is the window's keyboard shortcuts' screen, the TUI's
+// "keybinds": the window's own keys, which are not the TUI's prefix keys —
+// every other key goes to the pane in focus.
+const panelKeys = "keys"
 
 // menuSpending is the window's own item in the global menu: the spending
 // screen, which the TUI has as `tend activity` rather than a screen.
@@ -373,6 +376,12 @@ func (s *Session) runMenu(m ui.Menu, item ui.MenuItem) error {
 		return nil
 	case ui.MenuPermissions:
 		s.OpenPanel(panelPerm)
+		return nil
+	case ui.MenuKeybinds:
+		s.OpenPanel(panelKeys)
+		return nil
+	case ui.MenuPhone:
+		s.OpenPanel(panelPhone)
 		return nil
 	case ui.MenuAbout:
 		s.OpenPanel(panelAbout)

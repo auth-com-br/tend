@@ -11,12 +11,17 @@ release's notes on GitHub and what "what's new" shows inside tend.
 - **WhatsApp for the agents.** `tend whatsapp` links your number as a linked device (as WhatsApp Web does — against WhatsApp's terms, which tend says before linking), and gives agents tools to read and search your conversations and to propose replies, which are sent only when you approve them. Its own binary, `tend-whatsapp` (`make whatsapp-install`).
 - **The window is a browser agents drive.** Pages an agent opens through tend open as browser tabs of the window, and an element picked on one goes to the context buffer, as with tend's browser extension.
 - `tend shortcut -desktop` puts the window in your application launcher.
+- **The window looks like a window.** Its own theme by default — neutral greys and one blue, light or dark as your desktop is — whatever the terminal's is (`[desktop] theme`, or "window theme" in its settings; "as the TUI" brings the terminal's back). The sidebar is cards in two lists that scroll apart, with a divider you drag. The files tab's tree has drawn icons, the tree's right-click menu (new, rename, delete, copy path, history, add to context…) and a tooltip; a folder of many repositories folds them into one line, each branch on its folder. The TUI's files panel is left out of the window, which has its own.
+- **Keys of the window's own**: Ctrl+Shift+T a new tab, Ctrl+Shift+W closes the pane, Ctrl+PgDown/PgUp next and previous tab, Ctrl+Shift+E/O split, Ctrl+Shift+B the files tab. The menu's "keybinds" lists them, and "phone view..." turns the phone view on and off from the window.
 
 #### Fixed
 - **A pane whose program ends closes, as in herdr,** and its space with it when it was the last; tend used to leave it there, dead, until closed by hand.
 - **Ubuntu's Chromium (a snap) is not chosen for tend's browser:** its confinement keeps the extension from reaching tend. With only it, tend says why.
 - **A phone view turned off is not started again** by a server starting at the same moment.
 - `tend activity` records an agent that exits as exited, now that its pane closes with it.
+- **An agent started on an issue, an error or a ticket is gone to.** The screen sometimes stayed on the space's first tab instead of the agent's.
+- A server stopping while a connection arrives no longer races its own shutdown.
+- The window's right-click menu on a pane stays where it opened instead of following the pointer.
 
 ## v0.18.0 — 2026-11-24
 

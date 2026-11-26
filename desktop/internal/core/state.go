@@ -61,6 +61,7 @@ type State struct {
 	Context      *ContextState  `json:"context,omitempty"`
 	About        *AboutState    `json:"about,omitempty"`
 	Notes        *NotesState    `json:"notes,omitempty"`
+	Phone        *PhoneState    `json:"phone,omitempty"`
 	// Dock is the right side, while it is open.
 	Dock *DockState `json:"dock,omitempty"`
 	// Docs are the document tabs of the space shown, and Doc the one in

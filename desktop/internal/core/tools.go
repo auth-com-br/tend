@@ -3,6 +3,7 @@ package core
 import (
 	"fmt"
 
+	"github.com/auth-com-br/tend/internal/proto"
 	"github.com/auth-com-br/tend/internal/tools"
 	"github.com/auth-com-br/tend/internal/ui"
 )
@@ -48,6 +49,7 @@ type toolScreens struct {
 	sessions *sessionsScreen
 	context  *contextScreen
 	notes    *NotesState
+	phone    *PhoneState
 	// pending is what a "yes" to the open screen's question does.
 	pending func() error
 }
@@ -77,6 +79,9 @@ func (s *Session) panelOpened(name string) {
 		load = s.loadContext
 	case panelNotes:
 		load = s.loadNotes
+	case panelPhone:
+		s.tools.phone = &PhoneState{}
+		load = func() { s.phoneCall(proto.MethodWebStatus, "") }
 	}
 	s.mu.Unlock()
 	if load != nil {
@@ -127,6 +132,10 @@ func (s *Session) toolStateLocked(st *State) {
 	case s.panel == panelNotes && t.notes != nil:
 		n := *t.notes
 		st.Notes = &n
+	case s.panel == panelPhone && t.phone != nil:
+		p := *t.phone
+		p.URLs = append([]string(nil), p.URLs...)
+		st.Phone = &p
 	}
 }
 

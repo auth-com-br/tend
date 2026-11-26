@@ -272,6 +272,11 @@ checked against is in its commit; what was not is listed below.
 | 7 | WhatsApp for the agents: tend-whatsapp (MCP server, replies sent only when the owner approves) and its dock tab | done |
 | 8 | Browser tabs (QtWebEngine, loaded on demand), attached to the session as a browser the agents drive | done |
 | 9 | .deb packages, AppImage target, launcher entry, CI | done |
+| 10 | Drawn as a window, after the owner's use: a sidebar of cards in two lists that scroll apart with a divider; the files tree as a file manager's (drawn icons, guides, the TUI's tree menu, a tooltip at the pointer, repositories folded); the window's own theme ([desktop] theme); the TUI's files panel left out of the window; the global menu's keybinds (the window's own keys) and phone view | done |
+
+The global menu's "detach" is the one item of the TUI's the window does
+not offer: a window is left by closing it, and the session goes on either
+way.
 
 Not checked, and why:
 
@@ -281,9 +286,13 @@ Not checked, and why:
 - The AppImage file itself (appimagetool is a download) and the CI workflow
   (GitHub Actions): written, not run.
 - The browser's element picking by a real click inside a page.
-- Typing with an input method or dead keys into the window, and the tray
-  icon as drawn: there is no way here to type into, or look at, Wayland's
-  surfaces; captures of the window are offscreen or grabs of it.
+- Typing with an input method or dead keys into the window, the tray
+  icon as drawn, the window's own keys (Ctrl+Shift+T and the others) and
+  the tooltip under a real resting pointer: there is no way here to type
+  into, point at or look at Wayland's surfaces; captures of the window are
+  offscreen, the tooltip's forced on for them.
+- The window's light theme on a light desktop: its colours are tested, not
+  seen.
 
 ### Only in the window
 
@@ -291,8 +300,14 @@ Chosen by the owner (November 2026); all built (phase 5). The palette
 opens with Ctrl+Shift+P or Ctrl+Shift+K rather than Ctrl+K, which is the
 shell's kill-to-end-of-line in every pane.
 
-- **Command palette** (ctrl+K): every action and every space, tab and agent by
-  name.
+- **Command palette** (Ctrl+Shift+P): every action and every space, tab and
+  agent by name.
+- **The window's own keys**, as a desktop terminal's (Ctrl+Shift and
+  Ctrl+PgUp/PgDn, which programs in a pane do not read): new tab, close
+  pane, next and previous tab, split, the files tab. The global menu's
+  "keybinds" lists them; every other key goes to the pane in focus.
+- **Its own theme** ([desktop] theme): neutral greys and one blue, light or
+  dark as the desktop is; "tui" wears the TUI's instead.
 - **Tray icon and native notifications** with the agents' states: a blocked
   agent is seen with the window closed, and its question answered from the
   notification.

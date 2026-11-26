@@ -1038,7 +1038,7 @@ Window {
         readonly property var screens: ({
             mcp: "panels/MCP.qml", permissions: "panels/Permissions.qml", agents: "panels/Agents.qml",
             sessions: "panels/Sessions.qml", context: "panels/Context.qml", about: "panels/About.qml",
-            notes: "panels/Notes.qml"
+            notes: "panels/Notes.qml", phone: "panels/Phone.qml", keys: "panels/Keys.qml"
         })
         active: screens[st.panel] !== undefined
         source: screens[st.panel] || ""
@@ -1052,6 +1052,24 @@ Window {
         context: Qt.ApplicationShortcut
         onActivated: root.paletteOpen = !root.paletteOpen
     }
+
+    // The window's own keys, as a desktop terminal's: Ctrl+Shift and
+    // Ctrl+PgUp/PgDn, which programs in a terminal do not read, so none is
+    // taken from the pane in focus. Every other key goes to it. The keys
+    // screen (panels/Keys.qml) lists them.
+    function tabStep(step) {
+        if (tabModel.count < 2) return
+        var at = 0
+        for (var i = 0; i < tabModel.count; i++) if (tabModel.get(i).active) at = i
+        Bridge.call("tab", { tab: tabModel.get((at + step + tabModel.count) % tabModel.count).tabId })
+    }
+    Shortcut { sequence: "Ctrl+Shift+T"; context: Qt.ApplicationShortcut; onActivated: Bridge.call("tab.new", {}) }
+    Shortcut { sequence: "Ctrl+Shift+W"; context: Qt.ApplicationShortcut; onActivated: Bridge.call("pane.close", {}) }
+    Shortcut { sequence: "Ctrl+PgDown"; context: Qt.ApplicationShortcut; onActivated: root.tabStep(1) }
+    Shortcut { sequence: "Ctrl+PgUp"; context: Qt.ApplicationShortcut; onActivated: root.tabStep(-1) }
+    Shortcut { sequence: "Ctrl+Shift+E"; context: Qt.ApplicationShortcut; onActivated: Bridge.call("pane.split", { direction: "columns" }) }
+    Shortcut { sequence: "Ctrl+Shift+O"; context: Qt.ApplicationShortcut; onActivated: Bridge.call("pane.split", { direction: "rows" }) }
+    Shortcut { sequence: "Ctrl+Shift+B"; context: Qt.ApplicationShortcut; onActivated: Bridge.call("dock", { name: "files" }) }
     Loader {
         id: paletteLoader
         objectName: "palette"
