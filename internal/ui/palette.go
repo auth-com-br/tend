@@ -445,6 +445,36 @@ var palettes = map[string]Palette{
 	},
 }
 
+// PaletteFor is the palette a theme setting comes to, with its overrides
+// laid over it, as ThemeFor resolves it: auto_switch picks the dark or
+// light theme, and a palette is taken for overrides with no name. ok is
+// false for no palette at all, which the TUI draws in the terminal's own
+// colours and tend-desktop, which has no terminal, in its default.
+func PaletteFor(c config.Theme, light bool) (Palette, bool) {
+	name := c.Name
+	var mode map[string]string
+	if c.AutoSwitch {
+		name, mode = c.DarkName, c.Custom.Dark
+		if name == "" {
+			name = "catppuccin"
+		}
+		if light {
+			name, mode = c.LightName, c.Custom.Light
+			if name == "" {
+				name = "catppuccin-latte"
+			}
+		}
+	}
+	if name == "" && (len(c.Custom.All) > 0 || len(mode) > 0) {
+		name = "catppuccin"
+	}
+	p, ok := PaletteNamed(name)
+	if !ok {
+		return Palette{}, false
+	}
+	return p.withCustom(c.Custom.All).withCustom(mode), true
+}
+
 // PaletteNamed is a theme's palette, from any spelling config accepts.
 func PaletteNamed(name string) (Palette, bool) {
 	canonical, ok := config.CanonicalTheme(name)
