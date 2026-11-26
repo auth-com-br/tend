@@ -5,6 +5,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/auth-com-br/tend/internal/tools"
 	"github.com/auth-com-br/tend/internal/ui"
 )
 
@@ -139,13 +140,7 @@ func (t *tui) chooseFolderRow(row int) {
 }
 
 // refusalText is what the server said, without the method it said it to.
-func refusalText(err error) string {
-	msg := err.Error()
-	if i := strings.Index(msg, ": "); i > 0 && !strings.Contains(msg[:i], " ") {
-		return msg[i+2:]
-	}
-	return msg
-}
+var refusalText = tools.ErrorText
 
 // moveFolderPickLocked moves the cursor among the rows.
 func (t *tui) moveFolderPickLocked(delta int) {

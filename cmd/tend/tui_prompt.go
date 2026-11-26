@@ -1,11 +1,11 @@
 package main
 
 import (
-	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
+	"github.com/auth-com-br/tend/internal/tools"
 	"github.com/auth-com-br/tend/internal/ui"
 	"github.com/auth-com-br/tend/internal/worktree"
 )
@@ -360,9 +360,4 @@ func (t *tui) worktreeRootLocked() string {
 }
 
 // tildeHome writes the home directory as ~, so a path fits on a status line.
-func tildeHome(path string) string {
-	if home, err := os.UserHomeDir(); err == nil && home != "" && strings.HasPrefix(path, home+string(os.PathSeparator)) {
-		return "~" + path[len(home):]
-	}
-	return path
-}
+var tildeHome = tools.TildeHome

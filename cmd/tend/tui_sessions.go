@@ -3,12 +3,11 @@ package main
 import (
 	"fmt"
 	"sort"
-	"strings"
 	"time"
 	"unicode/utf8"
 
-	"github.com/auth-com-br/tend/internal/agent"
 	"github.com/auth-com-br/tend/internal/proto"
+	"github.com/auth-com-br/tend/internal/tools"
 	"github.com/auth-com-br/tend/internal/ui"
 )
 
@@ -21,12 +20,11 @@ import (
 // server refuses that whatever this asks.
 
 // sessionsOld is how old "ctrl+o" means: not written to in a month.
-const sessionsOld = 30 * 24 * time.Hour
+const sessionsOld = tools.SessionsOld
 
 // resumeScript runs the agent's resume and leaves a shell in the pane when
 // it ends, as a tab the user had opened and typed the command into would.
-const resumeScript = `"$@"
-exec "${SHELL:-/bin/sh}"`
+const resumeScript = tools.ResumeScript
 
 func (t *tui) sessionsUp() bool {
 	t.mu.Lock()
@@ -90,11 +88,7 @@ func (t *tui) loadSessions(message string) {
 	}
 	t.filterSessionsLocked()
 	if message == "" {
-		var total int64
-		for _, s := range res.Sessions {
-			total += s.Size
-		}
-		message = fmt.Sprintf("%d sessions, %s on disk", len(res.Sessions), ui.SessionSize(total))
+		message = tools.SessionsSummary(res.Sessions)
 	}
 	v.Message = message
 }
@@ -110,14 +104,7 @@ func (t *tui) filterSessionsLocked() {
 	if v.Cursor < len(v.Shown) {
 		at = v.Shown[v.Cursor].ID
 	}
-	all := make([]ui.SessionEntry, 0, len(t.sessionList))
-	for _, s := range t.sessionList {
-		all = append(all, ui.SessionEntry{
-			ID: s.ID, Agent: s.Agent, Title: s.Title, Dir: s.Dir,
-			Modified: time.Unix(s.Modified, 0), Size: s.Size, Prompts: s.Prompts, Pane: s.Pane,
-			Unreachable: s.Unreachable,
-		})
-	}
+	all := tools.SessionEntries(t.sessionList)
 	v.Total = len(all)
 	v.Shown = ui.FilterSessions(all, v.Query)
 	v.Now = time.Now()
@@ -402,20 +389,7 @@ func (t *tui) deleteSessions() {
 	}
 	go func() {
 		res, err := t.client.DeleteAgentSessions(ids)
-		message := ""
-		switch {
-		case err != nil:
-			message = "could not delete: " + err.Error()
-		case len(res.Kept) > 0:
-			var why []string
-			for _, reason := range res.Kept {
-				why = append(why, reason)
-			}
-			sort.Strings(why)
-			message = fmt.Sprintf("deleted %d, kept %d (%s)", len(res.Deleted), len(res.Kept), strings.Join(dedupe(why), "; "))
-		default:
-			message = fmt.Sprintf("deleted %d", len(res.Deleted))
-		}
+		message := tools.DeleteText(res, err)
 		t.mu.Lock()
 		if v := t.sessions; v != nil {
 			for _, id := range res.Deleted {
@@ -425,16 +399,6 @@ func (t *tui) deleteSessions() {
 		t.mu.Unlock()
 		t.loadSessions(message)
 	}()
-}
-
-func dedupe(in []string) []string {
-	out := in[:0]
-	for i, s := range in {
-		if i == 0 || s != in[i-1] {
-			out = append(out, s)
-		}
-	}
-	return out
 }
 
 // resumeSession continues the conversation under the cursor: in the pane
@@ -456,9 +420,7 @@ func (t *tui) resumeSession() error {
 		t.closeSessions()
 		return t.jumpToPane(e.Pane)
 	}
-	argv, ok := agent.Resume(agent.PersistedSession{
-		Source: "tend:" + e.Agent, Agent: e.Agent, Session: agent.SessionRef{ID: e.ID},
-	})
+	spec, name, command, ok := tools.Resume(e)
 	if !ok {
 		t.mu.Lock()
 		if t.sessions != nil {
@@ -468,12 +430,11 @@ func (t *tui) resumeSession() error {
 		t.mu.Unlock()
 		return nil
 	}
-	if e.Unreachable != "" {
+	if command != "" {
 		// An agent finds a conversation by the directory it was held in,
 		// so there is nowhere else to resume it from. What would, run where
 		// that directory can be entered — as root, for one in /root — is
 		// handed over instead of a tab that cannot start.
-		command := "cd " + shellQuote(e.Dir) + " && " + shellJoin(argv)
 		t.copyToClipboard(command, "resume command copied")
 		t.mu.Lock()
 		if t.sessions != nil {
@@ -483,18 +444,7 @@ func (t *tui) resumeSession() error {
 		t.mu.Unlock()
 		return nil
 	}
-	name := e.Title
-	if name == "" {
-		name = e.Agent
-	}
-	if r := []rune(name); len(r) > 24 {
-		name = string(r[:23]) + "…"
-	}
-	tab, _, err := t.client.NewTab(ws, name, proto.PaneSpec{
-		Command: append([]string{"/bin/sh", "-c", resumeScript, "tend-resume"}, argv...),
-		Dir:     e.Dir,
-		Agent:   e.Agent,
-	})
+	tab, _, err := t.client.NewTab(ws, name, spec)
 	if err != nil {
 		t.mu.Lock()
 		if t.sessions != nil {
@@ -510,15 +460,6 @@ func (t *tui) resumeSession() error {
 	t.tab, t.focus, t.zoom = tab, 0, false
 	t.mu.Unlock()
 	return t.refresh()
-}
-
-// shellJoin is argv as a shell reads it back, each word quoted.
-func shellJoin(argv []string) string {
-	quoted := make([]string, len(argv))
-	for i, a := range argv {
-		quoted[i] = shellQuote(a)
-	}
-	return strings.Join(quoted, " ")
 }
 
 // continueSession offers the agents the conversation under the cursor can

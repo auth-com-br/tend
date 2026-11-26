@@ -3,7 +3,7 @@ package main
 import (
 	"time"
 
-	"github.com/auth-com-br/tend/internal/config"
+	"github.com/auth-com-br/tend/internal/tools"
 	"github.com/auth-com-br/tend/internal/ui"
 )
 
@@ -15,18 +15,7 @@ import (
 
 // toolLabels are the names a tool goes by, which its hover and its focus
 // show on the status line in place of a tooltip, which a terminal has not.
-var toolLabels = map[string]string{
-	ui.ToolFiles:    "Files — the files panel (prefix+f)",
-	ui.ToolAgents:   "Agents — find and install agents (prefix+A)",
-	ui.ToolMCP:      "MCP servers — the tools your agents can use: on/off, test, add (prefix+M)",
-	ui.ToolPerms:    "Permissions — what your agents may do without asking (prefix+P)",
-	ui.ToolSessions: "Sessions — find, resume and delete agent sessions (prefix+S)",
-	ui.ToolIssues:   "Issues — this project's GitHub issues (prefix+I)",
-	ui.ToolErrors:   "Errors — what GlitchTip caught, to fix (prefix+E)",
-	ui.ToolTickets:  "Tickets — Linear, Jira, ClickUp, Issue Gateway (prefix+T)",
-	ui.ToolBrowser:  "Browser — open a page (prefix+B)",
-	ui.ToolContext:  "Context — captured, to send to an agent (prefix+C)",
-}
+var toolLabels = tools.ToolLabels
 
 // toolReady is whether a tool does anything yet.
 func toolReady(id string) bool { _, ok := toolLabels[id]; return ok }
@@ -140,12 +129,4 @@ func (t *tui) hoverToolbar(x, y int) bool {
 // toolChoices are the tools as the tools menu lists them: every one, in the
 // toolbar's default order whatever the toolbar shows, each its name and
 // what it is for, with its key.
-func toolChoices() []ui.ToolChoice {
-	var out []ui.ToolChoice
-	for _, id := range config.ToolbarTools {
-		if label, ok := toolLabels[id]; ok {
-			out = append(out, ui.ToolChoice{ID: id, Label: label})
-		}
-	}
-	return out
-}
+func toolChoices() []ui.ToolChoice { return tools.ToolChoices(nil) }

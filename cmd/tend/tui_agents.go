@@ -1,9 +1,8 @@
 package main
 
 import (
-	"sort"
-
 	"github.com/auth-com-br/tend/internal/proto"
+	"github.com/auth-com-br/tend/internal/tools"
 	"github.com/auth-com-br/tend/internal/ui"
 )
 
@@ -16,17 +15,8 @@ import (
 // time the manager opens and on r, so an install shows once it is done.
 
 // installScript runs an install command and says how it went, then leaves
-// a shell: $1 is the command, $2 the agent's name.
-const installScript = `printf '\033[1m[tend] installing %s\033[0m\n%s\n\n' "$2" "$1"
-sh -c "$1"
-status=$?
-echo
-if [ "$status" -eq 0 ]; then
-	printf '[tend] %s installed. Open the agent manager again (prefix+A) to see it.\n' "$2"
-else
-	printf '[tend] the install stopped with status %s.\n' "$status"
-fi
-exec "${SHELL:-/bin/sh}"`
+// a shell (internal/tools, which tend-desktop's agent manager runs too).
+const installScript = tools.InstallScript
 
 func (t *tui) agentManagerUp() bool {
 	t.mu.Lock()
@@ -63,15 +53,7 @@ func (t *tui) loadAgents() {
 	list := res.Agents
 	// The agents first, then the memory tools, each installed first: the
 	// order the panel draws them in, which its cursor counts through.
-	sort.SliceStable(list, func(i, j int) bool {
-		if mi, mj := list[i].Kind == "memory", list[j].Kind == "memory"; mi != mj {
-			return mj
-		}
-		if list[i].Installed != list[j].Installed {
-			return list[i].Installed
-		}
-		return false
-	})
+	tools.SortCatalog(list)
 	t.mu.Lock()
 	defer func() {
 		t.dirty = true
@@ -89,25 +71,15 @@ func (t *tui) loadAgents() {
 	}
 	t.agentStatus = list
 	v.Agents = v.Agents[:0]
-	installed := 0
 	for _, a := range list {
 		v.Agents = append(v.Agents, ui.AgentEntry{
 			Name: a.Name, Installed: a.Installed, Version: a.Version, Path: a.Path,
 			InstallCommand: a.InstallCommand, Missing: a.Missing,
 			Memory: a.Kind == "memory", Running: a.Running,
 		})
-		if a.Installed && a.Kind != "memory" {
-			installed++
-		}
 	}
 	v.Cursor = min(v.Cursor, max(len(v.Agents)-1, 0))
-	agents := 0
-	for _, a := range list {
-		if a.Kind != "memory" {
-			agents++
-		}
-	}
-	v.Message = itoaInt(installed) + " of " + itoaInt(agents) + " agents installed on this machine"
+	v.Message = tools.CatalogSummary(list)
 }
 
 func (t *tui) closeAgentManager() {
@@ -222,14 +194,10 @@ func (t *tui) agentEnter() error {
 		return nil
 	}
 	a := t.agentStatus[v.Cursor]
+	msg, install := tools.AgentEnter(a)
 	switch {
-	case a.Installed && a.Next != "":
-		// A memory tool installed is not yet the agents': say how.
-		v.Message = a.Name + " — " + a.Next
-	case a.Installed:
-		v.Message = a.Name + " is at " + a.Path
-	case a.InstallCommand == "":
-		v.Message = a.Name + " needs " + a.Missing + " to install, which this machine has not"
+	case !install:
+		v.Message = msg
 	case !v.Confirm:
 		v.Confirm = true
 	default:
@@ -247,10 +215,7 @@ func (t *tui) installAgent(a proto.AgentStatus) error {
 	t.mu.Lock()
 	ws := t.workspace
 	t.mu.Unlock()
-	tab, _, err := t.client.NewTab(ws, "install "+a.ID, proto.PaneSpec{
-		Command: []string{"/bin/sh", "-c", installScript, "tend-install", a.InstallCommand, a.Name},
-		Title:   "install " + a.ID,
-	})
+	tab, _, err := t.client.NewTab(ws, "install "+a.ID, tools.InstallSpec(a))
 	if err != nil {
 		t.mu.Lock()
 		if t.agentMgr != nil {

@@ -13,9 +13,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"golang.org/x/term"
-
+	"github.com/auth-com-br/tend/internal/tools"
 	"github.com/auth-com-br/tend/internal/transport"
+	"golang.org/x/term"
 )
 
 // Getting tend onto the other machine: herdr's remote attach
@@ -205,9 +205,7 @@ printf '%s' "$d/tend"`
 }
 
 // shellQuote quotes a word for the far side's shell.
-func shellQuote(s string) string {
-	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
-}
+var shellQuote = tools.ShellQuote
 
 // countingReader counts what has been sent and says so every second, on one
 // line that it rewrites.

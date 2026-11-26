@@ -1,12 +1,10 @@
 package main
 
 import (
-	"sort"
-	"strings"
-
 	"github.com/auth-com-br/tend/internal/capture"
 	"github.com/auth-com-br/tend/internal/notify"
 	"github.com/auth-com-br/tend/internal/proto"
+	"github.com/auth-com-br/tend/internal/tools"
 	"github.com/auth-com-br/tend/internal/ui"
 )
 
@@ -65,7 +63,7 @@ func (t *tui) loadContext() {
 		return
 	}
 	items, err := t.client.ContextList()
-	sort.SliceStable(items, func(i, j int) bool { return items[i].ID > items[j].ID })
+	tools.ContextNewestFirst(items)
 	t.mu.Lock()
 	defer func() {
 		t.dirty = true
@@ -97,88 +95,25 @@ func (t *tui) loadContext() {
 	_, v.Target = t.contextTargetLocked()
 }
 
-// contextEntry is an item as the panel shows it: a line in the list, and its
-// parts under headings.
-func contextEntry(it proto.ContextItem) ui.ContextEntry {
-	e := ui.ContextEntry{Kind: it.Kind, Summary: capture.Summary(it)}
-	add := func(heading, value string) {
-		if value != "" {
-			e.Parts = append(e.Parts, ui.ContextPart{Heading: heading, Value: value})
-		}
-	}
-	add("NOTE", it.Note)
-	if it.Title != "" && it.URL != "" {
-		add("PAGE", it.Title)
-	}
-	add("URL", it.URL)
-	element := it.Selector
-	if it.Tag != "" && !strings.HasPrefix(element, it.Tag) {
-		element = strings.TrimSpace(it.Tag + " " + element)
-	}
-	if it.Kind == capture.KindElement {
-		add("SELECTED ELEMENT", element)
-	}
-	add("FILE", it.Path)
-	if len(it.Attributes) > 0 {
-		names := make([]string, 0, len(it.Attributes))
-		for name := range it.Attributes {
-			names = append(names, name)
-		}
-		sort.Strings(names)
-		var pairs []string
-		for _, name := range names {
-			pairs = append(pairs, name+"="+it.Attributes[name])
-		}
-		add("ATTRIBUTES", strings.Join(pairs, "  "))
-	}
-	add("TEXT", it.Text)
-	if it.Source != "" {
-		add("FROM", it.Source)
-	}
-	return e
-}
+// contextEntry is an item as the panel shows it (internal/tools).
+var contextEntry = tools.ContextEntry
 
 // contextTargetLocked is the pane Send to Agent types into, and its name: the
 // pane in focus when it runs an agent, else an agent in this tab, else one in
 // this space, else the pane in focus — the one the user is working with,
 // which is how the session already decides what "the agent" is.
 func (t *tui) contextTargetLocked() (uint64, string) {
-	info := map[uint64]proto.PaneInfo{}
-	for _, p := range t.snap.Panes {
-		info[p.ID] = p
-	}
-	name := func(id uint64) string {
-		p := info[id]
-		label := p.Agent
-		if label == "" {
-			label = commandName(p.Command)
-		}
-		if label == "" {
-			label = p.Title
-		}
-		return strings.TrimSpace(itoaInt(int(id)) + " " + label)
-	}
-	if p, ok := info[t.focus]; ok && p.Agent != "" {
-		return t.focus, name(t.focus)
-	}
+	shown := make([]uint64, 0, len(t.rects))
 	for _, r := range t.rects {
-		if p := info[r.Pane]; p.Agent != "" && p.Running {
-			return r.Pane, name(r.Pane)
-		}
+		shown = append(shown, r.Pane)
 	}
+	var tabs [][]uint64
 	if w, ok := t.workspaceLocked(); ok {
 		for _, tab := range w.Tabs {
-			for _, id := range tab.Panes {
-				if p := info[id]; p.Agent != "" && p.Running {
-					return id, name(id)
-				}
-			}
+			tabs = append(tabs, tab.Panes)
 		}
 	}
-	if t.focus != 0 {
-		return t.focus, name(t.focus)
-	}
-	return 0, ""
+	return tools.ContextTarget(t.snap.Panes, t.focus, shown, tabs)
 }
 
 // contextInput is every key and click while the panel is up.

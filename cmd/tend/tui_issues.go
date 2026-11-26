@@ -11,6 +11,7 @@ import (
 	"github.com/auth-com-br/tend/internal/api"
 	"github.com/auth-com-br/tend/internal/github"
 	"github.com/auth-com-br/tend/internal/proto"
+	"github.com/auth-com-br/tend/internal/tools"
 	"github.com/auth-com-br/tend/internal/ui"
 )
 
@@ -974,13 +975,7 @@ func (t *tui) reloadIssue() {
 // bare prompt runs once and exits (agy's -i is --prompt-interactive: the
 // prompt, then the session goes on). An agent not here is started with
 // nothing.
-var issueAgents = map[string][]string{
-	"agy":    {"agy", "-i"},
-	"claude": {"claude"},
-	"codex":  {"codex"},
-	"cursor": {"cursor-agent"},
-	"gemini": {"gemini", "-i"},
-}
+var issueAgents = tools.AgentArgv
 
 // issueAgent is the agent work on an issue starts in: the one the settings
 // name, else the one in the pane the panel was opened from, else claude.

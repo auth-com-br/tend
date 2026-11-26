@@ -1,12 +1,12 @@
 package main
 
 import (
-	"os"
 	"strconv"
 	"strings"
 	"unicode/utf8"
 
 	"github.com/auth-com-br/tend/internal/proto"
+	"github.com/auth-com-br/tend/internal/tools"
 	"github.com/auth-com-br/tend/internal/ui"
 )
 
@@ -40,10 +40,7 @@ type permState struct {
 }
 
 // permItem is one line: a mode or a rule.
-type permItem struct {
-	mode *proto.PermMode
-	rule *proto.PermRule
-}
+type permItem = tools.PermItem
 
 func (t *tui) permManagerUp() bool {
 	t.mu.Lock()
@@ -131,114 +128,38 @@ func (t *tui) permAgentLocked() (proto.PermAgent, bool) {
 	if st == nil {
 		return proto.PermAgent{}, false
 	}
-	for _, a := range st.list.Agents {
-		if a.ID == st.agent {
-			return a, true
-		}
+	a, ok := tools.PermAgentOf(st.list, st.agent)
+	if ok {
+		st.agent = a.ID
 	}
-	if len(st.list.Agents) > 0 {
-		st.agent = st.list.Agents[0].ID
-		return st.list.Agents[0], true
-	}
-	return proto.PermAgent{}, false
+	return a, ok
 }
 
 // permLayoutLocked lays the panel out from the list: the tabs, the notes
-// under them, and the agent's modes and rules.
+// under them, and the agent's modes and rules (internal/tools, which
+// tend-desktop's screen lists them with too).
 func (t *tui) permLayoutLocked() {
 	v, st := t.permMgr, t.perm
 	if v == nil || st == nil {
 		return
 	}
 	a, ok := t.permAgentLocked()
-	v.Where = "global only: no pane to take a project from"
-	if st.list.Project != "" {
-		where := tildeHome(st.list.Project)
-		if home, _ := os.UserHomeDir(); st.list.Project == home {
-			where = "~"
-		}
-		v.Where = "project " + where
-	}
-	v.Tabs = v.Tabs[:0]
+	v.Where = tools.PermWhere(st.list.Project)
+	v.Tabs = tools.PermTabs(st.list)
 	for i, agent := range st.list.Agents {
-		v.Tabs = append(v.Tabs, ui.PermTab{Name: agent.Name, Rules: len(agent.Rules), Warn: len(agent.Warnings) > 0 && agent.ID != "dsh" || agent.Error != ""})
 		if agent.ID == a.ID {
 			v.Tab = i
 		}
 	}
-	v.Notes = nil
-	for _, w := range a.Warnings {
-		v.Notes = append(v.Notes, "! "+w)
-	}
-	if a.Error != "" {
-		v.Notes = append([]string{"! " + a.Error}, v.Notes...)
-	}
-	if a.Effect != "" {
-		v.Notes = append(v.Notes, "changes: "+a.Effect)
-	}
-	st.items = st.items[:0]
-	v.Lines = v.Lines[:0]
+	v.Notes = tools.PermNotes(a)
+	st.items, v.Lines = nil, nil
 	if ok {
-		for i := range a.Modes {
-			m := &a.Modes[i]
-			// A mode of a file that is not there and is not set is noise,
-			// but for the agent's global one, which is where to set it.
-			if m.Value == "" && m.Scope != "global" && !permFileExists(a, m.File) {
-				continue
-			}
-			value := m.Value
-			if value == "" {
-				value = "(not set)"
-			}
-			st.items = append(st.items, permItem{mode: m})
-			v.Lines = append(v.Lines, ui.PermLine{Mode: true, Scope: m.Scope, Text: permModeKey(m.Key) + " = " + value})
-		}
-		for i := range a.Rules {
-			r := &a.Rules[i]
-			if st.filter != "" && !strings.Contains(strings.ToLower(r.Text), strings.ToLower(st.filter)) {
-				continue
-			}
-			st.items = append(st.items, permItem{rule: r})
-			v.Lines = append(v.Lines, ui.PermLine{Decision: r.Decision, Scope: permScopeLabel(r.Scope, r.File, st.list.Project), Text: r.Text, Elsewhere: r.Elsewhere, Why: r.Why, ReadOnly: r.ReadOnly})
-		}
+		st.items, v.Lines = tools.PermList(a, st.list.Project, st.filter)
 	}
 	v.Filter = st.filter
-	v.EmptyLabel = "no rules: the agent asks before anything a mode does not allow — a adds one"
-	if a.ID == "dsh" {
-		v.EmptyLabel = ""
-	}
+	v.EmptyLabel = tools.PermEmptyLabel(a)
 	v.Row = min(v.Row, max(len(v.Lines)-1, 0))
 	v.Scroll = ui.PermManagerScrollFor(v, t.cols, t.rows)
-}
-
-// permScopeLabel is a scope as the list shows it: Claude's local file in
-// the home folder is "local ~", told apart from the project's own — it is
-// where "always allow" went for whoever starts Claude in ~, and it is not
-// this project's unless this project is the home folder.
-func permScopeLabel(scope, file, project string) string {
-	home, _ := os.UserHomeDir()
-	if scope == "local" && strings.HasPrefix(tildeHome(file), "~/.claude/") && project != home {
-		return "local ~"
-	}
-	return scope
-}
-
-// permModeKey is a mode's key as it reads in the list: a Codex project's
-// trust without the project's path, which the title already says.
-func permModeKey(key string) string {
-	if strings.HasPrefix(key, "projects.") && strings.HasSuffix(key, ".trust_level") {
-		return "this project's trust_level"
-	}
-	return key
-}
-
-func permFileExists(a proto.PermAgent, path string) bool {
-	for _, f := range a.Files {
-		if f.Path == path {
-			return f.Exists
-		}
-	}
-	return false
 }
 
 func (t *tui) permSay(msg string, alert bool) {
@@ -518,19 +439,14 @@ func (t *tui) permChange() {
 	t.mu.Unlock()
 	switch {
 	case !ok:
-	case item.mode != nil:
+	case item.Mode != nil:
 		t.permModeMenu(-1, -1)
-	case item.rule.ReadOnly:
+	case item.Rule.ReadOnly:
 		t.permSay("tend does not edit this rule: e opens its file in your editor", false)
 	default:
-		r := item.rule
-		next := ""
-		for i, d := range a.Decisions {
-			if d == r.Decision {
-				next = a.Decisions[(i+1)%len(a.Decisions)]
-			}
-		}
-		if next == "" || next == r.Decision {
+		r := item.Rule
+		next := tools.PermNextDecision(a, r.Decision)
+		if next == "" {
 			t.permSay(a.Name+" has no other decision for a rule", false)
 			return
 		}
@@ -549,53 +465,14 @@ func (t *tui) permEnter() {
 		t.mu.Unlock()
 		return
 	}
-	if item.mode != nil {
+	if item.Mode != nil {
 		t.mu.Unlock()
 		t.permModeMenu(-1, -1)
 		return
 	}
-	r := item.rule
-	lines := []string{
-		strings.ToUpper(r.Decision) + "  " + r.Text,
-		"",
-		"in       " + tildeHome(r.File) + "  (" + r.Scope + ")",
-	}
-	for _, f := range a.Files {
-		if f.Path == r.File && f.Note != "" {
-			lines = append(lines, "         "+f.Note)
-		}
-	}
-	if r.Why != "" {
-		lines = append(lines, "", "⚠ "+r.Why)
-	}
-	if r.Elsewhere {
-		var others []string
-		for _, o := range a.Rules {
-			if o.Text == r.Text && o.Decision == r.Decision && o.File != r.File {
-				others = append(others, tildeHome(o.File))
-			}
-		}
-		lines = append(lines, "", "≡ also in "+strings.Join(others, ", ")+": one of them can go (d)")
-	}
-	if r.ReadOnly {
-		lines = append(lines, "", "tend does not edit this one: e opens the file in your editor")
-	}
-	if a.Effect != "" {
-		lines = append(lines, "", "a change: "+a.Effect)
-	}
-	v.Detail = lines
+	v.Detail = tools.PermDetail(a, *item.Rule)
 	t.dirty = true
 	t.mu.Unlock()
-}
-
-// permRuleHint is how a rule is written for an agent, said under the line
-// it is typed on.
-var permRuleHint = map[string]string{
-	"claude":   "e.g. Bash(npm test:*) · Bash(git log *) · Read(src/**) · Edit(docs/**) · WebFetch(domain:x.com) · mcp__server",
-	"codex":    "the command it starts with: git push · npm run {build|test} · \"a b\" quotes a word",
-	"cursor":   "e.g. Shell(git log) · Read(src/**) · Write(docs/**) · Mcp(server:tool) · WebFetch(x.com)",
-	"gemini":   "e.g. run_shell_command(git) · write_file · web_fetch",
-	"opencode": "tool or tool(pattern): bash(git *) · edit · webfetch — a new rule goes last, where it wins",
 }
 
 // permStartAdd puts up the line a new rule is typed on.
@@ -685,30 +562,6 @@ func (t *tui) permTypeKey(key string) {
 	}
 }
 
-// permRuleFiles are the agent's files a rule can be written to.
-func permRuleFiles(a proto.PermAgent) []proto.PermFile {
-	var out []proto.PermFile
-	for _, f := range a.Files {
-		if !f.ReadOnly && !f.ModesOnly {
-			out = append(out, f)
-		}
-	}
-	return out
-}
-
-// permFileLabel is a file as a menu offers it: its scope, where it is, and
-// whether it is there yet.
-func permFileLabel(f proto.PermFile) string {
-	s := f.Scope + "  " + tildeHome(f.Path)
-	if !f.Exists {
-		s += "  (new)"
-	}
-	if f.Note != "" {
-		s += " — " + f.Note
-	}
-	return s
-}
-
 // permMenuXY is where a menu goes when no click put it somewhere.
 func (t *tui) permMenuXYLocked() (int, int) {
 	v := t.permMgr
@@ -739,13 +592,6 @@ func (t *tui) permDecisionMenu() {
 	t.openMenu(ui.Menu{Title: adding, Items: items, X: x, Y: y})
 }
 
-// permDecisionWords say what a decision does.
-var permDecisionWords = map[string]string{
-	"allow": "allow — without asking",
-	"ask":   "ask — every time",
-	"deny":  "deny — never",
-}
-
 // permAddFileMenu asks which of the agent's files the new rule goes in.
 func (t *tui) permAddFileMenu() {
 	t.mu.Lock()
@@ -767,10 +613,10 @@ func (t *tui) permRemove() {
 	t.mu.Lock()
 	item, ok := t.permSelectedLocked()
 	t.mu.Unlock()
-	if !ok || item.rule == nil {
+	if !ok || item.Rule == nil {
 		return
 	}
-	r := *item.rule
+	r := *item.Rule
 	if r.ReadOnly {
 		t.permSay("tend does not edit this rule: e opens its file in your editor", false)
 		return
@@ -790,16 +636,16 @@ func (t *tui) permMoveMenu(x, y int) {
 		x, y = t.permMenuXYLocked()
 	}
 	t.mu.Unlock()
-	if !ok || item.rule == nil {
+	if !ok || item.Rule == nil {
 		return
 	}
-	if item.rule.ReadOnly {
+	if item.Rule.ReadOnly {
 		t.permSay("tend does not edit this rule: e opens its file in your editor", false)
 		return
 	}
 	var items []ui.MenuItem
 	for i, f := range permRuleFiles(a) {
-		if f.Path == item.rule.File {
+		if f.Path == item.Rule.File {
 			continue
 		}
 		items = append(items, ui.MenuItem{Label: permFileLabel(f), Action: ui.MenuPermDo, Arg: "move:" + strconv.Itoa(i)})
@@ -808,7 +654,7 @@ func (t *tui) permMoveMenu(x, y int) {
 		t.permSay(a.Name+" has no other file to move it to", false)
 		return
 	}
-	t.openMenu(ui.Menu{Title: "move " + item.rule.Text + " to", Items: items, X: x, Y: y})
+	t.openMenu(ui.Menu{Title: "move " + item.Rule.Text + " to", Items: items, X: x, Y: y})
 }
 
 // permModeMenu offers a mode's values.
@@ -819,10 +665,10 @@ func (t *tui) permModeMenu(x, y int) {
 		x, y = t.permMenuXYLocked()
 	}
 	t.mu.Unlock()
-	if !ok || item.mode == nil {
+	if !ok || item.Mode == nil {
 		return
 	}
-	m := item.mode
+	m := item.Mode
 	var items []ui.MenuItem
 	for _, c := range m.Choices {
 		label := c
@@ -876,19 +722,7 @@ func (t *tui) permEditorsMenu(x, y int) {
 		t.mu.Unlock()
 		var items []ui.MenuItem
 		for i, e := range res.Editors {
-			label := e.Name
-			if e.Command != e.Name {
-				label += " (" + e.Command + ")"
-			}
-			if e.GUI {
-				label += " — a window"
-			} else {
-				label += " — beside the pane"
-			}
-			if e.Default {
-				label += "  (default)"
-			}
-			items = append(items, ui.MenuItem{Label: label, Action: ui.MenuPermDo, Arg: "editor:" + strconv.Itoa(i)})
+			items = append(items, ui.MenuItem{Label: tools.PermEditorLabel(e), Action: ui.MenuPermDo, Arg: "editor:" + strconv.Itoa(i)})
 		}
 		t.openMenu(ui.Menu{Title: "open the file in", Items: items, X: x, Y: y})
 		t.wakeUp()
@@ -899,10 +733,10 @@ func (t *tui) permEditorsMenu(x, y int) {
 // agent's first file that is there (its first at all when none is).
 func (t *tui) permSelectedFileLocked() string {
 	if item, ok := t.permSelectedLocked(); ok {
-		if item.rule != nil {
-			return item.rule.File
+		if item.Rule != nil {
+			return item.Rule.File
 		}
-		return item.mode.File
+		return item.Mode.File
 	}
 	a, ok := t.permAgentLocked()
 	if !ok || len(a.Files) == 0 {
@@ -984,12 +818,12 @@ func (t *tui) permRowMenu(x, y int) {
 	}
 	var items []ui.MenuItem
 	title := ""
-	if item.mode != nil {
-		title = permModeKey(item.mode.Key)
+	if item.Mode != nil {
+		title = permModeKey(item.Mode.Key)
 		items = append(items, ui.MenuItem{Label: "change it...", Action: ui.MenuPermDo, Arg: "do:change"})
 	} else {
-		title = item.rule.Text
-		if !item.rule.ReadOnly {
+		title = item.Rule.Text
+		if !item.Rule.ReadOnly {
 			items = append(items,
 				ui.MenuItem{Label: "change allow / ask / deny", Action: ui.MenuPermDo, Arg: "do:change"},
 				ui.MenuItem{Label: "move to another file...", Action: ui.MenuPermDo, Arg: "do:move"},
@@ -1038,8 +872,8 @@ func (t *tui) permMenuAction(arg string) error {
 		t.mu.Lock()
 		item, ok := t.permSelectedLocked()
 		t.mu.Unlock()
-		if i, okI := index(); okI && ok && item.rule != nil && i < len(files) {
-			r := *item.rule
+		if i, okI := index(); okI && ok && item.Rule != nil && i < len(files) {
+			r := *item.Rule
 			t.permWrite(proto.MethodPermMove, proto.PermWriteParams{File: r.File, To: files[i].Path, Decision: r.Decision, Text: r.Text},
 				"moved "+r.Text+" to "+tildeHome(files[i].Path))
 		}
@@ -1047,8 +881,8 @@ func (t *tui) permMenuAction(arg string) error {
 		t.mu.Lock()
 		item, ok := t.permSelectedLocked()
 		t.mu.Unlock()
-		if ok && item.mode != nil {
-			m := *item.mode
+		if ok && item.Mode != nil {
+			m := *item.Mode
 			done := permModeKey(m.Key) + " is " + value
 			if value == "" {
 				done = permModeKey(m.Key) + " is not set"
@@ -1088,3 +922,13 @@ func (t *tui) permMenuAction(arg string) error {
 	t.wakeUp()
 	return nil
 }
+
+// What the list says, and how a rule and a file are labelled, are
+// internal/tools', which tend-desktop's permissions screen uses too.
+var (
+	permModeKey       = tools.PermModeKey
+	permRuleFiles     = tools.PermRuleFiles
+	permFileLabel     = tools.PermFileLabel
+	permRuleHint      = tools.PermRuleHint
+	permDecisionWords = tools.PermDecisionWords
+)

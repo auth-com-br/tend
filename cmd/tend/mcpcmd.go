@@ -11,6 +11,7 @@ import (
 	"text/tabwriter"
 
 	"github.com/auth-com-br/tend/internal/proto"
+	"github.com/auth-com-br/tend/internal/tools"
 )
 
 // `tend mcp`: the MCP manager's view from the command line — every agent's
@@ -79,14 +80,6 @@ func printMCPList(list proto.MCPListResult) {
 	}
 }
 
-// mcpTarget is what a server runs or reaches, as it can be shown.
-func mcpTarget(e proto.MCPEntry) string {
-	if e.URL != "" {
-		return e.URL
-	}
-	return strings.TrimSpace(e.Command + " " + strings.Join(e.Args, " "))
-}
-
 // testMCP tests every server named — all of them when none is — once per
 // distinct definition, four at a time.
 func testMCP(test func(agent, name string) (proto.MCPTestResult, error), list proto.MCPListResult, names []string) error {
@@ -144,23 +137,7 @@ func testMCP(test func(agent, name string) (proto.MCPTestResult, error), list pr
 	return nil
 }
 
-// mcpResultText is a test's result on one line.
-func mcpResultText(r proto.MCPTestResult, err error) string {
-	switch {
-	case err != nil:
-		return "✗ " + refusalText(err)
-	case r.Status == "ok":
-		s := fmt.Sprintf("ok %dms, %d tools", r.Millis, r.Tools)
-		if r.Server != "" {
-			s += " (" + strings.TrimSpace(r.Server+" "+r.Version) + ")"
-		}
-		return s
-	case r.Status == "auth":
-		return "login needed — " + r.Error
-	}
-	s := "✗ " + r.Error
-	if r.Stderr != "" {
-		s += " — " + r.Stderr
-	}
-	return s
-}
+var (
+	mcpTarget     = tools.MCPTarget
+	mcpResultText = tools.MCPResultText
+)
