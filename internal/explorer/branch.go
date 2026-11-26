@@ -268,7 +268,11 @@ func (m *Model) switchTo() {
 	m.Refresh()
 }
 
-func (m *Model) currentBranchName(br Branch) string {
+func (m *Model) currentBranchName(br Branch) string { return branchLocalName(br) }
+
+// branchLocalName is the branch a switch to br checks out: a remote one's
+// local namesake.
+func branchLocalName(br Branch) string {
 	if br.Remote {
 		return br.Name[strings.Index(br.Name, "/")+1:]
 	}

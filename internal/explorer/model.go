@@ -8,6 +8,38 @@
 // draws into a grid, and everything it does to the world goes through Git and
 // an Opener, so a test drives it without a terminal, a repository daemon or a
 // session.
+//
+// # The panel as data
+//
+// Panel (panel.go, panel_git.go) is the same panel for a client that draws
+// it itself — tend-desktop's dock — with no grid, keys or modes: plain
+// values returned by methods that are safe to call from any goroutine,
+// errors returned, and a context taken by what can be slow (search, the
+// network, the drafted message). A repository is named by its top
+// directory (Repo.Top); paths of changes are relative to it, paths of the
+// tree to Root. What one person is looking at — cursor, scroll, the second
+// press that confirms — is the client's, as in internal/sidebar.
+//
+//	NewPanel(dir)                 the repository dir is in, or a folder of them
+//	Refresh()                     git's status and the open directories again
+//	Root, Repos, MultiRepo        what is shown; branch, upstream, ahead/behind
+//	Entries()                     the tree's rows: depth, dir, expanded, letter, ignored, dot
+//	SetExpanded, Reveal           open or close a directory; open those above a path
+//	SetHidden, Hidden             dotfiles off or on
+//	Reroot, ChangeFolder, Follow  show another folder; follow the pane beside (SetNeighbours)
+//	FindFiles(ctx, q)             quick open, ranked as the panel ranks
+//	Search(ctx, GrepOptions)      text search: file, line, column, match length
+//	Changes()                     staged, unstaged, untracked, conflicted, per repository
+//	Diff(repo, path, staged)      text and parsed (ParseDiff, Hunk.SideBySide)
+//	Stage, Unstage, StageAll      the index (refused in jj, which has none)
+//	Discard(repo, path, staged)   back as the index has it; untracked and staged refused
+//	Commit, DraftMessage(ctx)     commit what is staged (jj: @); the ✧ message
+//	Review(path, line, text)      a comment to the tab's agent (SetReviewer)
+//	PlanFinish, Finish(ctx)       merge an agent's worktree, or its pull request
+//	History, Show                 commits, a file's commits, stashes, tags; a diff
+//	StashApply, StashDrop         the stash shelf
+//	Branches, Switch, Sync(ctx)   the branch bar
+//	ReadPreview(path)             tokens by kind (Highlight), markdown source, image size
 package explorer
 
 import (
@@ -899,13 +931,20 @@ func walkFiles(root string, limit int) []string {
 // own name beats one spread across its directories, and a shorter path
 // beats a longer.
 func (s *search) match() {
-	q := strings.ToLower(strings.ReplaceAll(s.query, " ", ""))
+	s.results = append(s.results[:0], rankFiles(s.all, s.query)...)
+	s.cursor = 0
+}
+
+// rankFiles is the quick open's ranking of paths against a query, the 500
+// best: what the panel lists and the desktop's quick open does too.
+func rankFiles(all []string, query string) []string {
+	q := strings.ToLower(strings.ReplaceAll(query, " ", ""))
 	type scored struct {
 		path  string
 		score int
 	}
 	var hits []scored
-	for _, p := range s.all {
+	for _, p := range all {
 		if q == "" {
 			hits = append(hits, scored{p, len(p)})
 			continue
@@ -934,14 +973,14 @@ func (s *search) match() {
 		}
 		return hits[a].path < hits[b].path
 	})
-	s.results = s.results[:0]
+	var results []string
 	for i, h := range hits {
 		if i >= 500 {
 			break
 		}
-		s.results = append(s.results, h.path)
+		results = append(results, h.path)
 	}
-	s.cursor = 0
+	return results
 }
 
 func subsequence(q, s string) bool {

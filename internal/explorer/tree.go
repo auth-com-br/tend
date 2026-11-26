@@ -198,6 +198,25 @@ func (t *Tree) Reveal(rel string, g Git) *Node {
 	return n
 }
 
+// find is the node at a path whose directories above are loaded, or nil.
+// It opens nothing: Reveal is for a path not yet shown.
+func (t *Tree) find(rel string) *Node {
+	n := t.top
+	for _, part := range strings.Split(rel, "/") {
+		var next *Node
+		for _, c := range n.Children {
+			if c.Name == part {
+				next = c
+			}
+		}
+		if next == nil {
+			return nil
+		}
+		n = next
+	}
+	return n
+}
+
 // Parent is the directory a node is in, or nil at the top.
 func (n *Node) Parent() *Node {
 	if n.parent == nil || n.parent.Depth < 0 {
