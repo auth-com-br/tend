@@ -18,11 +18,14 @@ import (
 
 // DockState is the dock as QML draws it: which tab, and that tab's data.
 type DockState struct {
-	Tab     string      `json:"tab"`
-	Loading bool        `json:"loading,omitempty"`
-	Error   string      `json:"error,omitempty"`
-	Tasks   []TaskRow   `json:"tasks,omitempty"`
-	Files   *FilesState `json:"files,omitempty"`
+	Tab     string        `json:"tab"`
+	Loading bool          `json:"loading,omitempty"`
+	Error   string        `json:"error,omitempty"`
+	Tasks   []TaskRow     `json:"tasks,omitempty"`
+	Files   *FilesState   `json:"files,omitempty"`
+	Issues  *IssuesState  `json:"issues,omitempty"`
+	Errors  *ErrorsState  `json:"errors,omitempty"`
+	Tickets *TicketsState `json:"tickets,omitempty"`
 	// WhatsApp is tend-whatsapp's daemon as the tab shows it (whatsapp.go).
 	WhatsApp *WhatsAppState `json:"whatsapp,omitempty"`
 }
@@ -51,6 +54,9 @@ type dock struct {
 	loading bool
 	err     string
 	tasks   []proto.TaskInfo
+	issues  issuesTab
+	errors  errorsTab
+	tickets ticketsTab
 }
 
 // ToggleDock opens a tab of the dock, or closes the dock when it is the tab
@@ -85,6 +91,12 @@ func (s *Session) loadDock(tab string) {
 	case "whatsapp":
 		err = s.loadWhatsApp()
 		s.pollWhatsApp(whatsAppPoll)
+	case "issues":
+		err = s.loadIssues()
+	case "errors":
+		err = s.loadErrors()
+	case "tickets":
+		err = s.loadTickets()
 	case "tasks":
 		var tasks []proto.TaskInfo
 		if !c.Supports(proto.MethodTaskList) {
@@ -129,8 +141,15 @@ func (s *Session) dockStateLocked() *DockState {
 	if s.dock.tab == "files" {
 		st.Files = s.filesStateLocked()
 	}
-	if s.dock.tab == "whatsapp" {
+	switch s.dock.tab {
+	case "whatsapp":
 		st.WhatsApp = s.whatsAppStateLocked()
+	case "issues":
+		st.Issues = s.issuesStateLocked()
+	case "errors":
+		st.Errors = s.errorsStateLocked()
+	case "tickets":
+		st.Tickets = s.ticketsStateLocked()
 	}
 	if s.dock.tab == "tasks" {
 		names := map[uint64]string{}

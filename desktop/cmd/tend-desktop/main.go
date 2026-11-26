@@ -410,6 +410,24 @@ func dispatch(sess *core.Session, method string, raw []byte) error {
 			return err
 		}
 		return sess.Files(f)
+	case "issues":
+		var i core.IssuesAction
+		if err := json.Unmarshal(raw, &i); err != nil {
+			return err
+		}
+		return sess.Issues(i)
+	case "errors":
+		var e core.ErrorsAction
+		if err := json.Unmarshal(raw, &e); err != nil {
+			return err
+		}
+		return sess.Errors(e)
+	case "tickets":
+		var t core.TicketsAction
+		if err := json.Unmarshal(raw, &t); err != nil {
+			return err
+		}
+		return sess.Tickets(t)
 	case "doc.show":
 		sess.ShowDoc(a.Index)
 		return nil

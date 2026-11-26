@@ -17,6 +17,9 @@ Item {
     readonly property var tabs: [
         { name: "files", mark: "❐", tip: "files" },
         { name: "tasks", mark: "✓", tip: "tasks" },
+        { name: "issues", mark: "◎", tip: "issues and pull requests" },
+        { name: "errors", mark: "⚠", tip: "errors" },
+        { name: "tickets", mark: "▤", tip: "tickets" },
         { name: "whatsapp", mark: "✆", tip: "WhatsApp" }
     ]
 
