@@ -50,65 +50,229 @@ Item {
         return theme.subtext
     }
 
-    // Header: the repository, its branch, and how far it is from upstream.
+    // Header: the folder shown, its repository — or how many, folded, when
+    // the folder holds several — and the views. A folder of many
+    // repositories listed them all here, a line each, and pushed the tree
+    // down: they are one line now, opened when wanted, and each one's
+    // branch is on its folder in the tree.
+    property bool reposOpen: false
+    readonly property var repos: files.f.repos || []
+    readonly property var repoByName: {
+        var m = {}
+        for (var i = 0; i < repos.length; i++) m[repos[i].name || ""] = repos[i]
+        return m
+    }
+    function syncText(r) {
+        return (r.ahead ? "↑" + r.ahead : "") + (r.ahead && r.behind ? " " : "") + (r.behind ? "↓" + r.behind : "")
+    }
+
     Column {
         id: head
         width: parent.width
         spacing: 8
-        Repeater {
-            model: files.f.repos || []
-            delegate: Row {
-                required property var modelData
-                spacing: 6
-                width: head.width
-                Text { text: modelData.jj ? "◇" : "⎇"; color: theme.accent; font.pixelSize: 13 }
-                Text { text: modelData.name || "."; color: theme.text; font.pixelSize: 13; font.bold: true }
-                // The branch, a click away from the others.
-                Text {
-                    text: modelData.branch + " ▾"
-                    color: brArea.containsMouse ? theme.text : theme.peach
-                    font.pixelSize: 12
-                    MouseArea { id: brArea; anchors.fill: parent; anchors.margins: -3; hoverEnabled: true; onClicked: files.call({ do: "branches", repo: modelData.top }) }
+
+        // The folder, and the busy word while git works.
+        Item {
+            width: parent.width
+            height: 22
+            Text {
+                id: folderName
+                anchors.verticalCenter: parent.verticalCenter
+                width: parent.width - busy.width - 8
+                text: {
+                    var r = files.f.root || ""
+                    var i = r.lastIndexOf("/")
+                    return i >= 0 ? r.slice(i + 1) : r
                 }
-                Text {
-                    text: (modelData.ahead ? "↑" + modelData.ahead + " " : "") + (modelData.behind ? "↓" + modelData.behind : "")
-                    color: theme.peach
-                    font.pixelSize: 12
-                }
-                Text {
-                    text: "⟳"
-                    color: syncArea.containsMouse ? theme.accent : theme.subtext
-                    font.pixelSize: 13
-                    MouseArea { id: syncArea; anchors.fill: parent; anchors.margins: -4; hoverEnabled: true; onClicked: files.call({ do: "sync", repo: modelData.top }) }
-                }
-            }
-        }
-        Row {
-            spacing: 4
-            Repeater {
-                model: [{ v: "tree", l: "files" }, { v: "search", l: "search" }, { v: "changes", l: "changes" }, { v: "history", l: "history" }]
-                delegate: Rectangle {
-                    required property var modelData
-                    readonly property bool chosen: files.f.view === modelData.v
-                    height: 26
-                    width: viewLabel.width + 18
-                    radius: 6
-                    color: chosen ? theme.surface0 : "transparent"
-                    Text { id: viewLabel; anchors.centerIn: parent; text: modelData.l; color: chosen ? theme.text : theme.subtext; font.pixelSize: 12 }
-                    MouseArea {
-                        anchors.fill: parent
-                        onClicked: modelData.v === "history" ? files.call({ do: "history", kind: "commits" })
-                                                            : files.call({ do: "view", view: modelData.v })
-                    }
-                }
+                color: theme.text
+                font.pixelSize: 14
+                font.weight: Font.DemiBold
+                elide: Text.ElideRight
             }
             Text {
+                id: busy
+                anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter
-                leftPadding: 8
                 text: files.f.busy ? "working…" : ""
                 color: theme.overlay0
                 font.pixelSize: 11
             }
+        }
+
+        // One repository: its branch, how far from upstream, sync.
+        Loader {
+            width: parent.width
+            active: files.repos.length === 1
+            visible: active
+            sourceComponent: RepoLine { repo: files.repos[0] }
+        }
+
+        // Several: one line saying how many, which opens their list.
+        Rectangle {
+            visible: files.repos.length > 1
+            width: parent.width
+            height: 26
+            radius: 6
+            color: reposArea.containsMouse ? theme.surface0 : "transparent"
+            Text {
+                id: reposChevron
+                x: 6
+                anchors.verticalCenter: parent.verticalCenter
+                text: "›"
+                rotation: files.reposOpen ? 90 : 0
+                color: theme.overlay0
+                font.pixelSize: 15
+                Behavior on rotation { NumberAnimation { duration: 110 } }
+            }
+            Text {
+                anchors.left: reposChevron.right
+                anchors.leftMargin: 8
+                anchors.verticalCenter: parent.verticalCenter
+                text: files.repos.length + " repositories"
+                color: theme.subtext
+                font.pixelSize: 12
+            }
+            MouseArea {
+                id: reposArea
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: files.reposOpen = !files.reposOpen
+            }
+        }
+        Column {
+            visible: files.repos.length > 1 && files.reposOpen
+            width: parent.width
+            spacing: 2
+            Repeater {
+                model: files.repos.length > 1 && files.reposOpen ? files.repos : []
+                delegate: RepoLine {
+                    required property var modelData
+                    width: head.width
+                    repo: modelData
+                    named: true
+                }
+            }
+        }
+
+        // The views, as a segmented control.
+        Rectangle {
+            width: parent.width
+            height: 28
+            radius: 7
+            color: theme.crust
+            Row {
+                x: 2
+                y: 2
+                Repeater {
+                    model: [{ v: "tree", l: "Files" }, { v: "search", l: "Search" }, { v: "changes", l: "Changes" }, { v: "history", l: "History" }]
+                    delegate: Rectangle {
+                        required property var modelData
+                        readonly property bool chosen: files.f.view === modelData.v
+                        height: 24
+                        width: (head.width - 4) / 4
+                        radius: 5
+                        color: chosen ? theme.surface0 : (viewArea.containsMouse ? Qt.rgba(1, 1, 1, 0.04) : "transparent")
+                        Text {
+                            anchors.centerIn: parent
+                            text: modelData.l
+                            color: chosen ? theme.text : theme.subtext
+                            font.pixelSize: 12
+                            font.weight: chosen ? Font.DemiBold : Font.Normal
+                        }
+                        MouseArea {
+                            id: viewArea
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: modelData.v === "history" ? files.call({ do: "history", kind: "commits" })
+                                                                : files.call({ do: "view", view: modelData.v })
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // A repository on a line: (its name,) its branch as a chip — a click
+    // opens the branches — how far from upstream, and sync.
+    component RepoLine: Item {
+        id: rl
+        property var repo: ({})
+        property bool named: false
+        height: 26
+        Text {
+            id: rlName
+            visible: rl.named
+            x: 22
+            width: visible ? Math.min(implicitWidth, rl.width * 0.5) : 0
+            anchors.verticalCenter: parent.verticalCenter
+            text: rl.repo.name || "."
+            color: theme.text
+            font.pixelSize: 12
+            elide: Text.ElideMiddle
+        }
+        BranchChip {
+            id: rlChip
+            anchors.left: rl.named ? rlName.right : parent.left
+            anchors.leftMargin: rl.named ? 8 : 0
+            anchors.verticalCenter: parent.verticalCenter
+            repo: rl.repo
+        }
+        Text {
+            anchors.left: rlChip.right
+            anchors.leftMargin: 6
+            anchors.verticalCenter: parent.verticalCenter
+            text: files.syncText(rl.repo)
+            color: theme.peach
+            font.pixelSize: 11
+        }
+        Rectangle {
+            anchors.right: parent.right
+            anchors.verticalCenter: parent.verticalCenter
+            width: 24
+            height: 24
+            radius: 6
+            color: syncArea.containsMouse ? theme.surface0 : "transparent"
+            Text {
+                anchors.centerIn: parent
+                text: "⟳"
+                color: syncArea.containsMouse ? theme.accent : theme.overlay0
+                font.pixelSize: 13
+            }
+            MouseArea {
+                id: syncArea
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: files.call({ do: "sync", repo: rl.repo.top })
+            }
+        }
+    }
+
+    // A branch as a chip: a click opens the branch picker.
+    component BranchChip: Rectangle {
+        id: bc
+        property var repo: ({})
+        property bool small: false
+        width: bcText.implicitWidth + (small ? 10 : 14)
+        height: small ? 16 : 20
+        radius: height / 2
+        color: bcArea.containsMouse ? Qt.rgba(theme.peach.r, theme.peach.g, theme.peach.b, 0.28)
+                                    : Qt.rgba(theme.peach.r, theme.peach.g, theme.peach.b, small ? 0.12 : 0.16)
+        Text {
+            id: bcText
+            anchors.centerIn: parent
+            text: (bc.repo.jj ? "◇ " : "⎇ ") + (bc.repo.branch || "detached")
+            color: theme.peach
+            font.pixelSize: bc.small ? 10 : 11
+        }
+        MouseArea {
+            id: bcArea
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: files.call({ do: "branches", repo: bc.repo.top })
         }
     }
 
@@ -190,7 +354,7 @@ Item {
             Text {
                 anchors.left: icon.right
                 anchors.leftMargin: 7
-                anchors.right: statusLetter.left
+                anchors.right: treeChip.visible ? treeChip.left : statusLetter.left
                 anchors.rightMargin: 6
                 anchors.verticalCenter: parent.verticalCenter
                 text: entry.modelData.name
@@ -200,6 +364,19 @@ Item {
                 font.weight: entry.open ? Font.DemiBold : Font.Normal
                 color: entry.modelData.ignored ? theme.overlay0
                      : entry.modelData.status ? files.letterColor(entry.modelData.status) : theme.text
+            }
+            // A folder that is a repository of its own carries its branch,
+            // when the folder shown holds several.
+            BranchChip {
+                id: treeChip
+                readonly property var r: files.repos.length > 1 && entry.modelData.dir === true ? files.repoByName[entry.modelData.rel] : undefined
+                visible: !!r
+                repo: r || ({})
+                small: true
+                z: 2 // over the row's click, which would fold the folder
+                anchors.right: statusLetter.left
+                anchors.rightMargin: 6
+                anchors.verticalCenter: parent.verticalCenter
             }
             Text {
                 id: statusLetter
