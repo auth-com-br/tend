@@ -35,6 +35,9 @@ var talksToTheNetwork = map[string]string{
 	"internal/web/phone.go":            "the phone page's routes: it listens, it does not call out",
 	"cmd/tend/web.go":                  "`tend web`: it listens, it does not call out",
 	"internal/agents/agents.go":        "whether a memory tool listens on 127.0.0.1: this machine only",
+	// tend-whatsapp, a program of its own (whatsapp/): whatsmeow's client
+	// is the connection, so importing it counts as dialing.
+	"whatsapp/internal/wa/wa.go": "tend-whatsapp, linked to the owner's number: WhatsApp's servers, from link to unlink",
 }
 
 // TestOnlyTheFilesListedTalkToTheNetwork: no file reaches the network that
@@ -45,7 +48,7 @@ func TestOnlyTheFilesListedTalkToTheNetwork(t *testing.T) {
 	root := filepath.Join("..", "..")
 	dial := regexp.MustCompile(`net\.(Dial|DialTimeout|Listen)\("(tcp|tcp4|tcp6|udp)"|net\.Dialer\{|DialContext\(`)
 	found := map[string]bool{}
-	for _, dir := range []string{"internal", "cmd"} {
+	for _, dir := range []string{"internal", "cmd", "whatsapp"} {
 		err := filepath.WalkDir(filepath.Join(root, dir), func(path string, d os.DirEntry, err error) error {
 			if err != nil || d.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
 				return err
@@ -57,7 +60,7 @@ func TestOnlyTheFilesListedTalkToTheNetwork(t *testing.T) {
 				return err
 			}
 			for _, imp := range f.Imports {
-				if imp.Path.Value == `"net/http"` {
+				if imp.Path.Value == `"net/http"` || imp.Path.Value == `"go.mau.fi/whatsmeow"` {
 					found[rel] = true
 				}
 			}

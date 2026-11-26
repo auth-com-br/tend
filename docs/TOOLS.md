@@ -19,7 +19,7 @@ button in the row over the spaces; `ctrl+b w` walks that row too, and
   [Your phone](#your-phone) · [Activity and policies](#activity-and-policies)
 - [Agent teams](#agent-teams) · [Agents driving agents](#agents-driving-agents) ·
   [Layouts](#layouts) · [The guard](#the-guard)
-- [The mouse and links](#the-mouse-and-links)
+- [WhatsApp](#whatsapp) · [The mouse and links](#the-mouse-and-links)
 
 ## Files
 
@@ -491,6 +491,49 @@ disk — is put to you, or refused with the reason. `guard_deny` and
 what it would do; `tend activity -violations` lists what it stopped. It
 catches the common accident, not everything: a command an agent builds at run
 time is not seen through.
+
+## WhatsApp
+
+The agents can read your WhatsApp conversations and draft replies to your
+customers; only you send them. It is `tend-whatsapp`, a program of its own
+beside tend (its dependencies would have made tend 16 MB heavier), built
+from the repository with `make whatsapp-install`; `tend whatsapp …` runs it.
+
+**Read this before linking.** tend links your number as a companion
+device, as WhatsApp Web does, through [whatsmeow](https://github.com/tulir/whatsmeow),
+which WhatsApp did not write and does not allow. It is against WhatsApp's
+terms, and **the number can be banned** for it. The conversations are your
+customers' personal data: under the LGPD, handing them to AI agents (which
+send what they read to their providers) is processing you answer for. `tend
+whatsapp link` says all of this and asks before pairing.
+
+```sh
+tend whatsapp link              # QR code in the terminal; scan it from WhatsApp → Linked devices
+tend whatsapp link -phone 5511… # or a code to type on the phone instead
+tend whatsapp status
+claude mcp add whatsapp -- tend whatsapp serve    # the tools, for an agent
+tend whatsapp pending           # replies the agents proposed
+tend whatsapp approve 3         # shows it, asks you to type "send", sends it
+tend whatsapp reject 3 [why]
+tend whatsapp unlink [-forget]  # -forget also erases what is kept here
+```
+
+The agent's tools are `list_chats`, `read_chat` (a chat by name, phone
+number or JID; `before` pages back), `search` (accents and case aside) and
+`propose_reply` (with an optional message to quote). There is no tool that
+sends: a proposal waits, and the tend session is notified ("a reply to Maria
+waits for you"). `approve` asks at a terminal, which an agent's shell tool
+does not have; that is a bar, not a lock — anything running as you can reach
+the daemon's socket, as it can tend's.
+
+A daemon holds the one connection (a number linked once has one) and starts
+on demand; `tend whatsapp stop` stops it. It keeps the messages it receives,
+live and from the history the phone sends after linking, in
+`~/.local/state/tend/whatsapp/` (0600, in a 0700 directory), and nowhere
+else; media is not downloaded, only noted (`[image] caption`). Its socket,
+`$XDG_RUNTIME_DIR/tend/whatsapp/daemon.sock`, speaks one JSON object per
+line (the methods are listed in `whatsapp/internal/daemon/protocol.go`), for
+a desktop panel to come.
 
 ## The mouse and links
 

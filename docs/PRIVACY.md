@@ -30,6 +30,7 @@ network connections were the name lookup and GitHub; with it off, none.
 | Saved machines (`tend attach -ssh`, the sidebar's machines) | your machines, over ssh | you saved them or attach |
 | Phone notifications | your phone's push service (Google's, Apple's, Mozilla's), encrypted end to end so the service reads nothing | only for a phone that turned them on |
 | Plugins | whatever the plugin does | you installed it |
+| WhatsApp (`tend-whatsapp`, a separate program) | WhatsApp's servers, as a linked device of your number: it receives your messages and sends the replies you approve | from `tend whatsapp link` until `unlink`, while its daemon runs. The conversations are kept on this machine only; the agents you give its tools to send what they read to their providers |
 
 The phone page itself (`tend web`) listens; it does not call out.
 

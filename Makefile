@@ -31,7 +31,7 @@ DEV_PKGS ?= ./...
 # SESSION is which session `make restart` acts on.
 SESSION ?= default
 
-.PHONY: toolchain run dev watch test test-race check fmt vet bench build install dist manifest packages stats clean restart desktop desktop-check desktop-install
+.PHONY: toolchain run dev watch test test-race check fmt vet bench build install dist manifest packages stats clean restart desktop desktop-check desktop-install whatsapp whatsapp-check whatsapp-install
 
 ## toolchain: fail with a usable message instead of "go: No such file or directory".
 toolchain:
@@ -95,7 +95,7 @@ test-race: toolchain
 # The race detector is part of the gate, not an extra: the server runs a
 # goroutine per pane plus a detection loop, and a race found after committing
 # is a race found the expensive way.
-check: toolchain fmt vet test test-race
+check: toolchain fmt vet test test-race whatsapp-check
 
 fmt:
 	@command -v $(GOFMT) >/dev/null 2>&1 || test -x $(GOFMT) || { \
@@ -203,6 +203,27 @@ desktop-install: desktop
 	cp desktop/bin/tend-desktop "$(INSTALL_DIR)/tend-desktop"
 	@echo "installed $(INSTALL_DIR)/tend-desktop ($(VERSION))"
 
+## whatsapp: build tend-whatsapp, the owner's WhatsApp for the agents
+## (whatsapp/, its own module). Its own because of its weight: whatsmeow and
+## the pure-Go SQLite made tend 16 MB heavier (22.2 to 38.3 MB) when
+## measured. Pure Go like tend, so it is built static the same way.
+whatsapp: toolchain
+	cd whatsapp && $(STATIC) $(GO) build -ldflags "$(LDFLAGS)" -o bin/tend-whatsapp ./cmd/tend-whatsapp
+
+## whatsapp-check: its vet, tests and race detector. Part of `make check`:
+## unlike the desktop it needs nothing but Go, so nothing excuses it.
+whatsapp-check: toolchain
+	cd whatsapp && $(GO) vet ./...
+	cd whatsapp && $(GO) test ./...
+	cd whatsapp && $(GO) test -race ./...
+
+## whatsapp-install: install tend-whatsapp beside tend, where `tend whatsapp`
+## looks for it first.
+whatsapp-install: whatsapp
+	@mkdir -p "$(INSTALL_DIR)"
+	cp whatsapp/bin/tend-whatsapp "$(INSTALL_DIR)/tend-whatsapp"
+	@echo "installed $(INSTALL_DIR)/tend-whatsapp ($(VERSION))"
+
 clean:
-	rm -rf bin dist desktop/bin
+	rm -rf bin dist desktop/bin whatsapp/bin
 	$(GO) clean -testcache

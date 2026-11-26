@@ -137,7 +137,14 @@ These are herdr's rules and they are enforced here by where code lives:
 - New dependencies need a reason. Current ones: `creack/pty`, `BurntSushi/toml`,
   `mattn/go-runewidth`, `golang.org/x/term`, `gopkg.in/yaml.v3` (the DeepSeek
   Harness's MCP servers are in a hand-written YAML file, edited keeping its
-  comments).
+  comments). `whatsapp/`, a module of its own built into `tend-whatsapp`,
+  adds `go.mau.fi/whatsmeow` (the owner's WhatsApp number linked as a
+  companion device, as WhatsApp Web is — chosen by the owner knowing it is
+  against WhatsApp's terms), `modernc.org/sqlite` (whatsmeow keeps its keys
+  in SQL; this driver is pure Go, so no cgo), `rsc.io/qr` (the QR code to
+  link with, drawn in the terminal) and `golang.org/x/text` (accent-blind
+  search). They are kept out of the `tend` binary on purpose: they made it
+  16 MB heavier. `make check` covers that module too (`make whatsapp-check`).
 - Platform code is compile-gated by filename (`foreground_linux.go`,
   `foreground_other.go`), not by runtime checks.
 - Every behaviour change comes with a test. Test names are sentences, and the
