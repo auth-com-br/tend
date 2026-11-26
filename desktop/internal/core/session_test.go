@@ -550,6 +550,36 @@ func TestTheFilesTabIsTheFilesPanel(t *testing.T) {
 	if doc.View != "text" || len(doc.Lines) != 4 || doc.Lines[0][0].K == 0 {
 		t.Errorf("main.go opened as %s with %d lines, first token %+v", doc.View, len(doc.Lines), doc.Lines[0])
 	}
+
+	// History lists the commit just made, and shows it as a diff.
+	if err := s.Files(FilesAction{Do: "history", Kind: "commits"}); err != nil {
+		t.Fatal(err)
+	}
+	h := s.State().Dock.Files.History
+	if len(h) != 2 || h[0].Subject != "say hello" {
+		t.Fatalf("history %+v", h)
+	}
+	if err := s.Files(FilesAction{Do: "show", Ref: h[0].Ref}); err != nil {
+		t.Fatal(err)
+	}
+	if d := s.State().Doc; d.Kind != "diff" || len(d.Hunks) == 0 {
+		t.Errorf("the commit shows as %+v", d)
+	}
+	// The branch picker lists the branches, and switches.
+	git("branch", "other")
+	if err := s.Files(FilesAction{Do: "branches", Repo: ch[0].Repo}); err != nil {
+		t.Fatal(err)
+	}
+	if b := s.State().Dock.Files.Branches; len(b) != 2 {
+		t.Fatalf("branches %+v", b)
+	}
+	if err := s.Files(FilesAction{Do: "switch", Repo: ch[0].Repo, Name: "other"}); err != nil {
+		t.Fatal(err)
+	}
+	cur, _ := exec.Command("git", "-C", repo, "branch", "--show-current").Output()
+	if strings.TrimSpace(string(cur)) != "other" {
+		t.Errorf("on branch %q after switching", cur)
+	}
 }
 
 // TestATabInAWindowOfItsOwn: a window pinned to a tab shows that tab alone

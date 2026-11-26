@@ -32,6 +32,13 @@ type filesTab struct {
 	found   []string
 	message string
 	busy    bool
+	// history is the history view's list (commits, stashes or tags of
+	// histRepo), and branches the branch picker's, while it is open.
+	history  []explorer.HistoryEntry
+	histKind explorer.HistoryKind
+	histRepo string
+	branches []explorer.Branch
+	brRepo   string
 }
 
 // FilesState is the files tab as QML draws it.
@@ -47,6 +54,39 @@ type FilesState struct {
 	Message string       `json:"message,omitempty"`
 	Busy    bool         `json:"busy,omitempty"`
 	Hidden  bool         `json:"hidden"`
+	// History is the history view: what kind, and its entries.
+	HistoryKind string       `json:"historyKind,omitempty"`
+	History     []HistoryRow `json:"history,omitempty"`
+	// Branches is the branch picker, open for BranchRepo.
+	Branches   []BranchRow `json:"branches,omitempty"`
+	BranchRepo string      `json:"branchRepo,omitempty"`
+}
+
+// HistoryRow is a commit, a stash or a tag.
+type HistoryRow struct {
+	Ref     string `json:"ref"`
+	Subject string `json:"subject"`
+	Meta    string `json:"meta,omitempty"`
+}
+
+// BranchRow is a branch the picker offers.
+type BranchRow struct {
+	Name    string `json:"name"`
+	Remote  bool   `json:"remote,omitempty"`
+	Current bool   `json:"current,omitempty"`
+}
+
+var historyKinds = map[string]explorer.HistoryKind{
+	"commits": explorer.HistoryCommits, "stashes": explorer.HistoryStashes, "tags": explorer.HistoryTags,
+}
+
+func historyName(k explorer.HistoryKind) string {
+	for n, v := range historyKinds {
+		if v == k {
+			return n
+		}
+	}
+	return "commits"
 }
 
 // RepoRow is a repository shown, for the header.
@@ -178,9 +218,20 @@ func (s *Session) filesStateLocked() *FilesState {
 			cr.Untracked, cr.Conflicted = conv(rc.Untracked, false), conv(rc.Conflicted, false)
 			st.Changes = append(st.Changes, cr)
 		}
+	case "history":
+		st.HistoryKind = historyName(f.histKind)
+		for _, h := range f.history {
+			st.History = append(st.History, HistoryRow{Ref: h.Ref, Subject: h.Subject, Meta: h.Meta})
+		}
 	case "search":
 		for _, h := range f.hits {
 			st.Hits = append(st.Hits, HitRow{Path: h.Path, Line: h.Line, Text: h.Text})
+		}
+	}
+	if f.brRepo != "" {
+		st.BranchRepo = f.brRepo
+		for _, b := range f.branches {
+			st.Branches = append(st.Branches, BranchRow{Name: b.Name, Remote: b.Remote, Current: b.Current})
 		}
 	}
 	return st
@@ -200,6 +251,10 @@ type FilesAction struct {
 	Line    int    `json:"line"`
 	Text    string `json:"text"`
 	Action  string `json:"action"`
+	Kind    string `json:"kind"`
+	Ref     string `json:"ref"`
+	Name    string `json:"name"`
+	Remote  bool   `json:"remote"`
 }
 
 // Files does what the files tab asks.
@@ -220,6 +275,51 @@ func (s *Session) Files(a FilesAction) error {
 	case "view":
 		s.mu.Lock()
 		s.files.view = a.View
+		s.mu.Unlock()
+	case "history":
+		kind := historyKinds[a.Kind]
+		repo := a.Repo
+		if repo == "" {
+			if rs := p.Repos(); len(rs) > 0 {
+				repo = rs[0].Top
+			}
+		}
+		entries, herr := p.History(repo, kind, a.Path)
+		s.mu.Lock()
+		s.files.view, s.files.history, s.files.histKind, s.files.histRepo = "history", entries, kind, repo
+		s.mu.Unlock()
+		err = herr
+	case "show":
+		s.mu.Lock()
+		repo, kind := s.files.histRepo, s.files.histKind
+		s.mu.Unlock()
+		diff, serr := p.Show(repo, kind, a.Ref, a.Path)
+		if serr != nil {
+			return serr
+		}
+		d := Doc{Kind: "diff", Title: "⎇ " + a.Ref, Path: a.Ref, Repo: repo}
+		fillDiff(&d, diff)
+		s.addDoc(d)
+		return nil
+	case "stash-apply", "stash-pop":
+		s.mu.Lock()
+		repo := s.files.histRepo
+		s.mu.Unlock()
+		err = p.StashApply(repo, a.Ref, a.Do == "stash-pop")
+	case "branches":
+		bs, berr := p.Branches(a.Repo)
+		s.mu.Lock()
+		s.files.branches, s.files.brRepo = bs, a.Repo
+		s.mu.Unlock()
+		err = berr
+	case "branches-close":
+		s.mu.Lock()
+		s.files.branches, s.files.brRepo = nil, ""
+		s.mu.Unlock()
+	case "switch":
+		say, err = p.Switch(a.Repo, explorer.Branch{Name: a.Name, Remote: a.Remote})
+		s.mu.Lock()
+		s.files.branches, s.files.brRepo = nil, ""
 		s.mu.Unlock()
 	case "toggle":
 		err = p.SetExpanded(a.Rel, a.Open)

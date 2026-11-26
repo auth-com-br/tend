@@ -105,6 +105,12 @@ func main() {
 	// before the application exists (what QtWebEngineQuick::initialize
 	// does); set here, it costs nothing until a browser tab is opened.
 	qt.QCoreApplication_SetAttribute2(qt.AA_ShareOpenGLContexts, true)
+	// The window's name to the desktop: its launcher entry is
+	// tend-desktop.desktop (internal/launcher, StartupWMClass=tend-desktop),
+	// and on Wayland it is the desktop file name, not a window class, that
+	// puts the window under that entry's icon in the dock.
+	qt.QCoreApplication_SetApplicationName("tend-desktop")
+	qt.QGuiApplication_SetDesktopFileName("tend-desktop")
 	qt.NewQApplication(os.Args)
 	qtterm.Register()
 	qtterm.SetStartURL(*startURL)

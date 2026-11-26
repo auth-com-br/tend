@@ -33,7 +33,13 @@ Item {
                 width: head.width
                 Text { text: modelData.jj ? "◇" : "⎇"; color: theme.accent; font.pixelSize: 13 }
                 Text { text: modelData.name || "."; color: theme.text; font.pixelSize: 13; font.bold: true }
-                Text { text: modelData.branch; color: theme.peach; font.pixelSize: 12 }
+                // The branch, a click away from the others.
+                Text {
+                    text: modelData.branch + " ▾"
+                    color: brArea.containsMouse ? theme.text : theme.peach
+                    font.pixelSize: 12
+                    MouseArea { id: brArea; anchors.fill: parent; anchors.margins: -3; hoverEnabled: true; onClicked: files.call({ do: "branches", repo: modelData.top }) }
+                }
                 Text {
                     text: (modelData.ahead ? "↑" + modelData.ahead + " " : "") + (modelData.behind ? "↓" + modelData.behind : "")
                     color: theme.peach
@@ -50,7 +56,7 @@ Item {
         Row {
             spacing: 4
             Repeater {
-                model: [{ v: "tree", l: "files" }, { v: "search", l: "search" }, { v: "changes", l: "changes" }]
+                model: [{ v: "tree", l: "files" }, { v: "search", l: "search" }, { v: "changes", l: "changes" }, { v: "history", l: "history" }]
                 delegate: Rectangle {
                     required property var modelData
                     readonly property bool chosen: files.f.view === modelData.v
@@ -59,7 +65,11 @@ Item {
                     radius: 6
                     color: chosen ? theme.surface0 : "transparent"
                     Text { id: viewLabel; anchors.centerIn: parent; text: modelData.l; color: chosen ? theme.text : theme.subtext; font.pixelSize: 12 }
-                    MouseArea { anchors.fill: parent; onClicked: files.call({ do: "view", view: modelData.v }) }
+                    MouseArea {
+                        anchors.fill: parent
+                        onClicked: modelData.v === "history" ? files.call({ do: "history", kind: "commits" })
+                                                            : files.call({ do: "view", view: modelData.v })
+                    }
                 }
             }
             Text {
@@ -235,6 +245,116 @@ Item {
                         Button { label: "merge"; onClicked: files.call({ do: "plan-finish", repo: repoChanges.modelData.repo, action: "merge" }) }
                         Button { label: "PR"; onClicked: files.call({ do: "plan-finish", repo: repoChanges.modelData.repo, action: "pr" }) }
                     }
+                }
+            }
+        }
+    }
+
+
+    // History: commits, stashes or tags; a click shows one as a diff, and a
+    // stash can be applied or popped.
+    Item {
+        visible: files.f.view === "history"
+        anchors.top: head.bottom
+        anchors.topMargin: 8
+        anchors.bottom: parent.bottom
+        width: parent.width
+        Row {
+            id: kinds
+            spacing: 4
+            Repeater {
+                model: ["commits", "stashes", "tags"]
+                delegate: Rectangle {
+                    required property string modelData
+                    readonly property bool chosen: files.f.historyKind === modelData
+                    height: 22
+                    width: kindText.width + 14
+                    radius: 5
+                    color: chosen ? theme.surface1 : theme.surface0
+                    Text { id: kindText; anchors.centerIn: parent; text: modelData; color: theme.text; font.pixelSize: 11 }
+                    MouseArea { anchors.fill: parent; onClicked: files.call({ do: "history", kind: modelData }) }
+                }
+            }
+        }
+        ListView {
+            id: histList
+            anchors.top: kinds.bottom
+            anchors.topMargin: 6
+            anchors.bottom: parent.bottom
+            width: parent.width
+            clip: true
+            model: files.f.history || []
+            delegate: Rectangle {
+                required property var modelData
+                width: histList.width
+                height: histCol.height + 8
+                radius: 4
+                color: histArea.containsMouse ? theme.surface0 : "transparent"
+                Column {
+                    id: histCol
+                    x: 4
+                    y: 4
+                    width: parent.width - 8
+                    Text { width: parent.width; text: modelData.subject; color: theme.text; font.pixelSize: 12; elide: Text.ElideRight }
+                    Text { text: modelData.ref.slice(0, 12) + (modelData.meta ? " · " + modelData.meta : ""); color: theme.overlay0; font.pixelSize: 11 }
+                }
+                MouseArea { id: histArea; anchors.fill: parent; hoverEnabled: true; onClicked: files.call({ do: "show", ref: modelData.ref }) }
+                Row {
+                    anchors.right: parent.right
+                    anchors.rightMargin: 6
+                    anchors.verticalCenter: parent.verticalCenter
+                    visible: histArea.containsMouse && files.f.historyKind === "stashes"
+                    spacing: 6
+                    Button { label: "apply"; onClicked: files.call({ do: "stash-apply", ref: modelData.ref }) }
+                    Button { label: "pop"; onClicked: files.call({ do: "stash-pop", ref: modelData.ref }) }
+                }
+            }
+        }
+    }
+
+    // The branch picker: a remote branch becomes a local one tracking it, as
+    // the panel's does.
+    Rectangle {
+        visible: !!files.f.branchRepo
+        anchors.top: head.bottom
+        anchors.bottom: parent.bottom
+        width: parent.width
+        z: 5
+        color: theme.mantle
+        Text { id: brTitle; text: "switch to"; color: theme.overlay0; font.pixelSize: 11; font.bold: true }
+        Text {
+            anchors.right: parent.right
+            text: "×"
+            color: theme.overlay0
+            font.pixelSize: 14
+            MouseArea { anchors.fill: parent; anchors.margins: -4; onClicked: files.call({ do: "branches-close" }) }
+        }
+        ListView {
+            id: brList
+            anchors.top: brTitle.bottom
+            anchors.topMargin: 6
+            anchors.bottom: parent.bottom
+            width: parent.width
+            clip: true
+            model: files.f.branches || []
+            delegate: Rectangle {
+                required property var modelData
+                width: brList.width
+                height: 26
+                radius: 4
+                color: bArea.containsMouse ? theme.surface0 : "transparent"
+                Text {
+                    x: 6
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: (modelData.current ? "● " : "  ") + modelData.name
+                    color: modelData.remote ? theme.subtext : theme.text
+                    font.pixelSize: 12
+                }
+                MouseArea {
+                    id: bArea
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    onClicked: if (!modelData.current) files.call({ do: "switch", repo: files.f.branchRepo, name: modelData.name, remote: modelData.remote })
                 }
             }
         }
