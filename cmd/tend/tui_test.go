@@ -69,6 +69,33 @@ type attached struct {
 	mu       sync.Mutex
 	screen   *vt.Screen
 	rawBytes strings.Builder
+	// clipboard is the file the client's clipboard tools write to: the
+	// stand-ins fakeClipboardTools puts on its PATH.
+	clipboard string
+}
+
+// fakeClipboardTools puts stand-ins for wl-copy, wl-paste, xclip and xsel
+// first on a client's PATH, writing to and reading from a file of the
+// test's, and says which. The client copies with the desktop's tool when it
+// is not over ssh, and the tests used to reach the real one: every make
+// check overwrote whatever the person running it had copied, and two runs
+// at once (two worktrees) read each other's copies —
+// TestAttachCopiesWhatAProgramAsksToHaveCopied found "bravo", which copy
+// mode's test had just copied elsewhere.
+func fakeClipboardTools(t *testing.T) (pathDir, file string) {
+	t.Helper()
+	dir := t.TempDir()
+	file = filepath.Join(dir, "clipboard")
+	write := "#!/bin/sh\ncase \" $* \" in *primary*) cat > " + file + ".primary ;; *) cat > " + file + " ;; esac\n"
+	read := "#!/bin/sh\ncat " + file + " 2>/dev/null\n"
+	xclip := "#!/bin/sh\ncase \" $* \" in *' -o'*) exec cat " + file + " 2>/dev/null ;; esac\n" +
+		"case \" $* \" in *primary*) cat > " + file + ".primary ;; *) cat > " + file + " ;; esac\n"
+	for name, script := range map[string]string{"wl-copy": write, "wl-paste": read, "xclip": xclip, "xsel": write} {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(script), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return dir, file
 }
 
 func (a *attached) send(t *testing.T, keys string) {
@@ -218,9 +245,11 @@ func startSessionConfigured(t *testing.T, cols, rows int, cfg server.Config) *at
 	if raceBinary {
 		bin = buildBinaryWith(t, "-race")
 	}
+	clipDir, clipFile := fakeClipboardTools(t)
 	p, err := pty.Start(bin, []string{"attach", "-s", "tui"}, pty.Options{
 		Size: pty.Size{Cols: uint16(cols), Rows: uint16(rows)},
 		Env: append(append(os.Environ(),
+			"PATH="+clipDir+string(os.PathListSeparator)+os.Getenv("PATH"),
 			"TEND_RUNTIME_DIR="+runtimeDir,
 			"TEND_CONFIG="+configPath,
 			// A predictable shell, so what a new pane runs does not depend on
@@ -233,7 +262,7 @@ func startSessionConfigured(t *testing.T, cols, rows int, cfg server.Config) *at
 		t.Fatalf("attaching: %v", err)
 	}
 
-	a := &attached{pty: p, screen: vt.NewScreen(cols, rows, 200)}
+	a := &attached{pty: p, screen: vt.NewScreen(cols, rows, 200), clipboard: clipFile}
 	go func() { _, _ = io.Copy(a, p) }()
 
 	t.Cleanup(func() {
@@ -2787,9 +2816,6 @@ func TestAttachGivesTheMouseToAProgramInItsOwnCoordinates(t *testing.T) {
 // such copy fail without a word, which is what sent this client off trying to
 // do the program's selecting for it.
 func TestAttachCopiesWhatAProgramAsksToHaveCopied(t *testing.T) {
-	if _, err := exec.LookPath("xclip"); err != nil {
-		t.Skip("xclip is not installed")
-	}
 	a := startSession(t, 100, 16)
 	a.waitForScreen(t, "a pane", func(s string) bool { return strings.Contains(s, "┌") })
 
@@ -2801,11 +2827,18 @@ func TestAttachCopiesWhatAProgramAsksToHaveCopied(t *testing.T) {
 		return strings.Contains(s, "copied 21 characters")
 	})
 
-	out, err := exec.Command("xclip", "-selection", "clipboard", "-o").Output()
-	if err != nil {
-		t.Skipf("reading the clipboard back: %v", err)
+	// Handed to the desktop's clipboard tool — the test's stand-in, never
+	// the clipboard of whoever runs the tests.
+	var got string
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		out, _ := os.ReadFile(a.clipboard)
+		if got = string(out); got != "" {
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
 	}
-	if got := string(out); got != "copied by the program" {
+	if got != "copied by the program" {
 		t.Errorf("clipboard = %q", got)
 	}
 }
