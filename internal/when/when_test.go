@@ -1,12 +1,13 @@
-package main
+package when
 
 import (
 	"testing"
 	"time"
 )
 
-// TestATaskTimeIsReadAsAPersonTypesIt: `tend task add -at` and `-due` take
-// a date and time, a date, a time of day — the next one, so 09:00 typed in
+// TestATaskTimeIsReadAsAPersonTypesIt: a task's time (`tend task add -at`
+// and `-due`, the desktop's task form) takes a date and time, a date, a
+// time of day — the next one, so 09:00 typed in
 // the evening is tomorrow morning — a duration from now, or RFC 3339, and
 // refuse anything else rather than guess. If it regresses, an agent planned
 // for nine starts at once, or a typo plans it for no time at all.
@@ -22,14 +23,14 @@ func TestATaskTimeIsReadAsAPersonTypesIt(t *testing.T) {
 		"+90m":                      now.Add(90 * time.Minute),
 		"2026-11-27T09:00:00-03:00": time.Date(2026, 11, 27, 12, 0, 0, 0, time.UTC),
 	} {
-		got, err := parseWhen(in, now)
+		got, err := Parse(in, now)
 		if err != nil || !got.Equal(want) {
-			t.Errorf("parseWhen(%q) = %v, %v; want %v", in, got, err, want)
+			t.Errorf("Parse(%q) = %v, %v; want %v", in, got, err, want)
 		}
 	}
 	for _, bad := range []string{"tomorrow", "+soon", "27/11"} {
-		if _, err := parseWhen(bad, now); err == nil {
-			t.Errorf("parseWhen(%q) was taken", bad)
+		if _, err := Parse(bad, now); err == nil {
+			t.Errorf("Parse(%q) was taken", bad)
 		}
 	}
 }
