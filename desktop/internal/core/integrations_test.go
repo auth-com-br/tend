@@ -433,3 +433,41 @@ func TestTheTicketsTabIsTheTicketsPanel(t *testing.T) {
 		return strings.Contains(text, "claude was given:") && strings.Contains(text, "on: ticket-ig-12")
 	})
 }
+
+// TestTheTasksTabListsTheTrackersTicketsToo: the plan of the work in one
+// view (#72) — the tasks tab lists the tracker's open tickets beside the
+// session's tasks, and with no account set up it lists the tasks alone,
+// without an error. If it regresses, the tickets are only in their own tab.
+func TestTheTasksTabListsTheTrackersTicketsToo(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/v1/scopes":
+			_, _ = io.WriteString(w, `{"items":[]}`)
+		case "/v1/issues":
+			_, _ = io.WriteString(w, `{"items":[{"key":"IG-7","ref":"u-7","title":"conciliar o pix","state":"published","done":false,"assignee":"akira","scope":"","updated":"2026-09-27T12:00:00Z","url":null}]}`)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer srv.Close()
+
+	s := openTest(t)
+	s.ToggleDock("tasks")
+	waitFor(t, "the tasks tab", func() bool { d := s.State().Dock; return d != nil && !d.Loading })
+	if d := s.State().Dock; d.Tickets != nil || d.Error != "" {
+		t.Fatalf("with no tracker the tab shows %+v / %q", d.Tickets, d.Error)
+	}
+
+	s.mu.Lock()
+	s.cfg.Tickets.Sources = map[string]config.TicketSource{"ig": {Kind: "issuegateway", URL: srv.URL + "/", Token: "ig_1"}}
+	s.mu.Unlock()
+	s.ToggleDock("tasks") // closed
+	s.ToggleDock("tasks") // and open again, read anew
+	waitFor(t, "the tickets beside the tasks", func() bool {
+		d := s.State().Dock
+		return d != nil && d.Tickets != nil && len(d.Tickets.Tickets) == 1
+	})
+	if got := s.State().Dock.Tickets.Tickets[0]; got.Key != "IG-7" || got.Title != "conciliar o pix" {
+		t.Errorf("the ticket listed is %+v", got)
+	}
+}

@@ -191,6 +191,44 @@ Item {
                 MouseArea { anchors.fill: parent; anchors.margins: -4; onClicked: Bridge.call("task.delete", { id: task.modelData.id }) }
             }
         }
+        // The trackers' tickets, beside the tasks: the plan of the work in
+        // one view. A click opens one in the tickets tab.
+        footer: Column {
+            width: ListView.view ? ListView.view.width : 0
+            readonly property var tk: st.dock && st.dock.tickets
+            readonly property var open: tk ? (tk.tickets || []).filter(function (t) { return !t.done }) : []
+            visible: !!tk
+            spacing: 4
+            topPadding: 14
+            Text {
+                text: tk ? "TICKETS · " + tk.account : ""
+                color: theme.overlay0
+                font.pixelSize: 11
+                font.bold: true
+                font.letterSpacing: 1
+            }
+            Repeater {
+                model: parent.open
+                delegate: Rectangle {
+                    required property var modelData
+                    width: parent ? parent.width : 0
+                    height: 38
+                    radius: 6
+                    color: tkArea.containsMouse ? theme.surface0 : "transparent"
+                    Text { x: 8; y: 4; text: modelData.key + " · " + modelData.state; color: theme.overlay0; font.pixelSize: 11 }
+                    Text { x: 8; y: 19; width: parent.width - 16; text: modelData.title; color: theme.text; font.pixelSize: 12; elide: Text.ElideRight }
+                    MouseArea {
+                        id: tkArea
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        onClicked: {
+                            Bridge.call("dock", { name: "tickets" })
+                            Bridge.call("tickets", { do: "open", key: modelData.key })
+                        }
+                    }
+                }
+            }
+        }
         Text {
             visible: tasks.list.length === 0 && !(st.dock && st.dock.loading)
             text: "No tasks yet. + new plans one, with an agent to start at a time if you like."

@@ -109,6 +109,10 @@ func (s *Session) loadDock(tab string) {
 			s.dock.tasks = tasks
 		}
 		s.mu.Unlock()
+		// The tickets tend already reads (Linear, Jira, ClickUp…) beside
+		// the tasks, the plan of the work in one view (#72). Quietly: no
+		// account set up is no tickets, not an error on the tasks.
+		_ = s.loadTickets()
 	}
 	s.mu.Lock()
 	s.dock.loading = false
@@ -152,6 +156,9 @@ func (s *Session) dockStateLocked() *DockState {
 		st.Tickets = s.ticketsStateLocked()
 	}
 	if s.dock.tab == "tasks" {
+		if tk := s.ticketsStateLocked(); tk != nil && tk.Connected {
+			st.Tickets = tk
+		}
 		names := map[uint64]string{}
 		for _, w := range s.snap.Workspaces {
 			names[w.ID] = sidebar.OrDash(w.Name)

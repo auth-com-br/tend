@@ -49,7 +49,6 @@ const (
 // and do nothing: the files panel natively (phase 3), and the global
 // menu's screens that have none yet.
 var notHere = map[string]bool{
-	ui.MenuFiles:    true,
 	ui.MenuKeybinds: true,
 	ui.MenuDetach:   true,
 	ui.MenuPhone:    true,
@@ -383,6 +382,10 @@ func (s *Session) runMenu(m ui.Menu, item ui.MenuItem) error {
 		return nil
 	case ui.MenuTool:
 		return s.openTool(item.Arg)
+	case ui.MenuFiles:
+		// The TUI's files panel is the dock's files tab here.
+		s.ToggleDock("files")
+		return nil
 	case ui.MenuContinueIn:
 		s.openSubmenu(ui.ContinueMenu(m.Pane, "", tools.ContinueAgents(), m.X, m.Y))
 		return nil
