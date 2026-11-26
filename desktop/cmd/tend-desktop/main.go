@@ -273,6 +273,8 @@ func dispatch(sess *core.Session, method string, raw []byte) error {
 		X         int    `json:"x"`
 		Y         int    `json:"y"`
 		Index     int    `json:"index"`
+		Delta     int    `json:"delta"`
+		Name      string `json:"name"`
 		Focused   bool   `json:"focused"`
 		Light     bool   `json:"light"`
 		Cols      int    `json:"cols"`
@@ -334,6 +336,16 @@ func dispatch(sess *core.Session, method string, raw []byte) error {
 	case "toast.open":
 		sess.DismissToast(a.Index)
 		return sess.JumpToPane(a.Pane)
+	case "panel":
+		sess.OpenPanel(a.Name)
+		return nil
+	case "setting.change":
+		said, err := sess.ChangeSetting(a.Index, a.Delta)
+		if err != nil {
+			return err
+		}
+		setStatus(said)
+		return nil
 	case "status":
 		setStatus(a.Text)
 		return nil

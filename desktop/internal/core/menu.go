@@ -53,7 +53,6 @@ var notHere = map[string]bool{
 	ui.MenuFiles:       true,
 	ui.MenuKeybinds:    true,
 	ui.MenuDetach:      true,
-	ui.MenuSettings:    true,
 	ui.MenuMCP:         true,
 	ui.MenuPermissions: true,
 	ui.MenuTools:       true,
@@ -338,7 +337,10 @@ func (s *Session) runMenu(m ui.Menu, item ui.MenuItem) error {
 	case ui.MenuResumeAfterLimit, ui.MenuNoResume:
 		return c.ResumeAfterLimit(m.Pane, item.Action == ui.MenuResumeAfterLimit)
 	case ui.MenuReload:
-		return c.Call(proto.MethodServerReloadConfig, nil, nil)
+		return s.ReloadSettings()
+	case ui.MenuSettings:
+		s.OpenPanel("settings")
+		return nil
 	case ui.MenuSleepPick:
 		return s.openSleepMenu(m)
 	case ui.MenuSleepOne:

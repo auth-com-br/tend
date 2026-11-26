@@ -30,6 +30,7 @@ type Session struct {
 	mu     sync.Mutex
 	client *client.Client
 	name   string
+	cfg    config.Config
 	ui     config.UI
 	notes  *notifier
 	done   chan struct{}
@@ -121,7 +122,9 @@ type paneView struct {
 func Open(name, tendPath string, cfg config.Config) (*Session, error) {
 	s := &Session{
 		name:     name,
+		cfg:      cfg,
 		ui:       cfg.UI,
+		grouped:  cfg.UI.Grouped,
 		notes:    newNotifier(cfg),
 		done:     make(chan struct{}),
 		colours:  DefaultColours,

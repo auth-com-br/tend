@@ -41,6 +41,8 @@ type State struct {
 	Toasts []Toast `json:"toasts,omitempty"`
 	// Theme is the window's colours.
 	Theme Theme `json:"theme"`
+	// Settings is the settings screen, while it is open.
+	Settings *SettingsState `json:"settings,omitempty"`
 }
 
 // MenuState is a menu as QML draws it.
@@ -195,6 +197,9 @@ func (s *Session) State() State {
 	st.Panel = s.panel
 	st.Zoomed = s.zoom != 0
 	st.Theme = s.theme
+	if s.panel == "settings" {
+		st.Settings = s.settingsStateLocked()
+	}
 	st.Toasts = append([]Toast(nil), s.notes.shown...)
 	if s.snap.Update != nil {
 		st.Update = s.snap.Update.Ready

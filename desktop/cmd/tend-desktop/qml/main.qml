@@ -1073,6 +1073,17 @@ Window {
         }
     }
 
+    // ---- screens ----------------------------------------------------------
+    //
+    // A screen the global menu opens, made only while it is open.
+
+    Loader {
+        anchors.fill: parent
+        z: 180
+        active: st.panel === "settings"
+        source: "panels/Settings.qml"
+    }
+
     // ---- status line -----------------------------------------------------
 
     Rectangle {
