@@ -87,7 +87,7 @@ func (g Git) Merge(st *Status) (string, error) {
 			return "", errors.New("uncommitted changes here: commit them first, or they are left out")
 		}
 	}
-	there := Git{Top: target.Path}
+	there := Git{Top: target.Path, ctx: g.ctx}
 	dirty, err := there.run("status", "--porcelain", "--untracked-files=no")
 	if err != nil {
 		return "", err
@@ -134,7 +134,7 @@ func (g Git) PullRequest(st *Status) (string, error) {
 // openPR opens a pull request for head with gh, titled and described from
 // its commits, and says its address, or the one already open.
 func (g Git) openPR(head string) (string, error) {
-	cmd := exec.Command("gh", "pr", "create", "--fill", "--head", head)
+	cmd := g.command("gh", "pr", "create", "--fill", "--head", head)
 	cmd.Dir = g.Top
 	// gh asks on the terminal for what it lacks; the panel's terminal is
 	// nobody's to answer, so it is told not to.
@@ -157,6 +157,54 @@ func (g Git) openPR(head string) (string, error) {
 	return "pull request: " + strings.TrimSpace(lines[len(lines)-1]), nil
 }
 
+// FinishAction is how an agent's branch ends: merged, or a pull request.
+type FinishAction int
+
+const (
+	FinishMerge FinishAction = iota
+	FinishPullRequest
+)
+
+// FinishPlan is a merge or a pull request about to be done: what it will
+// do, said for the person to confirm, and what to say while it runs. The
+// panel asks for its key twice with it; the desktop asks with a button.
+type FinishPlan struct {
+	// What is the action as a person reads it: "merge agent/fix into main".
+	What string
+	// Doing is what to show while it runs.
+	Doing string
+	// key names the plan, so the panel's second press can tell it is the
+	// same one: a different branch by then is a different question.
+	key string
+	run func(*Status) (string, error)
+}
+
+// planFinish is the merge or pull request a repository in this state
+// would get, or why it would not: not on a branch, a merge in jj, a merge
+// from the main worktree. Refused here, before the person confirms, since
+// a question whose answer can only fail is not worth asking.
+func planFinish(g Git, st *Status, action FinishAction) (FinishPlan, error) {
+	if st == nil || st.Branch == "" || st.detachedOrNone {
+		return FinishPlan{}, errors.New("not on a branch")
+	}
+	switch {
+	case g.JJ && action == FinishMerge:
+		return FinishPlan{}, errJJMerge
+	case g.JJ:
+		return FinishPlan{key: "pr @-", What: "push the last change (@-) and open a pull request for it",
+			Doing: "pushing and opening the pull request…", run: g.PullRequest}, nil
+	case action == FinishMerge:
+		target, err := g.MergeTarget(st)
+		if err != nil {
+			return FinishPlan{}, err
+		}
+		return FinishPlan{key: "merge " + st.Branch, What: "merge " + st.Branch + " into " + target.Branch,
+			Doing: "merging…", run: g.Merge}, nil
+	}
+	return FinishPlan{key: "pr " + st.Branch, What: "open a pull request for " + st.Branch,
+		Doing: "opening the pull request…", run: g.PullRequest}, nil
+}
+
 // startFinish runs a merge or a pull request in the background, as sync
 // does, after the key was pressed twice.
 func (m *Model) startFinish(key, pending string) {
@@ -164,40 +212,22 @@ func (m *Model) startFinish(key, pending string) {
 		m.say("busy: wait for the last one to finish", false)
 		return
 	}
-	st, g := m.status, m.git
-	if st == nil || st.Branch == "" || st.detachedOrNone {
-		m.say("not on a branch", true)
+	st := m.status
+	action := FinishPullRequest
+	if key == "M" {
+		action = FinishMerge
+	}
+	plan, err := planFinish(m.git, st, action)
+	if err != nil {
+		m.fail(err)
 		return
 	}
-	var want, ask, doing string
-	var run func(*Status) (string, error)
-	switch {
-	case g.JJ && key == "M":
-		m.fail(errJJMerge)
-		return
-	case g.JJ:
-		want = "pr @-"
-		ask = "R again to push the last change (@-) and open a pull request for it"
-		doing, run = "pushing and opening the pull request…", g.PullRequest
-	case key == "M":
-		target, err := g.MergeTarget(st)
-		if err != nil {
-			m.fail(err)
-			return
-		}
-		want = "merge " + st.Branch
-		ask = "M again to merge " + st.Branch + " into " + target.Branch
-		doing, run = "merging…", g.Merge
-	default:
-		want = "pr " + st.Branch
-		ask = "R again to open a pull request for " + st.Branch
-		doing, run = "opening the pull request…", g.PullRequest
-	}
-	if pending != want {
-		m.confirm = want
-		m.say(ask, true)
+	if pending != plan.key {
+		m.confirm = plan.key
+		m.say(key+" again to "+plan.What, true)
 		return
 	}
+	run, doing := plan.run, plan.Doing
 	m.job = func() func(*Model) {
 		msg, err := run(st)
 		return func(m *Model) {

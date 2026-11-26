@@ -271,7 +271,7 @@ func (m *Model) runMenu(action menuAction, target *Node) {
 		m.Refresh()
 		m.say(said, false)
 	case actFileHistory:
-		m.openHistory(histCommits, m.tree.repoPath(m.git, target.Rel))
+		m.openHistory(HistoryCommits, m.tree.repoPath(m.git, target.Rel))
 	case actAddContext:
 		adder, ok := m.opener.(ContextAdder)
 		if !ok {

@@ -67,8 +67,12 @@ func reposFor(dir string) (root string, repos []Git) {
 }
 
 // multiRepo is whether the panel shows a folder of repositories.
-func (m *Model) multiRepo() bool {
-	return len(m.repos) > 1 || len(m.repos) == 1 && m.repos[0].git.Top != m.tree.Root
+func (m *Model) multiRepo() bool { return isMultiRepo(m.tree.Root, m.repos) }
+
+// isMultiRepo is whether a panel rooted at root, with these repositories,
+// shows a folder of them rather than one whole.
+func isMultiRepo(root string, repos []repoState) bool {
+	return len(repos) > 1 || len(repos) == 1 && repos[0].git.Top != root
 }
 
 // activate makes a repository the one actions go to; -1 is none.
@@ -90,10 +94,14 @@ func (m *Model) activate(i int) {
 }
 
 // repoOf is the repository a path from the root is in, or -1.
-func (m *Model) repoOf(rel string) int {
-	abs := filepath.Join(m.tree.Root, filepath.FromSlash(rel))
+func (m *Model) repoOf(rel string) int { return repoIndex(m.tree.Root, m.repos, rel) }
+
+// repoIndex is the repository a path from root is in, or -1: the deepest,
+// for a repository inside another's folder.
+func repoIndex(root string, repos []repoState, rel string) int {
+	abs := filepath.Join(root, filepath.FromSlash(rel))
 	best, bestLen := -1, -1
-	for i, r := range m.repos {
+	for i, r := range repos {
 		if (abs == r.git.Top || strings.HasPrefix(abs, r.git.Top+string(filepath.Separator))) && len(r.git.Top) > bestLen {
 			best, bestLen = i, len(r.git.Top)
 		}
@@ -103,13 +111,17 @@ func (m *Model) repoOf(rel string) int {
 
 // statusFor is the git letter of a tree entry, from whichever repository
 // it is in.
-func (m *Model) statusFor(n *Node) byte {
-	i := m.repoOf(n.Rel)
-	if i < 0 || m.repos[i].status == nil {
+func (m *Model) statusFor(n *Node) byte { return entryLetter(m.tree, m.repos, n) }
+
+// entryLetter is the git letter of a tree entry, or 0, from the status of
+// the repository it is in: what the panel and the desktop's tree both show.
+func entryLetter(t *Tree, repos []repoState, n *Node) byte {
+	i := repoIndex(t.Root, repos, n.Rel)
+	if i < 0 || repos[i].status == nil {
 		return 0
 	}
-	st, g := m.repos[i].status, m.repos[i].git
-	rel := m.tree.repoPath(g, n.Rel)
+	st, g := repos[i].status, repos[i].git
+	rel := t.repoPath(g, n.Rel)
 	if rel == "." {
 		// A repository's own folder, in a folder of them: marked when it
 		// holds any change, as any folder is.
@@ -156,8 +168,14 @@ func (m *Model) repoName(i int) string {
 	if i < 0 || i >= len(m.repos) {
 		return ""
 	}
-	if rel, err := filepath.Rel(m.tree.Root, m.repos[i].git.Top); err == nil && rel != "." {
+	return repoLabel(m.tree.Root, m.repos[i].git.Top)
+}
+
+// repoLabel is a repository named by its path from the folder shown, or by
+// its own name when it is the folder.
+func repoLabel(root, top string) string {
+	if rel, err := filepath.Rel(root, top); err == nil && rel != "." {
 		return filepath.ToSlash(rel)
 	}
-	return filepath.Base(m.repos[i].git.Top)
+	return filepath.Base(top)
 }

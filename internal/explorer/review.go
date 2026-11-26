@@ -19,10 +19,7 @@ func (m *Model) startReview() {
 		return
 	}
 	v := m.viewer
-	about := v.rel
-	if line := diffLine(v.lines, v.top); line > 0 {
-		about += " around line " + strconv.Itoa(line)
-	}
+	about := reviewAbout(v.rel, diffLine(v.lines, v.top))
 	m.ask("review of "+about+" — to the agent beside", "", func(m *Model, text string) {
 		m.mode = modeViewer
 		text = strings.Join(strings.Fields(text), " ")
@@ -37,6 +34,15 @@ func (m *Model) startReview() {
 		m.say("sent to "+agent, false)
 	})
 	m.prompt.back = modeViewer
+}
+
+// reviewAbout names what a review is of: a file, and the line of the new
+// file it was written at when there is one.
+func reviewAbout(rel string, line int) string {
+	if line > 0 {
+		return rel + " around line " + strconv.Itoa(line)
+	}
+	return rel
 }
 
 // ReviewMessage is what the agent is sent: one line — a line break would

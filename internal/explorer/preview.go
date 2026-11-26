@@ -93,20 +93,14 @@ func (p *Preview) load(path string, line int) {
 		// be there to light.
 		p.raw = true
 	}
-	f, err := os.Open(path)
+	data, binary, cut, err := readForView(path)
 	if err != nil {
 		p.err = err
 		return
 	}
-	defer f.Close()
-	data, _ := io.ReadAll(io.LimitReader(f, maxViewBytes+1))
-	if bytes.IndexByte(data[:min(len(data), 8000)], 0) >= 0 {
+	if binary {
 		p.binary = true
 		return
-	}
-	cut := len(data) > maxViewBytes
-	if cut {
-		data = data[:maxViewBytes]
 	}
 	text := strings.ReplaceAll(strings.TrimSuffix(string(data), "\n"), "\t", "    ")
 	p.lines = strings.Split(text, "\n")
@@ -122,6 +116,28 @@ func (p *Preview) load(path string, line int) {
 	if line > 0 {
 		p.top = max(line-1-max(p.rows-2, 1)/3, 0)
 	}
+}
+
+// readForView reads a file to be shown: at most maxViewBytes of it, and
+// whether there was more (cut), or that it is binary — a NUL in its first
+// 8000 bytes, git's own test — and so not text to show at all.
+func readForView(path string) (data []byte, binary, cut bool, err error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, false, false, err
+	}
+	defer f.Close()
+	data, err = io.ReadAll(io.LimitReader(f, maxViewBytes+1))
+	if err != nil {
+		return nil, false, false, err
+	}
+	if bytes.IndexByte(data[:min(len(data), 8000)], 0) >= 0 {
+		return nil, true, false, nil
+	}
+	if len(data) > maxViewBytes {
+		return data[:maxViewBytes], false, true, nil
+	}
+	return data, false, false, nil
 }
 
 // Quit reports whether the user closed the preview.

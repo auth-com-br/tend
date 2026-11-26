@@ -87,6 +87,26 @@ func langFor(path string) *lang {
 	return langs[extLang[strings.ToLower(filepath.Ext(base))]]
 }
 
+// TokenKind is what a run of a line is, for the highlighter: the panel
+// colours each kind with the terminal's own colours (styleOf), and the
+// desktop's files panel with its theme's, from the same tokens.
+type TokenKind int
+
+const (
+	TokenPlain TokenKind = iota
+	TokenKeyword
+	TokenString
+	TokenComment
+	TokenNumber
+	TokenHeading
+)
+
+// Token is a run of a line of one kind.
+type Token struct {
+	Text string
+	Kind TokenKind
+}
+
 // Colours: the terminal's own, so the preview has the theme the rest has.
 var (
 	hlKeyword = vt.Style{FG: vt.IndexedColor(5), Attrs: vt.AttrBold}
@@ -95,6 +115,23 @@ var (
 	hlNumber  = vt.Style{FG: vt.IndexedColor(3)}
 	hlHeading = vt.Style{FG: vt.IndexedColor(4), Attrs: vt.AttrBold}
 )
+
+// styleOf is the terminal's colour for a kind of token.
+func styleOf(k TokenKind) vt.Style {
+	switch k {
+	case TokenKeyword:
+		return hlKeyword
+	case TokenString:
+		return hlString
+	case TokenComment:
+		return hlComment
+	case TokenNumber:
+		return hlNumber
+	case TokenHeading:
+		return hlHeading
+	}
+	return styleNormal
+}
 
 // span is a run of a line in one style.
 type span struct {
@@ -112,22 +149,45 @@ type hlState struct {
 
 // highlight colours one line, given the state the line before left.
 func (l *lang) highlight(line string, st hlState) ([]span, hlState) {
+	toks, st := l.tokens(line, st)
+	out := make([]span, len(toks))
+	for i, t := range toks {
+		out[i] = span{t.Text, styleOf(t.Kind)}
+	}
+	return out, st
+}
+
+// Highlight cuts a file's lines into tokens, by the language its name says:
+// a line of tokens per line, plain when the language is not one the
+// highlighter knows.
+func Highlight(path string, lines []string) [][]Token {
+	l := langFor(path)
+	var st hlState
+	out := make([][]Token, len(lines))
+	for i, ln := range lines {
+		out[i], st = l.tokens(ln, st)
+	}
+	return out
+}
+
+// tokens cuts one line into tokens, given the state the line before left.
+func (l *lang) tokens(line string, st hlState) ([]Token, hlState) {
 	if l == nil {
-		return []span{{line, styleNormal}}, st
+		return []Token{{line, TokenPlain}}, st
 	}
 	if l.markdown {
 		return l.markdownLine(line, st)
 	}
-	var out []span
-	emit := func(text string, style vt.Style) {
+	var out []Token
+	emit := func(text string, kind TokenKind) {
 		if text == "" {
 			return
 		}
-		if n := len(out); n > 0 && out[n-1].style == style {
-			out[n-1].text += text
+		if n := len(out); n > 0 && out[n-1].Kind == kind {
+			out[n-1].Text += text
 			return
 		}
-		out = append(out, span{text, style})
+		out = append(out, Token{text, kind})
 	}
 	i := 0
 	for i < len(line) {
@@ -136,27 +196,27 @@ func (l *lang) highlight(line string, st hlState) ([]span, hlState) {
 		case st.inBlock:
 			end := strings.Index(rest, l.blockClose)
 			if end < 0 {
-				emit(rest, hlComment)
+				emit(rest, TokenComment)
 				return out, st
 			}
-			emit(rest[:end+len(l.blockClose)], hlComment)
+			emit(rest[:end+len(l.blockClose)], TokenComment)
 			i += end + len(l.blockClose)
 			st.inBlock = false
 			continue
 		case st.inRaw:
 			end := strings.IndexByte(rest, l.raw)
 			if end < 0 {
-				emit(rest, hlString)
+				emit(rest, TokenString)
 				return out, st
 			}
-			emit(rest[:end+1], hlString)
+			emit(rest[:end+1], TokenString)
 			i += end + 1
 			st.inRaw = false
 			continue
 		}
 		if l.blockOpen != "" && strings.HasPrefix(rest, l.blockOpen) {
 			st.inBlock = true
-			emit(l.blockOpen, hlComment)
+			emit(l.blockOpen, TokenComment)
 			i += len(l.blockOpen)
 			continue
 		}
@@ -167,14 +227,14 @@ func (l *lang) highlight(line string, st hlState) ([]span, hlState) {
 			}
 		}
 		if lineComment {
-			emit(rest, hlComment)
+			emit(rest, TokenComment)
 			return out, st
 		}
 		c := line[i]
 		switch {
 		case l.raw != 0 && c == l.raw:
 			st.inRaw = true
-			emit(string(c), hlString)
+			emit(string(c), TokenString)
 			i++
 		case strings.IndexByte(l.quotes, c) >= 0:
 			end := i + 1
@@ -185,14 +245,14 @@ func (l *lang) highlight(line string, st hlState) ([]span, hlState) {
 				end++
 			}
 			end = min(end+1, len(line))
-			emit(line[i:end], hlString)
+			emit(line[i:end], TokenString)
 			i = end
 		case c >= '0' && c <= '9' && (i == 0 || !isWordByte(line[i-1])):
 			end := i
 			for end < len(line) && (isWordByte(line[end]) || line[end] == '.') {
 				end++
 			}
-			emit(line[i:end], hlNumber)
+			emit(line[i:end], TokenNumber)
 			i = end
 		case isWordByte(c):
 			end := i
@@ -201,14 +261,14 @@ func (l *lang) highlight(line string, st hlState) ([]span, hlState) {
 			}
 			word := line[i:end]
 			if l.keywords[word] {
-				emit(word, hlKeyword)
+				emit(word, TokenKeyword)
 			} else {
-				emit(word, styleNormal)
+				emit(word, TokenPlain)
 			}
 			i = end
 		default:
 			_, size := utf8.DecodeRuneInString(rest)
-			emit(rest[:size], styleNormal)
+			emit(rest[:size], TokenPlain)
 			i += size
 		}
 	}
@@ -221,21 +281,21 @@ func isWordByte(b byte) bool {
 
 // markdownLine colours headings, block quotes, list marks and code, which is
 // what makes a README readable without rendering it.
-func (l *lang) markdownLine(line string, st hlState) ([]span, hlState) {
+func (l *lang) markdownLine(line string, st hlState) ([]Token, hlState) {
 	trimmed := strings.TrimLeftFunc(line, unicode.IsSpace)
 	switch {
 	case strings.HasPrefix(trimmed, "```") || strings.HasPrefix(trimmed, "~~~"):
 		st.inFence = !st.inFence
-		return []span{{line, hlComment}}, st
+		return []Token{{line, TokenComment}}, st
 	case st.inFence:
-		return []span{{line, hlString}}, st
+		return []Token{{line, TokenString}}, st
 	case strings.HasPrefix(trimmed, "#"):
-		return []span{{line, hlHeading}}, st
+		return []Token{{line, TokenHeading}}, st
 	case strings.HasPrefix(trimmed, ">"):
-		return []span{{line, hlComment}}, st
+		return []Token{{line, TokenComment}}, st
 	case strings.HasPrefix(trimmed, "- ") || strings.HasPrefix(trimmed, "* ") || strings.HasPrefix(trimmed, "+ "):
 		lead := len(line) - len(trimmed)
-		return []span{{line[:lead+2], hlKeyword}, {line[lead+2:], styleNormal}}, st
+		return []Token{{line[:lead+2], TokenKeyword}, {line[lead+2:], TokenPlain}}, st
 	}
-	return []span{{line, styleNormal}}, st
+	return []Token{{line, TokenPlain}}, st
 }

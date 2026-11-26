@@ -413,8 +413,10 @@ func (m *Model) drawMatchLine(g *vt.Grid, x, y int, match GrepMatch, base, hit v
 // matchLen is how long the match at the start of s is. git says where a
 // match starts, not where it ends; for text it is the query's length, and
 // for a pattern the query is found again here.
-func (m *Model) matchLen(s string) int {
-	o := m.csearch.opts
+func (m *Model) matchLen(s string) int { return matchLength(m.csearch.opts, s) }
+
+// matchLength is how long the match of o at the start of s is.
+func matchLength(o GrepOptions, s string) int {
 	if !o.Regex {
 		if len(o.Query) <= len(s) {
 			return len(o.Query)

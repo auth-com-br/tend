@@ -109,7 +109,15 @@ func (m *Model) Follow() {
 	if err != nil {
 		return // the session not answering is no reason to say anything
 	}
-	if !m.follow.started {
+	if dir := m.follow.nextFor(siblings, m.tree.Root); dir != "" {
+		m.Reroot(dir)
+	}
+}
+
+// nextFor is next for a panel showing root: the first time, the sibling
+// whose project root is counts as the one already followed.
+func (f *follower) nextFor(siblings []Sibling, root string) string {
+	if !f.started {
 		// The panel opened where the pane it was opened from is, and has
 		// the focus itself now; with no sibling focused the rule would fall
 		// to the lowest id, which may be another project. The one already
@@ -118,19 +126,17 @@ func (m *Model) Follow() {
 			if s.Cwd == "" {
 				continue
 			}
-			root := s.Cwd
+			at := s.Cwd
 			if g := FindRepo(s.Cwd); g.Top != "" {
-				root = g.Top
+				at = g.Top
 			}
-			if root == m.tree.Root {
-				m.follow.selected = s.Pane
+			if at == root {
+				f.selected = s.Pane
 				break
 			}
 		}
 	}
-	if dir := m.follow.next(siblings); dir != "" {
-		m.Reroot(dir)
-	}
+	return f.next(siblings)
 }
 
 // Reroot shows another directory: the repository it is in, or itself.

@@ -3,6 +3,7 @@ package explorer
 import (
 	"bytes"
 	"context"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -163,6 +164,21 @@ func fallbackMessage(files []string) string {
 	return "Update " + filepath.Base(files[0]) + " and " + strconv.Itoa(len(files)-1) + " more"
 }
 
+// errNothingToDescribe is what drafting a message says with no change.
+var errNothingToDescribe = errors.New("no changes to describe")
+
+// draftInput is what a drafted message describes, or why there is nothing.
+func draftInput(g Git) (diff string, files []string, err error) {
+	diff, files, err = g.DiffForMessage()
+	if err != nil {
+		return "", nil, err
+	}
+	if strings.TrimSpace(diff) == "" && len(files) == 0 {
+		return "", nil, errNothingToDescribe
+	}
+	return diff, files, nil
+}
+
 // startSuggest drafts a commit message in the background and puts it in the
 // commit box.
 func (m *Model) startSuggest() {
@@ -173,13 +189,9 @@ func (m *Model) startSuggest() {
 		m.say("busy; try again in a moment", false)
 		return
 	}
-	diff, files, err := m.git.DiffForMessage()
+	diff, files, err := draftInput(m.git)
 	if err != nil {
 		m.fail(err)
-		return
-	}
-	if strings.TrimSpace(diff) == "" && len(files) == 0 {
-		m.say("no changes to describe", true)
 		return
 	}
 	m.job = func() func(*Model) {

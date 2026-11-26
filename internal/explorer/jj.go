@@ -62,7 +62,7 @@ func (g Git) jj(args ...string) ([]byte, error) {
 	if g.Top == "" {
 		return nil, ErrNoRepo
 	}
-	cmd := exec.Command("jj", append([]string{"-R", g.Top, "--color=never", "--no-pager"}, args...)...)
+	cmd := g.command("jj", append([]string{"-R", g.Top, "--color=never", "--no-pager"}, args...)...)
 	// jj writes paths relative to where it is run, not to -R: run from
 	// elsewhere, a change at the top was "../../repo/keep.txt".
 	cmd.Dir = g.Top
@@ -248,7 +248,7 @@ func (g Git) jjSync() (string, error) {
 	if _, err := g.jj("git", "fetch"); err != nil {
 		return "", err
 	}
-	cmd := exec.Command("jj", "-R", g.Top, "--color=never", "--no-pager", "git", "push")
+	cmd := g.command("jj", "-R", g.Top, "--color=never", "--no-pager", "git", "push")
 	cmd.Dir = g.Top
 	cmd.Env = networkEnv()
 	var out bytes.Buffer

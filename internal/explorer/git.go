@@ -2,6 +2,7 @@ package explorer
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -173,6 +174,27 @@ type Git struct {
 	Top string
 	// JJ marks a Jujutsu workspace, which is asked of jj instead (jj.go).
 	JJ bool
+	// ctx ends the commands this Git runs, when set (WithContext). It is a
+	// field rather than a parameter of every method because the methods are
+	// the panel's whole vocabulary of git and jj, and the desktop's files
+	// panel cancels a push or a fetch it no longer waits for: one field
+	// reaches every command, the network ones included, without a second
+	// copy of each method taking a context.
+	ctx context.Context
+}
+
+// WithContext is the same repository with its commands ended when ctx is.
+func (g Git) WithContext(ctx context.Context) Git {
+	g.ctx = ctx
+	return g
+}
+
+// command is a program run for this repository, ended with its context.
+func (g Git) command(name string, args ...string) *exec.Cmd {
+	if g.ctx != nil {
+		return exec.CommandContext(g.ctx, name, args...)
+	}
+	return exec.Command(name, args...)
 }
 
 // FindRepo is the repository dir is in, if it is in one: a jj workspace
@@ -202,7 +224,7 @@ func (g Git) run(args ...string) ([]byte, error) {
 		// repository to ask in a jj one that is not colocated.
 		return nil, errors.New("a jj repository with no git beside it: jj log has its history")
 	}
-	cmd := exec.Command("git", append([]string{"-C", g.Top}, args...)...)
+	cmd := g.command("git", append([]string{"-C", g.Top}, args...)...)
 	// The panel reads the status every two seconds, and a status takes the
 	// index's lock to write back what it refreshed — an optional lock, which
 	// this turns off, as git documents for tools that poll. With it on, the
@@ -246,7 +268,7 @@ func (g Git) Ignored(paths []string) map[string]bool {
 	if g.Top == "" || len(paths) == 0 || (g.JJ && !g.colocated()) {
 		return out
 	}
-	cmd := exec.Command("git", "-C", g.Top, "check-ignore", "-z", "--stdin")
+	cmd := g.command("git", "-C", g.Top, "check-ignore", "-z", "--stdin")
 	cmd.Stdin = strings.NewReader(strings.Join(paths, "\x00") + "\x00")
 	// check-ignore exits 1 when nothing matched, which is not a failure.
 	res, _ := cmd.Output()
@@ -439,7 +461,7 @@ func (g Git) runNet(args ...string) error {
 	if g.Top == "" {
 		return ErrNoRepo
 	}
-	cmd := exec.Command("git", append([]string{"-C", g.Top}, args...)...)
+	cmd := g.command("git", append([]string{"-C", g.Top}, args...)...)
 	cmd.Env = networkEnv()
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr

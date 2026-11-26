@@ -12,27 +12,30 @@ import (
 // It reads; the only things it changes are stashes, which are the user's
 // own shelf.
 
-type historyKind int
+// HistoryKind is which of git's lists is browsed.
+type HistoryKind int
 
 const (
-	histCommits historyKind = iota
-	histStashes
-	histTags
+	HistoryCommits HistoryKind = iota
+	HistoryStashes
+	HistoryTags
 )
 
 var historyNames = [3]string{"commits", "stashes", "tags"}
 
-// historyEntry is one line of a list: what to show it by, and what it says.
-type historyEntry struct {
-	ref     string
-	subject string
-	meta    string
+// HistoryEntry is one line of a list: what to show it by, and what it says.
+type HistoryEntry struct {
+	// Ref is what git shows it by: an abbreviated hash, stash@{n}, a tag.
+	Ref     string
+	Subject string
+	// Meta is who and when, as git writes it for people ("t, 2 hours ago").
+	Meta string
 }
 
 type history struct {
-	kind   historyKind
+	kind   HistoryKind
 	file   string // a file's history, when set: commits that touched it
-	items  []historyEntry
+	items  []HistoryEntry
 	cursor int
 	err    error
 }
@@ -41,7 +44,7 @@ type history struct {
 const maxHistory = 300
 
 // Log is the recent commits, or those that touched path.
-func (g Git) Log(path string) ([]historyEntry, error) {
+func (g Git) Log(path string) ([]HistoryEntry, error) {
 	args := []string{"log", "-n", strconv.Itoa(maxHistory), "--format=%h%x1f%s%x1f%an, %ar"}
 	if path != "" {
 		args = append(args, "--follow", "--", path)
@@ -50,26 +53,26 @@ func (g Git) Log(path string) ([]historyEntry, error) {
 }
 
 // Stashes is the stash list.
-func (g Git) Stashes() ([]historyEntry, error) {
+func (g Git) Stashes() ([]HistoryEntry, error) {
 	return g.entries("stash", "list", "--format=%gd%x1f%s%x1f%ar")
 }
 
 // Tags is the tags, newest first.
-func (g Git) Tags() ([]historyEntry, error) {
+func (g Git) Tags() ([]HistoryEntry, error) {
 	return g.entries("for-each-ref", "--sort=-creatordate", "--count="+strconv.Itoa(maxHistory),
 		"--format=%(refname:short)%1f%(subject)%1f%(creatordate:relative)", "refs/tags")
 }
 
-func (g Git) entries(args ...string) ([]historyEntry, error) {
+func (g Git) entries(args ...string) ([]HistoryEntry, error) {
 	out, err := g.run(args...)
 	if err != nil {
 		return nil, err
 	}
-	var items []historyEntry
+	var items []HistoryEntry
 	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
 		f := strings.Split(line, "\x1f")
 		if len(f) == 3 && f[0] != "" {
-			items = append(items, historyEntry{ref: f[0], subject: f[1], meta: f[2]})
+			items = append(items, HistoryEntry{Ref: f[0], Subject: f[1], Meta: f[2]})
 		}
 	}
 	return items, nil
@@ -77,10 +80,10 @@ func (g Git) entries(args ...string) ([]historyEntry, error) {
 
 // Show is what git says about a commit, a stash or a tag, with its diff —
 // of one file, when the history is that file's.
-func (g Git) Show(kind historyKind, ref, path string) (string, error) {
+func (g Git) Show(kind HistoryKind, ref, path string) (string, error) {
 	var args []string
 	switch kind {
-	case histStashes:
+	case HistoryStashes:
 		args = []string{"stash", "show", "--stat", "--patch", "--no-color", ref}
 	default:
 		args = []string{"show", "--stat", "--patch", "--no-color", "--format=commit %H%nAuthor: %an <%ae>%nDate:   %ad%n%n    %s%n%n%b", ref}
@@ -108,16 +111,16 @@ func (g Git) StashDrop(ref string) error {
 	return err
 }
 
-func (m *Model) openHistory(kind historyKind, file string) {
+func (m *Model) openHistory(kind HistoryKind, file string) {
 	if m.git.Top == "" {
 		m.say("not a git repository", true)
 		return
 	}
 	h := history{kind: kind, file: file}
 	switch kind {
-	case histStashes:
+	case HistoryStashes:
 		h.items, h.err = m.git.Stashes()
-	case histTags:
+	case HistoryTags:
 		h.items, h.err = m.git.Tags()
 	default:
 		h.items, h.err = m.git.Log(file)
@@ -128,11 +131,11 @@ func (m *Model) openHistory(kind historyKind, file string) {
 
 func (m *Model) historyKey(k Key) {
 	h := &m.hist
-	selected := func() (historyEntry, bool) {
+	selected := func() (HistoryEntry, bool) {
 		if h.cursor < len(h.items) {
 			return h.items[h.cursor], true
 		}
-		return historyEntry{}, false
+		return HistoryEntry{}, false
 	}
 	switch k.Name {
 	case "esc", "q", "ctrl+c":
@@ -154,13 +157,13 @@ func (m *Model) historyKey(k Key) {
 		if !ok {
 			return
 		}
-		text, err := m.git.Show(h.kind, e.ref, h.file)
+		text, err := m.git.Show(h.kind, e.Ref, h.file)
 		if err != nil {
 			m.fail(err)
 			return
 		}
 		m.viewer = viewer{
-			title: e.ref + " " + e.subject,
+			title: e.Ref + " " + e.Subject,
 			lines: strings.Split(strings.TrimRight(strings.ReplaceAll(text, "\t", "    "), "\n"), "\n"),
 			diff:  true,
 		}
@@ -168,31 +171,31 @@ func (m *Model) historyKey(k Key) {
 		m.mode = modeViewer
 	case "a", "p":
 		e, ok := selected()
-		if !ok || h.kind != histStashes {
+		if !ok || h.kind != HistoryStashes {
 			return
 		}
-		if err := m.git.StashApply(e.ref, k.Name == "p"); err != nil {
+		if err := m.git.StashApply(e.Ref, k.Name == "p"); err != nil {
 			m.fail(err)
 			return
 		}
 		m.mode = modeList
-		m.say("applied "+e.ref, false)
+		m.say("applied "+e.Ref, false)
 		m.Refresh()
 	case "d":
 		e, ok := selected()
-		if !ok || h.kind != histStashes {
+		if !ok || h.kind != HistoryStashes {
 			return
 		}
-		m.ask("drop "+e.ref+" ("+e.subject+")? type yes", "", func(m *Model, input string) {
+		m.ask("drop "+e.Ref+" ("+e.Subject+")? type yes", "", func(m *Model, input string) {
 			if strings.TrimSpace(strings.ToLower(input)) != "yes" {
-				m.say("kept "+e.ref, false)
+				m.say("kept "+e.Ref, false)
 				return
 			}
-			if err := m.git.StashDrop(e.ref); err != nil {
+			if err := m.git.StashDrop(e.Ref); err != nil {
 				m.fail(err)
 				return
 			}
-			m.say("dropped "+e.ref, false)
+			m.say("dropped "+e.Ref, false)
 		})
 	}
 }
@@ -207,7 +210,7 @@ func (m *Model) historyMouse(ev Mouse) {
 		at := 1
 		for i, name := range historyNames {
 			if ev.X < at+len(name)+1 {
-				m.openHistory(historyKind(i), "")
+				m.openHistory(HistoryKind(i), "")
 				return
 			}
 			at += len(name) + 3
@@ -234,7 +237,7 @@ func (m *Model) drawHistory(g *vt.Grid) {
 		x := 1
 		for i, name := range historyNames {
 			style := styleDim
-			if historyKind(i) == h.kind {
+			if HistoryKind(i) == h.kind {
 				style = styleTabOn
 			}
 			if i > 0 {
@@ -262,18 +265,18 @@ func (m *Model) drawHistory(g *vt.Grid) {
 			fill(g, y, 0, m.cols, styleSel)
 			refStyle, subjStyle = styleSel, styleSel
 		}
-		x := put(g, 1, y, e.ref, refStyle, m.cols)
-		put(g, x+1, y, truncate(e.subject, m.cols-x-2), subjStyle, m.cols)
+		x := put(g, 1, y, e.Ref, refStyle, m.cols)
+		put(g, x+1, y, truncate(e.Subject, m.cols-x-2), subjStyle, m.cols)
 	}
 	// What the selected one is, under the list.
 	if h.cursor < len(h.items) {
-		put(g, 1, m.rows-2, truncate(h.items[h.cursor].meta, m.cols-2), styleDim, m.cols)
+		put(g, 1, m.rows-2, truncate(h.items[h.cursor].Meta, m.cols-2), styleDim, m.cols)
 	}
 	hint := "enter show  tab kind  esc"
 	switch {
 	case h.file != "":
 		hint = "enter show  esc"
-	case h.kind == histStashes:
+	case h.kind == HistoryStashes:
 		hint = "enter show  a apply  p pop  d drop"
 	}
 	put(g, 1, m.rows-1, truncate(hint, m.cols-2), styleDim, m.cols)

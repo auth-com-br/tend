@@ -11,7 +11,7 @@
 package explorer
 
 import (
-	"bytes"
+	"errors"
 	"os"
 	"path/filepath"
 	"sort"
@@ -495,7 +495,7 @@ func (m *Model) listKey(k Key, pending string) {
 	case "B":
 		m.openBranches()
 	case "L":
-		m.openHistory(histCommits, "")
+		m.openHistory(HistoryCommits, "")
 	case "P":
 		m.startSync()
 	case ",":
@@ -641,16 +641,24 @@ func (m *Model) changesKey(k Key, pending string) {
 	case "M", "R":
 		m.startFinish(k.Name, pending)
 	case "c":
-		if m.changesStaged == 0 {
-			if m.git.JJ {
-				m.say("the working-copy commit (@) has no changes", true)
-			} else {
-				m.say("nothing staged: s stages a file, S everything", true)
-			}
+		if err := nothingToCommit(m.git, m.changesStaged); err != nil {
+			m.fail(err)
 			return
 		}
 		m.mode, m.input = modeCommit, ""
 	}
+}
+
+// nothingToCommit says why a commit would be empty, or nil: the panel says
+// it before the commit box opens, and the desktop before it commits.
+func nothingToCommit(g Git, staged int) error {
+	switch {
+	case staged > 0:
+		return nil
+	case g.JJ:
+		return errors.New("the working-copy commit (@) has no changes")
+	}
+	return errors.New("nothing staged: s stages a file, S everything")
 }
 
 func isDeleted(c Change) bool { return c.Work == 'D' || (c.Index == 'D' && c.Work == ' ') }
@@ -742,26 +750,18 @@ type viewer struct {
 const maxViewBytes = 2 << 20
 
 func (m *Model) showFile(title, path string) {
-	f, err := os.Open(path)
+	data, binary, cut, err := readForView(path)
 	if err != nil {
 		m.fail(err)
 		return
 	}
-	defer f.Close()
-	buf := make([]byte, maxViewBytes+1)
-	n, _ := f.Read(buf)
-	data := buf[:n]
 	var lines []string
 	switch {
-	case bytes.IndexByte(data[:min(len(data), 8000)], 0) >= 0:
+	case binary:
 		lines = []string{"binary file — o opens it elsewhere"}
 	default:
-		text := string(data)
-		if n > maxViewBytes {
-			text = text[:maxViewBytes]
-		}
-		lines = strings.Split(strings.ReplaceAll(text, "\t", "    "), "\n")
-		if n > maxViewBytes {
+		lines = strings.Split(strings.ReplaceAll(string(data), "\t", "    "), "\n")
+		if cut {
 			lines = append(lines, "… the rest is past 2 MB; o opens it in the editor")
 		}
 	}
