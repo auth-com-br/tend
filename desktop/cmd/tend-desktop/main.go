@@ -312,6 +312,9 @@ func dispatch(sess *core.Session, method string, raw []byte) error {
 		Light     bool   `json:"light"`
 		Cols      int    `json:"cols"`
 		Rows      int    `json:"rows"`
+		Path      string `json:"path"`
+		Rel       string `json:"rel"`
+		Dir       bool   `json:"dir"`
 	}
 	if len(raw) > 0 {
 		if err := json.Unmarshal(raw, &a); err != nil {
@@ -345,6 +348,9 @@ func dispatch(sess *core.Session, method string, raw []byte) error {
 		return sess.ClosePane()
 	case "menu.open":
 		sess.OpenMenu(a.Kind, a.Pane, a.Tab, a.Workspace, a.Group, a.X, a.Y)
+		return nil
+	case "files.menu":
+		sess.OpenFileMenu(a.Path, a.Rel, a.Dir, a.X, a.Y)
 		return nil
 	case "menu.pick":
 		return sess.PickMenu(a.Index)

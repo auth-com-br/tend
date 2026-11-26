@@ -39,6 +39,8 @@ type filesTab struct {
 	histRepo string
 	branches []explorer.Branch
 	brRepo   string
+	// target is what the tree's menu was opened on (filemenu.go).
+	target fileTarget
 }
 
 // FilesState is the files tab as QML draws it.

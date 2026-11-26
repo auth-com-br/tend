@@ -410,3 +410,11 @@ func openWithSystem(path string) error {
 type ContextAdder interface {
 	AddContext(kind, path string) error
 }
+
+// OpenWithSystem hands a path to the desktop's own program for it, as the
+// tree's "Open with default app" does: for tend-desktop's files tab.
+func OpenWithSystem(path string) error { return openWithSystem(path) }
+
+// ValidName is a name a file can be given, not a path, as the tree's
+// prompts take it: for tend-desktop's files tab.
+func ValidName(input string) (string, bool) { return validName(input) }

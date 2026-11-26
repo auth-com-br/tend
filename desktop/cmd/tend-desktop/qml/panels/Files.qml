@@ -9,6 +9,36 @@ Item {
     id: files
     readonly property var f: (st.dock && st.dock.files) || ({ view: "tree", repos: [] })
     function call(args) { Bridge.call("files", args) }
+    // A file's kind: the colour and the short tag its icon carries.
+    function kindOf(ext) {
+        switch (ext) {
+        case "go": case "mod": case "sum": case "go.mod": case "go.sum": return { color: theme.teal, label: "GO" }
+        case "rs": return { color: theme.peach, label: "RS" }
+        case "js": case "mjs": case "cjs": return { color: theme.yellow, label: "JS" }
+        case "jsx": return { color: theme.yellow, label: "JSX" }
+        case "ts": return { color: theme.accent, label: "TS" }
+        case "tsx": return { color: theme.accent, label: "TSX" }
+        case "py": return { color: theme.accent, label: "PY" }
+        case "rb": return { color: theme.red, label: "RB" }
+        case "java": case "kt": return { color: theme.peach, label: ext.toUpperCase() }
+        case "c": case "h": return { color: theme.accent, label: "C" }
+        case "cpp": case "cc": case "hpp": return { color: theme.accent, label: "C++" }
+        case "php": return { color: theme.accent, label: "PHP" }
+        case "html": case "htm": return { color: theme.peach, label: "HTM" }
+        case "css": case "scss": return { color: theme.accent, label: "CSS" }
+        case "qml": return { color: theme.green, label: "QML" }
+        case "json": return { color: theme.yellow, label: "{ }" }
+        case "yaml": case "yml": case "toml": return { color: theme.red, label: ext === "toml" ? "TML" : "YML" }
+        case "md": case "markdown": return { color: theme.subtext, label: "MD" }
+        case "sh": case "bash": case "zsh": return { color: theme.green, label: "SH" }
+        case "sql": return { color: theme.yellow, label: "SQL" }
+        case "png": case "jpg": case "jpeg": case "gif": case "svg": case "webp": case "ico": return { color: theme.teal, label: "IMG" }
+        case "makefile": return { color: theme.peach, label: "MK" }
+        case "dockerfile": return { color: theme.accent, label: "DKR" }
+        case "lock": return { color: theme.overlay0, label: "LCK" }
+        }
+        return { color: theme.subtext, label: "" }
+    }
     function letterColor(l) {
         switch (l) {
         case "M": return theme.yellow
@@ -82,7 +112,11 @@ Item {
         }
     }
 
-    // The tree.
+    // The tree, as a file manager's: a folder or a file icon by its kind,
+    // guides down each level, a chevron that turns, git's state as the
+    // name's colour and a letter, the file open in a document tab marked.
+    // A right click is the TUI's tree menu (core/filemenu.go), on an entry
+    // or, below them, on the folder shown.
     ListView {
         id: tree
         visible: files.f.view === "tree"
@@ -93,46 +127,181 @@ Item {
         clip: true
         model: files.f.entries || []
         boundsBehavior: Flickable.StopAtBounds
-        delegate: Rectangle {
+        readonly property string openPath: (st.doc && st.doc.kind === "file" && st.doc.path) || ""
+
+        // Below the entries: the folder shown's own menu.
+        MouseArea {
+            parent: tree
+            anchors.fill: parent
+            z: -1
+            acceptedButtons: Qt.RightButton
+            onClicked: (m) => {
+                var p = mapToItem(root.contentItem, m.x, m.y)
+                Bridge.call("files.menu", { path: "", rel: "", dir: true, x: Math.round(p.x), y: Math.round(p.y) })
+            }
+        }
+
+        delegate: Item {
+            id: entry
             required property var modelData
+            readonly property bool open: !modelData.dir && modelData.path === tree.openPath
             width: tree.width
-            height: 24
-            radius: 4
-            color: rowArea.containsMouse ? theme.surface0 : "transparent"
-            Row {
-                x: 4 + modelData.depth * 14
-                anchors.verticalCenter: parent.verticalCenter
-                spacing: 5
-                Text {
-                    width: 10
-                    text: modelData.dir ? (modelData.expanded ? "▾" : "▸") : ""
-                    color: theme.overlay0
-                    font.pixelSize: 11
-                }
-                Text {
-                    text: modelData.name
-                    color: modelData.ignored ? theme.overlay0 : (modelData.status ? files.letterColor(modelData.status) : theme.text)
-                    font.pixelSize: 13
+            height: 26
+
+            Rectangle {
+                anchors.fill: parent
+                radius: 5
+                color: entry.open ? Qt.rgba(theme.accent.r, theme.accent.g, theme.accent.b, 0.16)
+                     : rowArea.containsMouse ? theme.surface0 : "transparent"
+            }
+            // A guide down each level the entry is under.
+            Repeater {
+                model: entry.modelData.depth
+                delegate: Rectangle {
+                    required property int index
+                    x: 11 + index * 16
+                    width: 1
+                    height: entry.height
+                    color: theme.surface0
                 }
             }
             Text {
-                anchors.right: parent.right
-                anchors.rightMargin: 8
+                id: chevron
+                x: 4 + entry.modelData.depth * 16
+                width: 14
                 anchors.verticalCenter: parent.verticalCenter
-                visible: !!modelData.status
-                text: modelData.status === "!" ? "●" : (modelData.status || "")
-                color: files.letterColor(modelData.status)
-                font.pixelSize: 12
-                font.bold: true
+                horizontalAlignment: Text.AlignHCenter
+                visible: entry.modelData.dir === true
+                text: "›"
+                rotation: entry.modelData.expanded === true ? 90 : 0
+                color: theme.overlay0
+                font.pixelSize: 15
+                Behavior on rotation { NumberAnimation { duration: 110 } }
+            }
+            FileIcon {
+                id: icon
+                x: 20 + entry.modelData.depth * 16
+                anchors.verticalCenter: parent.verticalCenter
+                name: entry.modelData.name
+                dir: entry.modelData.dir === true
+                expanded: entry.modelData.expanded === true
+                faded: entry.modelData.ignored === true
+            }
+            Text {
+                anchors.left: icon.right
+                anchors.leftMargin: 7
+                anchors.right: statusLetter.left
+                anchors.rightMargin: 6
+                anchors.verticalCenter: parent.verticalCenter
+                text: entry.modelData.name
+                elide: Text.ElideMiddle
+                font.pixelSize: 13
+                font.italic: entry.modelData.ignored === true
+                font.weight: entry.open ? Font.DemiBold : Font.Normal
+                color: entry.modelData.ignored ? theme.overlay0
+                     : entry.modelData.status ? files.letterColor(entry.modelData.status) : theme.text
+            }
+            Text {
+                id: statusLetter
+                anchors.right: parent.right
+                anchors.rightMargin: 10
+                anchors.verticalCenter: parent.verticalCenter
+                width: visible ? implicitWidth : 0
+                visible: !!entry.modelData.status
+                text: entry.modelData.status === "!" ? "●" : (entry.modelData.status === "?" ? "U" : (entry.modelData.status || ""))
+                color: files.letterColor(entry.modelData.status)
+                font.pixelSize: 11
+                font.weight: Font.DemiBold
             }
             MouseArea {
                 id: rowArea
                 anchors.fill: parent
                 hoverEnabled: true
-                onClicked: {
-                    if (modelData.dir) files.call({ do: "toggle", rel: modelData.rel, open: !modelData.expanded })
-                    else files.call({ do: "open", path: modelData.path })
+                acceptedButtons: Qt.LeftButton | Qt.RightButton
+                onClicked: (m) => {
+                    var d = entry.modelData
+                    if (m.button === Qt.RightButton) {
+                        var p = mapToItem(root.contentItem, m.x, m.y)
+                        Bridge.call("files.menu", { path: d.path, rel: d.rel, dir: d.dir === true, x: Math.round(p.x), y: Math.round(p.y) })
+                    } else if (d.dir) files.call({ do: "toggle", rel: d.rel, open: !d.expanded })
+                    else files.call({ do: "open", path: d.path })
                 }
+            }
+        }
+    }
+
+    // A file's or a folder's icon, drawn: a folder (open or shut), or a
+    // page with its kind on it in its kind's colour — no icon theme to
+    // load, and the same on every desktop.
+    component FileIcon: Item {
+        id: fi
+        property string name: ""
+        property bool dir: false
+        property bool expanded: false
+        property bool faded: false
+        readonly property string ext: {
+            var n = name.toLowerCase()
+            var i = n.lastIndexOf(".")
+            if (n === "makefile" || n === "dockerfile" || n === "license" || n === "go.mod" || n === "go.sum") return n
+            return i > 0 ? n.slice(i + 1) : ""
+        }
+        readonly property var kind: files.kindOf(ext)
+        width: 16
+        height: 16
+        opacity: faded ? 0.5 : 1
+
+        // A folder: its tab and its body; open, the body leans forward.
+        Rectangle {
+            visible: fi.dir
+            x: 1; y: 2
+            width: 7; height: 4
+            radius: 1.5
+            color: theme.yellow
+            opacity: 0.85
+        }
+        Rectangle {
+            visible: fi.dir
+            x: 1; y: 4
+            width: 14; height: 10
+            radius: 2
+            color: Qt.rgba(theme.yellow.r, theme.yellow.g, theme.yellow.b, fi.expanded ? 0.55 : 0.8)
+            border.width: 1
+            border.color: theme.yellow
+        }
+        Rectangle {
+            visible: fi.dir && fi.expanded
+            x: 3; y: 7
+            width: 12; height: 7
+            radius: 1.5
+            color: theme.yellow
+            opacity: 0.9
+        }
+
+        // A file: a page, its kind in a band across it.
+        Rectangle {
+            visible: !fi.dir
+            x: 2; y: 0
+            width: 12; height: 16
+            radius: 2
+            color: Qt.rgba(fi.kind.color.r, fi.kind.color.g, fi.kind.color.b, 0.16)
+            border.width: 1
+            border.color: Qt.rgba(fi.kind.color.r, fi.kind.color.g, fi.kind.color.b, 0.7)
+        }
+        Rectangle {
+            visible: !fi.dir && fi.kind.label !== ""
+            anchors.horizontalCenter: parent.horizontalCenter
+            y: 8
+            width: Math.max(14, tag.implicitWidth + 3)
+            height: 8
+            radius: 2
+            color: fi.kind.color
+            Text {
+                id: tag
+                anchors.centerIn: parent
+                text: fi.kind.label
+                color: theme.base
+                font.pixelSize: 6
+                font.bold: true
             }
         }
     }

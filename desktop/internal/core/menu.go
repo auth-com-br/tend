@@ -192,6 +192,9 @@ func (s *Session) runMenu(m ui.Menu, item ui.MenuItem) error {
 	s.mu.Lock()
 	c := s.client
 	s.mu.Unlock()
+	if strings.HasPrefix(item.Action, "file-") {
+		return s.runFileMenu(item.Action)
+	}
 	switch item.Action {
 	case ui.MenuGoTo:
 		return s.JumpToPane(m.Pane)
@@ -587,6 +590,8 @@ func (s *Session) SubmitPrompt(text string) error {
 			action = "pr"
 		}
 		return s.Files(FilesAction{Do: "finish", Repo: p.Group, Action: action})
+	case fileNew, fileNewFolder, fileRename, fileDelete, fileChangeFolder:
+		return s.fileAnswer(p.Kind, text)
 	case promptNewWorktree:
 		if text == "" {
 			return nil
