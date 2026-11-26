@@ -147,7 +147,20 @@ func (s *Server) Serve(ln net.Listener) error {
 			}
 			return err
 		}
+		// Counted under the lock Close marks the server closed with:
+		// either before Close waits, which then waits for it too, or not
+		// at all. Counted after, a connection that arrived as the server
+		// stopped — a liveness probe, a client reconnecting — was added to
+		// a WaitGroup already being waited on, which the race detector
+		// caught in TestListenRefusesALiveSocket.
+		s.mu.Lock()
+		if s.closed {
+			s.mu.Unlock()
+			_ = conn.Close()
+			return nil
+		}
 		s.wg.Add(1)
+		s.mu.Unlock()
 		go func() {
 			defer s.wg.Done()
 			s.serveConn(conn)
