@@ -826,7 +826,7 @@ Item {
     property real tipY: 0
     function hover(d, item) {
         tipEntry = null
-        tipY = item.mapToItem(files, 0, item.height).y + 4
+        tipY = item.mapToItem(files, 0, item.height / 2).y
         tipPending = d
         tipTimer.restart()
     }
@@ -855,9 +855,16 @@ Item {
         id: tipBox
         visible: !!files.tipEntry
         z: 100
-        x: 10
-        y: Math.min(files.tipY, files.height - height - 4)
-        width: Math.min(files.width - 20, tipCol.implicitWidth + 20)
+        // Beside the panel, not over it: drawn over the list, it hid the
+        // entries under the one pointed at. It stands to the panel's left,
+        // over the panes, level with the row, its arrow pointing at it.
+        x: -width - 24
+        y: Math.max(0, Math.min(files.tipY - height / 2, files.height - height))
+        // As wide as its widest line, measured apart from the lines, which
+        // wrap at the box's width: bound to them, that is a loop.
+        TextMetrics { id: tipNameM; font.pixelSize: 12; font.weight: Font.DemiBold; text: tipBox.e.name || "" }
+        TextMetrics { id: tipRelM; font.pixelSize: 11; text: "folder · " + (tipBox.e.rel || "") }
+        width: Math.min(340, Math.max(200, tipNameM.advanceWidth + 24, tipRelM.advanceWidth + 24))
         height: tipCol.implicitHeight + 14
         radius: 7
         color: theme.crust
@@ -866,6 +873,18 @@ Item {
         opacity: visible ? 1 : 0
         Behavior on opacity { NumberAnimation { duration: 120 } }
         readonly property var e: files.tipEntry || ({})
+        // The arrow, pointing right at the row.
+        Rectangle {
+            width: 10
+            height: 10
+            rotation: 45
+            x: parent.width - 6
+            y: Math.max(6, Math.min(parent.height - 16, files.tipY - tipBox.y - 5))
+            color: theme.crust
+            border.width: 1
+            border.color: theme.surface1
+            z: -1
+        }
         readonly property var repo: e.dir === true ? files.repoByName[e.rel] : undefined
         Column {
             id: tipCol
