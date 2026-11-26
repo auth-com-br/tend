@@ -282,3 +282,39 @@ func TestATasksAgentIsHeldToThePolicy(t *testing.T) {
 	}
 	waitFor(t, "the tab opened for it to close", func() bool { return tabsIn(s, ws) == 1 })
 }
+
+// TestATaskWithoutAnAgentIsSaidAtItsTime: a task planned for a time with
+// no agent to start is said at that time, once, to whoever is watching (an
+// EventNotify, which every client announces); no tab is opened for it. If
+// it regresses, a task planned for three o'clock passes three o'clock with
+// nothing happening.
+func TestATaskWithoutAnAgentIsSaidAtItsTime(t *testing.T) {
+	clock := &fakeClock{now: time.Unix(1_800_000_000, 0)}
+	s := taskServer(t, "", clock, policy.Policy{})
+	sub := s.Subscribe(64)
+	defer sub.Close()
+	at := clock.Now().Add(time.Hour)
+	createTask(t, s, proto.TaskParams{Title: str("call the client"), Notes: str("about the invoice"), StartAt: i64(at.Unix())})
+
+	clock.set(at)
+	s.tasksChanged()
+	ev := waitForEvent(t, sub, func(ev Event) bool { return ev.Kind == EventNotify })
+	if ev.Title != "Task: call the client" || ev.Body != "about the invoice" {
+		t.Errorf("the reminder says %q / %q", ev.Title, ev.Body)
+	}
+	s.Session(func(sess *session.Session) {
+		if n := len(sess.Workspaces()); n != 0 {
+			t.Errorf("a reminder opened %d spaces", n)
+		}
+	})
+
+	clock.set(at.Add(time.Hour))
+	s.tasksChanged()
+	select {
+	case ev := <-sub.C:
+		if ev.Kind == EventNotify {
+			t.Errorf("reminded twice: %+v", ev)
+		}
+	case <-time.After(100 * time.Millisecond):
+	}
+}

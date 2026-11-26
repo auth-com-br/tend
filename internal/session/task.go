@@ -209,8 +209,12 @@ func (s *Session) DueTasks(now time.Time) []TaskID {
 	return out
 }
 
+// due is a task whose start time has come and that has not been acted on.
+// One with an agent has it started; one without is a reminder, said at its
+// time — a start time on a task nobody is to start was otherwise a time
+// nothing happened at.
 func (t *Task) due(now time.Time) bool {
-	return !t.StartAt.IsZero() && !t.StartAt.After(now) && t.Agent != "" &&
+	return !t.StartAt.IsZero() && !t.StartAt.After(now) &&
 		t.Started.IsZero() && t.Status != TaskDone
 }
 
@@ -219,7 +223,7 @@ func (t *Task) due(now time.Time) bool {
 func (s *Session) NextTaskStart() time.Time {
 	var next time.Time
 	for _, t := range s.tasks {
-		if t.StartAt.IsZero() || t.Agent == "" || !t.Started.IsZero() || t.Status == TaskDone {
+		if t.StartAt.IsZero() || !t.Started.IsZero() || t.Status == TaskDone {
 			continue
 		}
 		if next.IsZero() || t.StartAt.Before(next) {

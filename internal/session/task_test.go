@@ -60,17 +60,18 @@ func TestATaskIsMadeEditedAndDeleted(t *testing.T) {
 	check(t, s)
 }
 
-// TestATaskIsDueOnceAtItsStartTime: a task with an agent and a start time is
-// due when the time comes and not before, is claimed once, is not due again
-// after that, and becomes due again when its start is moved. A task done, or
-// one with no agent, is never due. If it regresses, the scheduler starts an
-// agent before its time, starts it on every tick, or never retries a start
-// the person rescheduled.
+// TestATaskIsDueOnceAtItsStartTime: a task with a start time is due when the
+// time comes and not before — with an agent to start it, without one to say
+// it — is claimed once, is not due again after that, and becomes due again
+// when its start is moved. A task done is never due. If it regresses, the
+// scheduler starts an agent before its time, starts it on every tick, never
+// reminds of a task planned for a time, or never retries a start the person
+// rescheduled.
 func TestATaskIsDueOnceAtItsStartTime(t *testing.T) {
 	s := New()
 	at := time.Unix(1_800_000_000, 0)
 	task, _ := s.AddTask(TaskChange{Title: ptr("review"), Agent: ptr("claude"), StartAt: ptr(at)}, at.Add(-time.Hour))
-	_, _ = s.AddTask(TaskChange{Title: ptr("reminder"), StartAt: ptr(at)}, at)
+	reminder, _ := s.AddTask(TaskChange{Title: ptr("reminder"), StartAt: ptr(at)}, at)
 	_, _ = s.AddTask(TaskChange{Title: ptr("done already"), Agent: ptr("claude"), StartAt: ptr(at), Status: ptr(TaskDone)}, at)
 
 	if due := s.DueTasks(at.Add(-time.Second)); len(due) != 0 {
@@ -79,8 +80,11 @@ func TestATaskIsDueOnceAtItsStartTime(t *testing.T) {
 	if next := s.NextTaskStart(); !next.Equal(at) {
 		t.Errorf("next start = %v, want %v", next, at)
 	}
-	if due := s.DueTasks(at); !slices.Equal(due, []TaskID{task.ID}) {
+	if due := s.DueTasks(at); !slices.Equal(due, []TaskID{task.ID, reminder.ID}) {
 		t.Fatalf("due at its time: %v", due)
+	}
+	if _, ok := s.ClaimTask(reminder.ID, at); !ok {
+		t.Fatal("the reminder could not be claimed")
 	}
 	if _, ok := s.ClaimTask(task.ID, at); !ok {
 		t.Fatal("the due task could not be claimed")

@@ -195,8 +195,23 @@ func (s *Server) startDueTasks() {
 	}
 	s.tasksChanged()
 	for _, t := range claimed {
+		if strings.TrimSpace(t.Agent) == "" {
+			s.remindTask(t)
+			continue
+		}
 		s.startTask(t)
 	}
+}
+
+// remindTask says a task without an agent has come due: the person planned
+// it for now, and every client announces it as it announces what a script
+// sends (EventNotify). It is claimed, so it is said once.
+func (s *Server) remindTask(t session.Task) {
+	body := strings.TrimSpace(t.Notes)
+	if body == "" {
+		body = "it is time"
+	}
+	s.Notify("Task: "+t.Title, body)
 }
 
 // startTask opens a tab for a task's agent and starts it there: in the
