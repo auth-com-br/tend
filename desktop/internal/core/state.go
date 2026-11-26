@@ -45,6 +45,10 @@ type State struct {
 	Settings *SettingsState `json:"settings,omitempty"`
 	// Dock is the right side, while it is open.
 	Dock *DockState `json:"dock,omitempty"`
+	// Docs are the document tabs of the space shown, and Doc the one in
+	// view, whole; nil while the terminals are.
+	Docs []DocTab `json:"docs,omitempty"`
+	Doc  *Doc     `json:"doc,omitempty"`
 }
 
 // MenuState is a menu as QML draws it.
@@ -200,6 +204,15 @@ func (s *Session) State() State {
 	st.Zoomed = s.zoom != 0
 	st.Theme = s.theme
 	st.Dock = s.dockStateLocked()
+	for _, d := range s.docs.list {
+		if d.Workspace == s.workspace {
+			st.Docs = append(st.Docs, DocTab{ID: d.ID, Kind: d.Kind, Title: d.Title, Workspace: d.Workspace})
+			if d.ID == s.docs.active {
+				doc := d
+				st.Doc = &doc
+			}
+		}
+	}
 	if s.panel == "settings" {
 		st.Settings = s.settingsStateLocked()
 	}

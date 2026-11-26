@@ -18,10 +18,11 @@ import (
 
 // DockState is the dock as QML draws it: which tab, and that tab's data.
 type DockState struct {
-	Tab     string    `json:"tab"`
-	Loading bool      `json:"loading,omitempty"`
-	Error   string    `json:"error,omitempty"`
-	Tasks   []TaskRow `json:"tasks,omitempty"`
+	Tab     string      `json:"tab"`
+	Loading bool        `json:"loading,omitempty"`
+	Error   string      `json:"error,omitempty"`
+	Tasks   []TaskRow   `json:"tasks,omitempty"`
+	Files   *FilesState `json:"files,omitempty"`
 }
 
 // TaskRow is a task as the dock lists it.
@@ -77,6 +78,8 @@ func (s *Session) loadDock(tab string) {
 
 	var err error
 	switch tab {
+	case "files":
+		err = s.loadFiles()
 	case "tasks":
 		var tasks []proto.TaskInfo
 		if !c.Supports(proto.MethodTaskList) {
@@ -118,6 +121,9 @@ func (s *Session) dockStateLocked() *DockState {
 		return nil
 	}
 	st := &DockState{Tab: s.dock.tab, Loading: s.dock.loading, Error: s.dock.err}
+	if s.dock.tab == "files" {
+		st.Files = s.filesStateLocked()
+	}
 	if s.dock.tab == "tasks" {
 		names := map[uint64]string{}
 		for _, w := range s.snap.Workspaces {

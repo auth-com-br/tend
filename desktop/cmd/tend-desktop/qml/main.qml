@@ -454,7 +454,7 @@ Window {
                     height: 30
                     width: tabRow.width + 24
                     radius: 5
-                    color: active && root.activeBrowser === 0 ? theme.surface0 : (tabHover.containsMouse ? Qt.rgba(1, 1, 1, 0.05) : "transparent")
+                    color: active && root.activeBrowser === 0 && !st.doc ? theme.surface0 : (tabHover.containsMouse ? Qt.rgba(1, 1, 1, 0.05) : "transparent")
                     Row {
                         id: tabRow
                         anchors.centerIn: parent
@@ -501,7 +501,51 @@ Window {
                                 var p = mapToItem(root.contentItem, mouse.x, mouse.y)
                                 Bridge.call("menu.open", { kind: "tab", tab: tabEntry.tabId, x: Math.round(p.x), y: Math.round(p.y) })
                             } else if (mouse.button === Qt.MiddleButton) Bridge.call("tab.close", { tab: tabEntry.tabId })
-                            else { root.showBrowser(0); Bridge.call("tab", { tab: tabEntry.tabId }) }
+                            else { root.showBrowser(0); Bridge.call("doc.show", { index: 0 }); Bridge.call("tab", { tab: tabEntry.tabId }) }
+                        }
+                    }
+                }
+            }
+            // Document tabs: a file or a diff opened from the files tab.
+            Repeater {
+                model: st.docs || []
+                delegate: Rectangle {
+                    id: dtab
+                    required property var modelData
+                    readonly property bool shown: st.doc && st.doc.id === modelData.id
+                    height: 30
+                    width: Math.min(220, dtRow.width + 24)
+                    radius: 5
+                    color: shown ? theme.surface0 : (dtHover.containsMouse ? Qt.rgba(1, 1, 1, 0.05) : "transparent")
+                    MouseArea {
+                        id: dtHover
+                        z: -1
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        acceptedButtons: Qt.LeftButton | Qt.MiddleButton
+                        onClicked: (mouse) => {
+                            if (mouse.button === Qt.MiddleButton) Bridge.call("doc.close", { index: dtab.modelData.id })
+                            else { root.showBrowser(0); Bridge.call("doc.show", { index: dtab.modelData.id }) }
+                        }
+                    }
+                    Row {
+                        id: dtRow
+                        anchors.centerIn: parent
+                        spacing: 6
+                        Text {
+                            text: dtab.modelData.title
+                            width: Math.min(implicitWidth, 170)
+                            elide: Text.ElideMiddle
+                            color: dtab.shown ? theme.text : theme.subtext
+                            font.pixelSize: 14
+                            anchors.verticalCenter: parent.verticalCenter
+                        }
+                        Text {
+                            text: "×"
+                            color: dtClose.containsMouse ? theme.red : theme.overlay0
+                            font.pixelSize: 13
+                            anchors.verticalCenter: parent.verticalCenter
+                            MouseArea { id: dtClose; anchors.fill: parent; anchors.margins: -4; hoverEnabled: true; onClicked: Bridge.call("doc.close", { index: dtab.modelData.id }) }
                         }
                     }
                 }
@@ -526,7 +570,7 @@ Window {
                         acceptedButtons: Qt.LeftButton | Qt.MiddleButton
                         onClicked: (mouse) => {
                             if (mouse.button === Qt.MiddleButton) root.closeBrowser(btab.bid)
-                            else root.showBrowser(btab.bid)
+                            else { Bridge.call("doc.show", { index: 0 }); root.showBrowser(btab.bid) }
                         }
                     }
                     Row {
@@ -852,6 +896,13 @@ Window {
         font.pixelSize: 11
         font.bold: true
         font.letterSpacing: 1
+    }
+
+    Loader {
+        anchors.fill: paneArea
+        active: !!st.doc && root.activeBrowser === 0
+        source: "DocView.qml"
+        z: 2
     }
 
     Item {

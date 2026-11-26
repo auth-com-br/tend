@@ -530,6 +530,17 @@ func (s *Session) SubmitPrompt(text string) error {
 		return c.GroupWorkspace(p.Workspace, text)
 	case promptGroupDir:
 		return c.SetGroupDir(p.Group, expandHome(text))
+	case "finish-merge", "finish-pr":
+		// The files tab's merge and pull request, confirmed by typing yes
+		// as the TUI's panel confirms them by a second press.
+		if text != "yes" {
+			return nil
+		}
+		action := "merge"
+		if p.Kind == "finish-pr" {
+			action = "pr"
+		}
+		return s.Files(FilesAction{Do: "finish", Repo: p.Group, Action: action})
 	case promptNewWorktree:
 		if text == "" {
 			return nil

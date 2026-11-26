@@ -461,3 +461,92 @@ func TestATaskIsPlannedFromTheDock(t *testing.T) {
 		t.Error("a time nobody can read was taken")
 	}
 }
+
+// TestTheFilesTabIsTheFilesPanel: the dock's files tab shows the folder the
+// pane in focus works in, through explorer.Panel — the tree with git's
+// letters, a change's diff side by side, stage and commit — and opens a
+// file highlighted. If it regresses, the window's files and the TUI's
+// panel disagree about the same repository.
+func TestTheFilesTabIsTheFilesPanel(t *testing.T) {
+	s := openTest(t)
+	if err := s.SetArea(100, 40); err != nil {
+		t.Fatal(err)
+	}
+	repo := t.TempDir()
+	git := func(args ...string) {
+		t.Helper()
+		cmd := exec.Command("git", append([]string{"-C", repo, "-c", "user.name=t", "-c", "user.email=t@t"}, args...)...)
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+	git("init", "-q", "-b", "main")
+	if err := os.WriteFile(filepath.Join(repo, "main.go"), []byte("package main\n\nfunc main() {}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	git("add", ".")
+	git("commit", "-q", "-m", "first")
+	if err := os.WriteFile(filepath.Join(repo, "main.go"), []byte("package main\n\n// hello\nfunc main() {}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	ws := s.State().Workspace
+	tab, _, err := s.client.NewTab(ws, "repo", proto.PaneSpec{Dir: repo})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.ShowTab(tab); err != nil {
+		t.Fatal(err)
+	}
+	s.ToggleDock("files")
+	waitFor(t, "the tree", func() bool {
+		d := s.State().Dock
+		if d == nil || d.Files == nil {
+			return false
+		}
+		for _, e := range d.Files.Entries {
+			if e.Name == "main.go" && e.Status == "M" {
+				return true
+			}
+		}
+		return false
+	})
+	if err := s.Files(FilesAction{Do: "view", View: "changes"}); err != nil {
+		t.Fatal(err)
+	}
+	ch := s.State().Dock.Files.Changes
+	if len(ch) != 1 || len(ch[0].Unstaged) != 1 || ch[0].Unstaged[0].Path != "main.go" {
+		t.Fatalf("changes %+v", ch)
+	}
+	if err := s.Files(FilesAction{Do: "diff", Repo: ch[0].Repo, Path: "main.go"}); err != nil {
+		t.Fatal(err)
+	}
+	doc := s.State().Doc
+	if doc == nil || doc.Kind != "diff" || len(doc.Hunks) != 1 {
+		t.Fatalf("the diff is %+v", doc)
+	}
+	added := false
+	for _, r := range doc.Hunks[0].Rows {
+		added = added || (r.New == "// hello" && r.NewK == 1 && r.Old == "")
+	}
+	if !added {
+		t.Errorf("the added line is not on the new side alone: %+v", doc.Hunks[0].Rows)
+	}
+	if err := s.Files(FilesAction{Do: "stage", Repo: ch[0].Repo, Path: "main.go"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Files(FilesAction{Do: "commit", Repo: ch[0].Repo, Message: "say hello"}); err != nil {
+		t.Fatal(err)
+	}
+	out, _ := exec.Command("git", "-C", repo, "log", "--format=%s", "-1").Output()
+	if strings.TrimSpace(string(out)) != "say hello" {
+		t.Errorf("the last commit is %q", out)
+	}
+	if err := s.OpenFile(filepath.Join(repo, "main.go"), 3); err != nil {
+		t.Fatal(err)
+	}
+	doc = s.State().Doc
+	if doc.View != "text" || len(doc.Lines) != 4 || doc.Lines[0][0].K == 0 {
+		t.Errorf("main.go opened as %s with %d lines, first token %+v", doc.View, len(doc.Lines), doc.Lines[0])
+	}
+}

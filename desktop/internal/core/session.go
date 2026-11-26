@@ -77,6 +77,8 @@ type Session struct {
 	// to fill the tab, and what was last copied from each pane (a menu's
 	// "copy" copies it again).
 	dock     dock
+	files    filesTab
+	docs     docs
 	menu     *ui.Menu
 	prompt   *Prompt
 	panel    string

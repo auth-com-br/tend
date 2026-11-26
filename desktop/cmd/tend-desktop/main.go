@@ -80,7 +80,7 @@ func main() {
 	tendBin := flag.String("tend", "", "the tend binary to start a session's server with (default: beside this one, else on PATH)")
 	shot := flag.String("shot", "", "save the window as a PNG at this path a moment after it opens, and quit (for checking it without looking)")
 	startURL := flag.String("url", "", "open this page in a browser tab when the window opens")
-	shotCall := flag.String("shot-call", "", "with -shot: a Bridge call made first, as 'method {json args}', to capture what it opens")
+	shotCall := flag.String("shot-call", "", "with -shot: Bridge calls made first, as 'method {json args}', several separated by ' ;; ', to capture what they open")
 	shotOpen := flag.String("shot-open", "", "with -shot: the objectName of an item whose open property is set first, to capture a menu")
 	flag.Parse()
 	debug = os.Getenv("TEND_DESKTOP_DEBUG") != ""
@@ -228,12 +228,16 @@ func main() {
 	if *shot != "" {
 		go func() {
 			time.Sleep(3 * time.Second)
-			if *shotCall != "" {
-				method, args, _ := strings.Cut(*shotCall, " ")
+			// Several calls are separated by " ;; ", made in order.
+			for _, call := range strings.Split(*shotCall, " ;; ") {
+				if call = strings.TrimSpace(call); call == "" {
+					continue
+				}
+				method, args, _ := strings.Cut(call, " ")
 				if err := dispatch(sess, method, []byte(args)); err != nil {
 					fmt.Fprintln(os.Stderr, "tend-desktop: -shot-call:", err)
 				}
-				time.Sleep(300 * time.Millisecond)
+				time.Sleep(400 * time.Millisecond)
 			}
 			mainthread.Start(func() {
 				if *shotOpen != "" {
@@ -352,6 +356,18 @@ func dispatch(sess *core.Session, method string, raw []byte) error {
 		return nil
 	case "dock":
 		sess.ToggleDock(a.Name)
+		return nil
+	case "files":
+		var f core.FilesAction
+		if err := json.Unmarshal(raw, &f); err != nil {
+			return err
+		}
+		return sess.Files(f)
+	case "doc.show":
+		sess.ShowDoc(a.Index)
+		return nil
+	case "doc.close":
+		sess.CloseDoc(a.Index)
 		return nil
 	case "task.create":
 		var n core.NewTask
